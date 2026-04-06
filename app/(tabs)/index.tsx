@@ -7,15 +7,20 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { STORY_THEMES } from "@/constants/assets";
+import { STORY_THEMES, ASSETS } from "@/constants/assets";
 import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
 import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const THEME_CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
 
 export default function TonightScreen() {
   const router = useRouter();
@@ -67,34 +72,49 @@ export default function TonightScreen() {
     );
   }
 
+  // Empty state with rich background
   if (children.length === 0) {
     return (
-      <ScreenContainer edges={["top", "left", "right"]}>
-        <View style={styles.emptyContainer}>
-          <Animated.View entering={FadeIn.duration(600)} style={styles.emptyContent}>
-            <Image
-              source={require("@/assets/images/icon.png")}
-              style={styles.emptyLogo}
-              contentFit="contain"
-            />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              Welcome to StoryWeaver
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-              Create your first child profile to start generating personalized bedtime stories
-            </Text>
-            <Pressable
-              onPress={() => router.push("/create-child")}
-              style={({ pressed }) => [
-                styles.createButton,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-              ]}
-            >
-              <Text style={styles.createButtonText}>Create Child Profile</Text>
-            </Pressable>
-          </Animated.View>
-        </View>
-      </ScreenContainer>
+      <View style={styles.emptyRoot}>
+        <Image
+          source={{ uri: ASSETS.bgOnboarding }}
+          style={StyleSheet.absoluteFillObject}
+          contentFit="cover"
+        />
+        <LinearGradient
+          colors={["rgba(10,14,26,0.3)", "rgba(10,14,26,0.85)", "rgba(10,14,26,0.98)"]}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <ScreenContainer
+          containerClassName="bg-transparent"
+          edges={["top", "bottom", "left", "right"]}
+          className="flex-1"
+        >
+          <View style={styles.emptyContainer}>
+            <Animated.View entering={FadeIn.duration(600)} style={styles.emptyContent}>
+              <Image
+                source={require("@/assets/images/icon.png")}
+                style={styles.emptyLogo}
+                contentFit="contain"
+              />
+              <Text style={styles.emptyTitle}>Welcome to StoryWeaver</Text>
+              <Text style={styles.emptySubtitle}>
+                Create your first child profile to start generating personalized bedtime stories
+              </Text>
+              <Pressable
+                onPress={() => router.push("/create-child")}
+                style={({ pressed }) => [
+                  styles.createButton,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                ]}
+              >
+                <Text style={styles.createButtonText}>Create Child Profile</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+        </ScreenContainer>
+      </View>
     );
   }
 
@@ -160,7 +180,7 @@ export default function TonightScreen() {
           </Animated.View>
         )}
 
-        {/* Active Story - Read Tonight */}
+        {/* Active Story - Continue Reading (large hero card) */}
         {activeArcs.length > 0 && (
           <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
@@ -178,12 +198,13 @@ export default function TonightScreen() {
                         episodeTitle: arc.title,
                         childName: arc.childName,
                         arcId: arc.id,
+                        theme: arc.theme,
                       },
                     });
                   }}
                   style={({ pressed }) => [
                     styles.continueCard,
-                    pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
                   ]}
                 >
                   <Image
@@ -191,7 +212,11 @@ export default function TonightScreen() {
                     style={StyleSheet.absoluteFillObject}
                     contentFit="cover"
                   />
-                  <View style={styles.continueOverlay}>
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.92)"]}
+                    locations={[0, 0.45, 1]}
+                    style={styles.continueGradient}
+                  >
                     <View style={styles.continueBadge}>
                       <Text style={styles.continueBadgeText}>
                         Episode {arc.currentEpisode + 1} of {arc.totalEpisodes}
@@ -204,7 +229,7 @@ export default function TonightScreen() {
                     <View style={styles.readButton}>
                       <Text style={styles.readButtonText}>Read Tonight's Episode</Text>
                     </View>
-                  </View>
+                  </LinearGradient>
                 </Pressable>
               );
             })}
@@ -242,7 +267,7 @@ export default function TonightScreen() {
           </Text>
         </Animated.View>
 
-        {/* Theme Grid */}
+        {/* Theme Grid - Large immersive cards */}
         <View style={styles.themeGrid}>
           {STORY_THEMES.map((theme, index) => (
             <Animated.View
@@ -266,22 +291,30 @@ export default function TonightScreen() {
                 }}
                 style={({ pressed }) => [
                   styles.themeCard,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] },
                 ]}
               >
                 <Image
                   source={{ uri: theme.image }}
-                  style={styles.themeImage}
+                  style={StyleSheet.absoluteFillObject}
                   contentFit="cover"
+                  transition={300}
                 />
-                <View style={styles.themeOverlay}>
+                <LinearGradient
+                  colors={["transparent", "rgba(0,0,0,0.75)"]}
+                  locations={[0.35, 1]}
+                  style={styles.themeOverlay}
+                >
                   <Text style={styles.themeEmoji}>{theme.emoji}</Text>
                   <Text style={styles.themeName}>{theme.name}</Text>
-                </View>
+                </LinearGradient>
               </Pressable>
             </Animated.View>
           ))}
         </View>
+
+        {/* Bottom spacer */}
+        <View style={{ height: 24 }} />
       </ScrollView>
     </ScreenContainer>
   );
@@ -364,26 +397,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  // Continue reading hero card
   continueCard: {
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: "hidden",
-    height: 200,
+    height: 240,
     marginTop: 12,
     marginBottom: 8,
   },
-  continueOverlay: {
+  continueGradient: {
     flex: 1,
     justifyContent: "flex-end",
     padding: 20,
-    backgroundColor: "rgba(0,0,0,0.45)",
   },
   continueBadge: {
     backgroundColor: "rgba(255, 215, 0, 0.2)",
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 5,
     alignSelf: "flex-start",
-    marginBottom: 8,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "rgba(255, 215, 0, 0.3)",
   },
@@ -393,7 +426,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   continueTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
     color: "#FFFFFF",
     marginBottom: 4,
@@ -401,19 +434,20 @@ const styles = StyleSheet.create({
   continueSubtitle: {
     fontSize: 14,
     color: "rgba(255,255,255,0.7)",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   readButton: {
     backgroundColor: "#FFD700",
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 14,
+    paddingVertical: 14,
     alignItems: "center",
   },
   readButtonText: {
     color: "#0A0E1A",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
   },
+  // Active child card
   activeChildCard: {
     borderRadius: 16,
     padding: 16,
@@ -451,43 +485,49 @@ const styles = StyleSheet.create({
   activeChildAge: {
     fontSize: 13,
   },
+  // Theme grid - tall immersive cards
   themeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
+    marginTop: 12,
   },
   themeCardWrapper: {
-    width: "48%",
-    flexGrow: 1,
+    width: THEME_CARD_WIDTH,
   },
   themeCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: "hidden",
-    height: 160,
-  },
-  themeImage: {
-    ...StyleSheet.absoluteFillObject,
+    height: 200,
   },
   themeOverlay: {
     flex: 1,
     justifyContent: "flex-end",
     padding: 14,
-    backgroundColor: "rgba(0,0,0,0.3)",
   },
   themeEmoji: {
-    fontSize: 28,
+    fontSize: 30,
     marginBottom: 4,
   },
   themeName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
+    textShadowColor: "rgba(0,0,0,0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  // Empty state
+  emptyRoot: {
+    flex: 1,
+    backgroundColor: "#0A0E1A",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-end",
     alignItems: "center",
     padding: 32,
+    paddingBottom: 80,
   },
   emptyContent: {
     alignItems: "center",
@@ -500,26 +540,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "800",
     textAlign: "center",
+    color: "#FFFFFF",
   },
   emptySubtitle: {
-    fontSize: 15,
+    fontSize: 16,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 24,
     paddingHorizontal: 16,
+    color: "rgba(255,255,255,0.7)",
   },
   createButton: {
     backgroundColor: "#FFD700",
     borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingVertical: 18,
+    paddingHorizontal: 40,
     marginTop: 8,
+    width: "100%",
+    alignItems: "center",
   },
   createButtonText: {
     color: "#0A0E1A",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
   },
 });

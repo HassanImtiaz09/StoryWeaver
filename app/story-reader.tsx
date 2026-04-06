@@ -6,18 +6,20 @@ import {
   Pressable,
   StyleSheet,
   Dimensions,
-  ActivityIndicator,
   Platform,
+  ScrollView,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ASSETS } from "@/constants/assets";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
-const { width } = Dimensions.get("window");
+const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Demo story pages for local mode
 const DEMO_PAGES = [
@@ -65,12 +67,23 @@ const DEMO_PAGES = [
   },
 ];
 
+type ThemeKey = keyof typeof ASSETS.themes;
+
+function getThemeImage(theme?: string): string {
+  if (theme && theme in ASSETS.themes) {
+    return ASSETS.themes[theme as ThemeKey];
+  }
+  return ASSETS.bgOnboarding;
+}
+
 export default function StoryReaderScreen() {
   const router = useRouter();
   const colors = useColors();
   const params = useLocalSearchParams<{
     episodeTitle?: string;
     childName?: string;
+    arcId?: string;
+    theme?: string;
   }>();
 
   const [currentPage, setCurrentPage] = useState(0);
@@ -78,6 +91,7 @@ export default function StoryReaderScreen() {
   const [autoPlay, setAutoPlay] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const pages = DEMO_PAGES;
+  const themeImage = getThemeImage(params.theme);
 
   useEffect(() => {
     return () => {
@@ -133,12 +147,42 @@ export default function StoryReaderScreen() {
 
   const renderPage = ({ item, index }: { item: typeof DEMO_PAGES[0]; index: number }) => (
     <View style={[styles.page, { width }]}>
-      <ScrollablePageContent
-        page={item}
-        pageNumber={index + 1}
-        totalPages={pages.length}
-        colors={colors}
-      />
+      <ScrollView
+        contentContainerStyle={styles.pageScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Theme illustration at top of each page */}
+        <View style={styles.illustrationArea}>
+          {item.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+          ) : (
+            <Image
+              source={{ uri: themeImage }}
+              style={StyleSheet.absoluteFillObject}
+              contentFit="cover"
+              transition={200}
+            />
+          )}
+          <LinearGradient
+            colors={["transparent", "rgba(10,14,26,0.6)", colors.background]}
+            locations={[0.2, 0.7, 1]}
+            style={styles.illustrationGradient}
+          />
+          {/* Page number badge */}
+          <View style={styles.pageBadge}>
+            <Text style={styles.pageBadgeText}>
+              Page {index + 1} of {pages.length}
+            </Text>
+          </View>
+        </View>
+
+        {/* Story text */}
+        <View style={styles.textArea}>
+          <Text style={[styles.storyText, { color: colors.foreground }]}>
+            {item.storyText}
+          </Text>
+        </View>
+      </ScrollView>
     </View>
   );
 
@@ -164,9 +208,11 @@ export default function StoryReaderScreen() {
             <Text style={[styles.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
               {params.episodeTitle || "Tonight's Story"}
             </Text>
-            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
-              Page {currentPage + 1} of {pages.length}
-            </Text>
+            {params.childName && (
+              <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
+                For {params.childName}
+              </Text>
+            )}
           </View>
           <View style={{ width: 44 }} />
         </Animated.View>
@@ -269,45 +315,6 @@ export default function StoryReaderScreen() {
   );
 }
 
-function ScrollablePageContent({
-  page,
-  pageNumber,
-  totalPages,
-  colors,
-}: {
-  page: typeof DEMO_PAGES[0];
-  pageNumber: number;
-  totalPages: number;
-  colors: any;
-}) {
-  return (
-    <View style={styles.pageContent}>
-      {/* Page illustration area */}
-      <View style={[styles.illustrationArea, { backgroundColor: "rgba(255, 215, 0, 0.05)" }]}>
-        {page.imageUrl ? (
-          <Image source={{ uri: page.imageUrl }} style={styles.illustration} contentFit="cover" />
-        ) : (
-          <View style={styles.placeholderIllustration}>
-            <Text style={styles.placeholderEmoji}>
-              {pageNumber === 1 ? "🌙" : pageNumber === 2 ? "✨" : pageNumber === 3 ? "🦉" : pageNumber === 4 ? "🌸" : pageNumber === 5 ? "🌟" : "🏠"}
-            </Text>
-            <Text style={[styles.placeholderText, { color: colors.muted }]}>
-              Illustration for page {pageNumber}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Story text */}
-      <View style={styles.textArea}>
-        <Text style={[styles.storyText, { color: colors.foreground }]}>
-          {page.storyText}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -340,34 +347,39 @@ const styles = StyleSheet.create({
   page: {
     flex: 1,
   },
-  pageContent: {
-    flex: 1,
-    padding: 20,
-    gap: 20,
+  pageScrollContent: {
+    flexGrow: 1,
   },
+  // Illustration area with theme image
   illustrationArea: {
-    height: 220,
-    borderRadius: 20,
+    height: 260,
     overflow: "hidden",
+    position: "relative",
   },
-  illustration: {
-    flex: 1,
+  illustrationGradient: {
+    ...StyleSheet.absoluteFillObject,
   },
-  placeholderIllustration: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+  pageBadge: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.25)",
   },
-  placeholderEmoji: {
-    fontSize: 48,
-  },
-  placeholderText: {
-    fontSize: 13,
+  pageBadgeText: {
+    color: "#FFD700",
+    fontSize: 12,
+    fontWeight: "600",
   },
   textArea: {
     flex: 1,
-    paddingHorizontal: 4,
+    paddingHorizontal: 24,
+    paddingTop: 4,
+    paddingBottom: 16,
   },
   storyText: {
     fontSize: 18,

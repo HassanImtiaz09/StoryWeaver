@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { ASSETS } from "@/constants/assets";
 import { setOnboardingComplete } from "@/lib/onboarding-store";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 const { width, height } = Dimensions.get("window");
@@ -21,26 +22,30 @@ const SLIDES = [
   {
     id: "1",
     title: "Every Night,\nA New Chapter",
-    subtitle: "Personalized bedtime stories where your child is the hero",
+    subtitle: "Personalized bedtime stories where your child is the hero of their own magical adventure",
     highlight: "Powered by AI storytelling",
+    image: ASSETS.bgOnboarding,
   },
   {
     id: "2",
     title: "Your Child's\nStory Universe",
-    subtitle: "Create an avatar, choose a theme, and watch their adventure unfold across episodes",
+    subtitle: "Choose from enchanted forests, space voyages, ocean depths, and more. Each theme unfolds across episodic chapters",
     highlight: "Episodic stories they'll beg for",
+    image: ASSETS.themes.forest,
   },
   {
     id: "3",
     title: "Beautiful\nIllustrations",
-    subtitle: "Every page features unique AI-generated artwork that brings the story to life",
+    subtitle: "Every page features unique AI-generated artwork that brings the story to life with vivid, hand-painted style visuals",
     highlight: "Soothing narration included",
+    image: ASSETS.themes.ocean,
   },
   {
     id: "4",
     title: "Ready to\nBegin?",
     subtitle: "Create your first child profile and start their magical bedtime adventure tonight",
     highlight: "Free to start, premium to unlock more",
+    image: ASSETS.themes.space,
   },
 ];
 
@@ -74,25 +79,38 @@ export default function OnboardingScreen() {
 
   const renderSlide = ({ item, index }: { item: typeof SLIDES[0]; index: number }) => (
     <View style={[styles.slide, { width }]}>
-      <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.textContainer}>
+      {/* Per-slide background image */}
+      <Image
+        source={{ uri: item.image }}
+        style={StyleSheet.absoluteFillObject}
+        contentFit="cover"
+        transition={400}
+      />
+      {/* Gradient overlay: transparent at top, dark at bottom for text readability */}
+      <LinearGradient
+        colors={[
+          "rgba(10,14,26,0.1)",
+          "rgba(10,14,26,0.4)",
+          "rgba(10,14,26,0.85)",
+          "rgba(10,14,26,0.98)",
+        ]}
+        locations={[0, 0.35, 0.6, 0.85]}
+        style={StyleSheet.absoluteFillObject}
+      />
+
+      {/* Text content at bottom */}
+      <View style={styles.textContainer}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.subtitle}>{item.subtitle}</Text>
         <View style={styles.highlightBadge}>
           <Text style={styles.highlightText}>{item.highlight}</Text>
         </View>
-      </Animated.View>
+      </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Image
-        source={{ uri: ASSETS.bgOnboarding }}
-        style={StyleSheet.absoluteFillObject}
-        contentFit="cover"
-      />
-      <View style={styles.overlay} />
-
       <ScreenContainer
         containerClassName="bg-transparent"
         className="flex-1"
@@ -123,7 +141,7 @@ export default function OnboardingScreen() {
         />
 
         {/* Dots + Button */}
-        <View style={styles.bottomArea}>
+        <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.bottomArea}>
           <View style={styles.dots}>
             {SLIDES.map((_, i) => (
               <View
@@ -159,7 +177,7 @@ export default function OnboardingScreen() {
               <Text style={styles.skipText}>Skip</Text>
             </Pressable>
           )}
-        </View>
+        </Animated.View>
       </ScreenContainer>
     </View>
   );
@@ -170,14 +188,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0A0E1A",
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(10, 14, 26, 0.4)",
-  },
   logoArea: {
     alignItems: "center",
     paddingTop: 20,
     gap: 8,
+    zIndex: 10,
   },
   logo: {
     width: 80,
@@ -207,8 +222,8 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 17,
-    color: "rgba(255,255,255,0.8)",
-    lineHeight: 24,
+    color: "rgba(255,255,255,0.85)",
+    lineHeight: 26,
   },
   highlightBadge: {
     backgroundColor: "rgba(255, 215, 0, 0.15)",

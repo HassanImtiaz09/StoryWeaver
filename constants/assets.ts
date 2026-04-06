@@ -1,11 +1,11 @@
 // All AI-generated asset URLs for the app
 export const ASSETS = {
-  bgOnboarding: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/bg-onboarding-GV6G8uoAPb8s9WTfz2X5WA.webp",
+  bgOnboarding: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/bg-onboarding-opt_2b79fff3.png",
   themes: {
-    space: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-space-98ZPvH832aT2gJ8YwJtQwZ.webp",
-    ocean: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-ocean-LzpkCMqpnj9WQQxW4EumTj.webp",
-    forest: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-forest-Rc6CHXUzLmiELt3ixxHEzG.webp",
-    dinosaur: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-dinosaur-Y2vh8QFxyoo6P63HrLi8p2.webp",
+    space: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-space-opt_f9bd6992.png",
+    ocean: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-ocean-opt_add99ef6.png",
+    forest: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-forest-opt_9cc2da1e.png",
+    dinosaur: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-dinosaur-opt_be3e202e.png",
     pirate: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-pirate-5CCanzt8d63TWLM8gTTdoc.webp",
     robot: "https://d2xsxph8kpxj0f.cloudfront.net/310519663430072618/nqZ6t9JYthL3KfeNRWgD2F/theme-robot-JDf8BS8sSTnzQWJpjcF7Ba.webp",
   },

@@ -14,6 +14,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { EDUCATIONAL_VALUES, STORY_THEMES } from "@/constants/assets";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { LinearGradient } from "expo-linear-gradient";
 import { saveLocalStoryArc, type LocalStoryArc } from "@/lib/story-store";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
@@ -78,18 +79,23 @@ export default function NewStoryScreen() {
           <IconSymbol name="arrow.left" size={24} color={colors.foreground} />
         </Pressable>
 
-        {/* Theme Preview */}
+        {/* Theme Preview - Larger with gradient */}
         <Animated.View entering={FadeInDown.duration(400)} style={styles.themePreview}>
           <Image
             source={{ uri: themeData?.image }}
-            style={styles.themeImage}
+            style={StyleSheet.absoluteFillObject}
             contentFit="cover"
+            transition={300}
           />
-          <View style={styles.themeOverlay}>
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.7)"]}
+            locations={[0.3, 1]}
+            style={styles.themeGradient}
+          >
             <Text style={styles.themeEmoji}>{themeData?.emoji}</Text>
             <Text style={styles.themeName}>{params.themeName}</Text>
             <Text style={styles.themeChild}>for {params.childName}</Text>
-          </View>
+          </LinearGradient>
         </Animated.View>
 
         {/* Educational Value */}
@@ -206,33 +212,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   themePreview: {
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: "hidden",
-    height: 200,
+    height: 240,
     marginBottom: 28,
   },
-  themeImage: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  themeOverlay: {
+  themeGradient: {
     flex: 1,
     justifyContent: "flex-end",
-    padding: 20,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    padding: 22,
   },
   themeEmoji: {
-    fontSize: 36,
-    marginBottom: 4,
+    fontSize: 40,
+    marginBottom: 6,
   },
   themeName: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "800",
     color: "#FFFFFF",
+    textShadowColor: "rgba(0,0,0,0.4)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   themeChild: {
-    fontSize: 15,
-    color: "rgba(255,255,255,0.8)",
-    marginTop: 2,
+    fontSize: 16,
+    color: "rgba(255,255,255,0.85)",
+    marginTop: 4,
   },
   section: {
     marginBottom: 28,

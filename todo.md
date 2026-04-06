@@ -20,3 +20,8 @@
 - [ ] Add contextual tooltips for first-time users
 - [x] Add icon mappings for all tab icons
 - [x] Run tests and fix issues (14 tests passing)
+- [x] Optimize and upload AI illustrations to CDN
+- [x] Use per-slide theme images in onboarding with LinearGradient overlays
+- [x] Use theme images as 200px immersive cards on home screen with LinearGradient
+- [x] Enhance story reader with 260px theme illustration per page
+- [x] Improve visual polish: LinearGradient overlays, empty state hero background, larger cards
