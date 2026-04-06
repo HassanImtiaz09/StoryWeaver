@@ -1,0 +1,22 @@
+# StoryWeaver TODO
+
+- [x] Configure dark golden theme (theme.config.js, tailwind)
+- [x] Generate app logo and set branding in app.config.ts
+- [x] Generate AI background images for all screens
+- [x] Build database schema (children, story_arcs, episodes, pages)
+- [x] Build server API routes for story generation
+- [x] Build onboarding flow (4 slides with spectacular UI)
+- [x] Build child avatar creation screen
+- [x] Build home screen with tonight's episode card
+- [x] Build new story arc creation screen
+- [x] Build story reading screen with page-by-page experience
+- [x] Build audio narration playback (TTS via expo-speech)
+- [x] Build story library screen (active/completed arcs)
+- [x] Build profile/family screen with children management
+- [ ] Build settings screen
+- [ ] Build bedtime push notification reminder
+- [ ] Build print book upsell flow (UI only)
+- [ ] Add golden transitions between screens
+- [ ] Add contextual tooltips for first-time users
+- [x] Add icon mappings for all tab icons
+- [x] Run tests and fix issues (14 tests passing)

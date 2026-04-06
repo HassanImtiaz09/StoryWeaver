@@ -1,6 +1,12 @@
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import {
+  InsertUser, users,
+  InsertChild, children,
+  InsertStoryArc, storyArcs,
+  InsertEpisode, episodes,
+  InsertPage, pages,
+} from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +95,103 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ---- Children helpers ----
+export async function getChildren(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(children).where(eq(children.userId, userId)).orderBy(desc(children.createdAt));
+}
+
+export async function getChild(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(children).where(and(eq(children.id, id), eq(children.userId, userId))).limit(1);
+  return result[0];
+}
+
+export async function createChild(data: InsertChild) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(children).values(data);
+  return result.insertId;
+}
+
+export async function updateChild(id: number, userId: number, data: Partial<InsertChild>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(children).set(data).where(and(eq(children.id, id), eq(children.userId, userId)));
+}
+
+export async function deleteChild(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(children).where(and(eq(children.id, id), eq(children.userId, userId)));
+}
+
+// ---- Story Arc helpers ----
+export async function getStoryArcs(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(storyArcs).where(eq(storyArcs.userId, userId)).orderBy(desc(storyArcs.updatedAt));
+}
+
+export async function getStoryArc(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(storyArcs).where(and(eq(storyArcs.id, id), eq(storyArcs.userId, userId))).limit(1);
+  return result[0];
+}
+
+export async function createStoryArc(data: InsertStoryArc) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(storyArcs).values(data);
+  return result.insertId;
+}
+
+export async function updateStoryArc(id: number, data: Partial<InsertStoryArc>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(storyArcs).set(data).where(eq(storyArcs.id, id));
+}
+
+// ---- Episode helpers ----
+export async function getEpisodes(storyArcId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(episodes).where(eq(episodes.storyArcId, storyArcId)).orderBy(episodes.episodeNumber);
+}
+
+export async function getEpisode(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(episodes).where(eq(episodes.id, id)).limit(1);
+  return result[0];
+}
+
+export async function createEpisode(data: InsertEpisode) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(episodes).values(data);
+  return result.insertId;
+}
+
+export async function markEpisodeRead(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(episodes).set({ isRead: true }).where(eq(episodes.id, id));
+}
+
+// ---- Page helpers ----
+export async function getPages(episodeId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(pages).where(eq(pages.episodeId, episodeId)).orderBy(pages.pageNumber);
+}
+
+export async function createPages(data: InsertPage[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (data.length === 0) return;
+  await db.insert(pages).values(data);
+}

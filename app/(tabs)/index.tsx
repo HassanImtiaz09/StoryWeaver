@@ -1,48 +1,525 @@
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
-
+import { useCallback, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
+} from "react-native";
+import { Image } from "expo-image";
+import { useRouter, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
+import { STORY_THEMES } from "@/constants/assets";
+import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
+import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
+import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
 
-/**
- * Home Screen - NativeWind Example
- *
- * This template uses NativeWind (Tailwind CSS for React Native).
- * You can use familiar Tailwind classes directly in className props.
- *
- * Key patterns:
- * - Use `className` instead of `style` for most styling
- * - Theme colors: use tokens directly (bg-background, text-foreground, bg-primary, etc.); no dark: prefix needed
- * - Responsive: standard Tailwind breakpoints work on web
- * - Custom colors defined in tailwind.config.js
- */
-export default function HomeScreen() {
+export default function TonightScreen() {
+  const router = useRouter();
+  const colors = useColors();
+  const [children, setChildren] = useState<LocalChild[]>([]);
+  const [selectedChild, setSelectedChild] = useState<LocalChild | null>(null);
+  const [activeArcs, setActiveArcs] = useState<LocalStoryArc[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = useCallback(async () => {
+    const kids = await getLocalChildren();
+    setChildren(kids);
+    if (kids.length > 0) {
+      const child = selectedChild && kids.find((k) => k.id === selectedChild.id) ? selectedChild : kids[0];
+      setSelectedChild(child);
+      const arcs = await getLocalStoryArcs();
+      setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
+    } else {
+      setSelectedChild(null);
+      setActiveArcs([]);
+    }
+    setLoading(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const selectChild = async (child: LocalChild) => {
+    setSelectedChild(child);
+    const arcs = await getLocalStoryArcs();
+    setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
+  };
+
+  if (loading) {
+    return (
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#FFD700" />
+      </ScreenContainer>
+    );
+  }
+
+  if (children.length === 0) {
+    return (
+      <ScreenContainer edges={["top", "left", "right"]}>
+        <View style={styles.emptyContainer}>
+          <Animated.View entering={FadeIn.duration(600)} style={styles.emptyContent}>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={styles.emptyLogo}
+              contentFit="contain"
+            />
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+              Welcome to StoryWeaver
+            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
+              Create your first child profile to start generating personalized bedtime stories
+            </Text>
+            <Pressable
+              onPress={() => router.push("/create-child")}
+              style={({ pressed }) => [
+                styles.createButton,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              ]}
+            >
+              <Text style={styles.createButtonText}>Create Child Profile</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="flex-1 gap-8">
-          {/* Hero Section */}
-          <View className="items-center gap-2">
-            <Text className="text-4xl font-bold text-foreground">Welcome</Text>
-            <Text className="text-base text-muted text-center">
-              Edit app/(tabs)/index.tsx to get started
+    <ScreenContainer edges={["top", "left", "right"]}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
+        }
+      >
+        {/* Header */}
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+          <View>
+            <Text style={[styles.greeting, { color: colors.muted }]}>Good evening</Text>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+              Tonight's Story
             </Text>
           </View>
+          <Pressable
+            onPress={() => router.push("/create-child")}
+            style={({ pressed }) => [
+              styles.addChildButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Text style={{ color: "#FFD700", fontSize: 22 }}>+</Text>
+          </Pressable>
+        </Animated.View>
 
-          {/* Example Card */}
-          <View className="w-full max-w-sm self-center bg-surface rounded-2xl p-6 shadow-sm border border-border">
-            <Text className="text-lg font-semibold text-foreground mb-2">NativeWind Ready</Text>
-            <Text className="text-sm text-muted leading-relaxed">
-              Use Tailwind CSS classes directly in your React Native components.
+        {/* Child Selector */}
+        {children.length > 1 && (
+          <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childSelector}>
+              {children.map((child) => (
+                <Pressable
+                  key={child.id}
+                  onPress={() => selectChild(child)}
+                  style={({ pressed }) => [
+                    styles.childChip,
+                    { borderColor: colors.border, backgroundColor: colors.surface },
+                    selectedChild?.id === child.id && styles.childChipActive,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <View style={[styles.childAvatar, selectedChild?.id === child.id && styles.childAvatarActive]}>
+                    <Text style={[styles.childAvatarText, selectedChild?.id === child.id && { color: "#0A0E1A" }]}>{child.name[0]}</Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.childChipName,
+                      { color: colors.foreground },
+                      selectedChild?.id === child.id && { color: "#0A0E1A" },
+                    ]}
+                  >
+                    {child.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* Active Story - Read Tonight */}
+        {activeArcs.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Continue Reading
             </Text>
-          </View>
+            {activeArcs.map((arc) => {
+              const themeData = STORY_THEMES.find((t) => t.id === arc.theme);
+              return (
+                <Pressable
+                  key={arc.id}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/story-reader" as any,
+                      params: {
+                        episodeTitle: arc.title,
+                        childName: arc.childName,
+                        arcId: arc.id,
+                      },
+                    });
+                  }}
+                  style={({ pressed }) => [
+                    styles.continueCard,
+                    pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                  ]}
+                >
+                  <Image
+                    source={{ uri: themeData?.image }}
+                    style={StyleSheet.absoluteFillObject}
+                    contentFit="cover"
+                  />
+                  <View style={styles.continueOverlay}>
+                    <View style={styles.continueBadge}>
+                      <Text style={styles.continueBadgeText}>
+                        Episode {arc.currentEpisode + 1} of {arc.totalEpisodes}
+                      </Text>
+                    </View>
+                    <Text style={styles.continueTitle}>{arc.title}</Text>
+                    <Text style={styles.continueSubtitle}>
+                      Teaching {arc.educationalValueName}
+                    </Text>
+                    <View style={styles.readButton}>
+                      <Text style={styles.readButtonText}>Read Tonight's Episode</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </Animated.View>
+        )}
 
-          {/* Example Button */}
-          <View className="items-center">
-            <TouchableOpacity className="bg-primary px-6 py-3 rounded-full active:opacity-80">
-              <Text className="text-background font-semibold">Get Started</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Active Child Card */}
+        {selectedChild && (
+          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+            <View style={[styles.activeChildCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.activeChildInfo}>
+                <View style={styles.activeChildAvatar}>
+                  <Text style={styles.activeChildAvatarText}>{selectedChild.name[0]}</Text>
+                </View>
+                <View style={styles.activeChildDetails}>
+                  <Text style={[styles.activeChildName, { color: colors.foreground }]}>
+                    {selectedChild.name}'s Universe
+                  </Text>
+                  <Text style={[styles.activeChildAge, { color: colors.muted }]}>
+                    Age {selectedChild.age} | {selectedChild.interests.slice(0, 3).join(", ") || "No interests set"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Start a New Story Arc */}
+        <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            Start a New Adventure
+          </Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+            Choose a theme for {selectedChild?.name || "your child"}'s next story series
+          </Text>
+        </Animated.View>
+
+        {/* Theme Grid */}
+        <View style={styles.themeGrid}>
+          {STORY_THEMES.map((theme, index) => (
+            <Animated.View
+              key={theme.id}
+              entering={FadeInRight.delay(350 + index * 80).duration(400)}
+              style={styles.themeCardWrapper}
+            >
+              <Pressable
+                onPress={() => {
+                  if (selectedChild) {
+                    router.push({
+                      pathname: "/new-story" as any,
+                      params: {
+                        childId: selectedChild.id,
+                        childName: selectedChild.name,
+                        theme: theme.id,
+                        themeName: theme.name,
+                      },
+                    });
+                  }
+                }}
+                style={({ pressed }) => [
+                  styles.themeCard,
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+                ]}
+              >
+                <Image
+                  source={{ uri: theme.image }}
+                  style={styles.themeImage}
+                  contentFit="cover"
+                />
+                <View style={styles.themeOverlay}>
+                  <Text style={styles.themeEmoji}>{theme.emoji}</Text>
+                  <Text style={styles.themeName}>{theme.name}</Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+          ))}
         </View>
       </ScrollView>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  greeting: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  addChildButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  childSelector: {
+    marginBottom: 16,
+  },
+  childChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 24,
+    borderWidth: 1,
+    marginRight: 10,
+    gap: 8,
+  },
+  childChipActive: {
+    backgroundColor: "#FFD700",
+    borderColor: "#FFD700",
+  },
+  childAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  childAvatarActive: {
+    backgroundColor: "rgba(10, 14, 26, 0.15)",
+  },
+  childAvatarText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FFD700",
+  },
+  childChipName: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  section: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  continueCard: {
+    borderRadius: 20,
+    overflow: "hidden",
+    height: 200,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  continueOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 20,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  continueBadge: {
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    alignSelf: "flex-start",
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
+  },
+  continueBadgeText: {
+    color: "#FFD700",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  continueTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    marginBottom: 4,
+  },
+  continueSubtitle: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+    marginBottom: 12,
+  },
+  readButton: {
+    backgroundColor: "#FFD700",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  readButtonText: {
+    color: "#0A0E1A",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  activeChildCard: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 24,
+  },
+  activeChildInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  activeChildAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFD700",
+  },
+  activeChildAvatarText: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#FFD700",
+  },
+  activeChildDetails: {
+    flex: 1,
+  },
+  activeChildName: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  activeChildAge: {
+    fontSize: 13,
+  },
+  themeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  themeCardWrapper: {
+    width: "48%",
+    flexGrow: 1,
+  },
+  themeCard: {
+    borderRadius: 16,
+    overflow: "hidden",
+    height: 160,
+  },
+  themeImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  themeOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 14,
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  themeEmoji: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  themeName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  emptyContent: {
+    alignItems: "center",
+    gap: 16,
+  },
+  emptyLogo: {
+    width: 100,
+    height: 100,
+    borderRadius: 25,
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    textAlign: "center",
+    lineHeight: 22,
+    paddingHorizontal: 16,
+  },
+  createButton: {
+    backgroundColor: "#FFD700",
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    marginTop: 8,
+  },
+  createButtonText: {
+    color: "#0A0E1A",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+});
