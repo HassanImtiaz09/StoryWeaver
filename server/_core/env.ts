@@ -13,4 +13,6 @@ export const ENV = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   // Printful API key for print-on-demand storybook ordering
   printfulApiKey: process.env.PRINTFUL_API_KEY ?? "",
+  // Suno API key for AI-generated background music and sound effects
+  sunoApiKey: process.env.SUNO_API_KEY ?? "",
 };
