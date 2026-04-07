@@ -74,24 +74,12 @@ export default function PrintBookScreen() {
     setIsGeneratingPdf(true);
     try {
       const result = await createOrderMutation.mutateAsync({
-        storyArcId: parseInt(params.arcId ?? "0", 10),
-        episodeId: params.episodeId ? parseInt(params.episodeId, 10) : undefined,
-        bookFormat: selectedFormat,
-        dedication,
-        shipping: {
-          name: shippingName,
-          address1,
-          address2: address2 || undefined,
-          city,
-          stateCode,
-          zip,
-          countryCode: country,
-          email: email || undefined,
-        },
+        childId: 0, // TODO: pass childId from params
+        arcId: parseInt(params.arcId ?? "0", 10),
+        format: selectedFormat as "hardcover" | "paperback" | "ebook",
       });
 
-      setOrderId(result.orderId);
-      setPricing(result.pricing);
+      setOrderId(String(result.id));
       setStep("payment");
     } catch (err: any) {
       Alert.alert("Error", err.message ?? "Failed to prepare your order. Please try again.");
@@ -106,7 +94,20 @@ export default function PrintBookScreen() {
 
   const handleConfirmOrder = useCallback(async () => {
     try {
-      const result = await confirmOrderMutation.mutateAsync({ orderId });
+      const result = await confirmOrderMutation.mutateAsync({
+        orderId: parseInt(orderId, 10),
+        shippingRateId: "standard",
+        address: {
+          name: shippingName,
+          address1,
+          address2: address2 || undefined,
+          city,
+          stateCode,
+          zip,
+          countryCode: country,
+          email: email || undefined,
+        },
+      });
       setOrderStatus("submitted");
       setStep("confirmation");
     } catch (err: any) {

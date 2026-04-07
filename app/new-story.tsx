@@ -127,7 +127,8 @@ export default function NewStoryScreen() {
       // Generate first episode
       setGenerationStep("generating_episode");
       const episodeResult = await generateEpisodeMutation.mutateAsync({
-        storyArcId: arcResult.id,
+        arcId: arcResult.id,
+        episodeNumber: 1,
       });
 
       setGenerationStep("done");
@@ -143,7 +144,7 @@ export default function NewStoryScreen() {
               episodeTitle: episodeResult.title,
               childName: params.childName,
               arcId: arcResult.id.toString(),
-              episodeId: episodeResult.episodeId.toString(),
+              episodeId: episodeResult.id.toString(),
               serverMode: "true",
             },
           }),

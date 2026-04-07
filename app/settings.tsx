@@ -128,10 +128,11 @@ export default function SettingsScreen() {
 
     setPreviewingRole(role);
     try {
-      const result = await previewMutation.mutateAsync({ role });
+      const voicePreset = voicePresets?.find((p: any) => p.id === role);
+      const result = await previewMutation.mutateAsync({ voiceId: voicePreset?.voiceId ?? role });
 
       // Create audio player from the base64 data URI
-      const player = createAudioPlayer({ uri: result.audioDataUri });
+      const player = createAudioPlayer({ uri: result.audioUrl });
       audioPlayerRef.current = player;
       setPlayingRole(role);
       setPreviewingRole(null);
@@ -139,7 +140,7 @@ export default function SettingsScreen() {
       player.play();
 
       // Auto-stop after estimated duration (base64 length / 1.37 gives approximate byte size, then estimate duration)
-      const estimatedDurationMs = Math.max(3000, (result.audioDataUri.length / 1.37 / 16000) * 1000);
+      const estimatedDurationMs = Math.max(3000, (result.audioUrl.length / 1.37 / 16000) * 1000);
       setTimeout(() => {
         if (audioPlayerRef.current === player) {
           stopAudio();
@@ -305,15 +306,15 @@ export default function SettingsScreen() {
               <View style={styles.voiceList}>
                 {voicePresets.length > 0 ? (
                   voicePresets.map((preset) => {
-                    const display = VOICE_ROLE_DISPLAY[preset.role] || { emoji: "\uD83C\uDFA4", label: preset.role };
-                    const isSelected = settings.selectedVoicePreset === preset.role;
-                    const isLoading = previewingRole === preset.role;
-                    const isPlaying = playingRole === preset.role;
+                    const display = VOICE_ROLE_DISPLAY[preset.id] || { emoji: "\uD83C\uDFA4", label: preset.id };
+                    const isSelected = settings.selectedVoicePreset === preset.id;
+                    const isLoading = previewingRole === preset.id;
+                    const isPlaying = playingRole === preset.id;
 
                     return (
                       <Pressable
-                        key={preset.role}
-                        onPress={() => handleSelectVoice(preset.role)}
+                        key={preset.id}
+                        onPress={() => handleSelectVoice(preset.id)}
                         style={({ pressed }) => [
                           styles.voiceCard,
                           { borderColor: isSelected ? "#6C63FF" : colors.border },
@@ -347,7 +348,7 @@ export default function SettingsScreen() {
                         <Pressable
                           onPress={(e) => {
                             e.stopPropagation?.();
-                            handleVoicePreview(preset.role);
+                            handleVoicePreview(preset.id);
                           }}
                           style={({ pressed }) => [
                             styles.playBtn,
