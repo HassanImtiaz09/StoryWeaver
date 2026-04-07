@@ -26,6 +26,10 @@ const MAPPING = {
   "play.fill": "play-arrow",
   "star.fill": "star",
   "arrow.left": "arrow-back",
+  "chevron.left": "chevron-left",
+  "pause.fill": "pause",
+  "backward.fill": "skip-previous",
+  "forward.fill": "skip-next",
 } as IconMapping;
 
 /**

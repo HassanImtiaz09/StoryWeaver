@@ -25,3 +25,4 @@
 - [x] Use theme images as 200px immersive cards on home screen with LinearGradient
 - [x] Enhance story reader with 260px theme illustration per page
 - [x] Improve visual polish: LinearGradient overlays, empty state hero background, larger cards
+- [x] Sync project with latest changes from GitHub repo (fixed TS errors, added color aliases, installed expo-av)

@@ -8,7 +8,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ASSETS } from "@/constants/assets";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
-import { Audio } from "expo-av";
+import { Audio, type AVPlaybackStatus } from "expo-av";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -91,7 +91,7 @@ export default function StoryReaderScreen() {
       soundRef.current = sound;
       setIsPlaying(true);
       setLoadingAudio(false);
-      sound.setOnPlaybackStatusUpdate((status) => {
+      sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
         if (status.isLoaded && status.didJustFinish) { setIsPlaying(false); }
       });
     } catch (e) {

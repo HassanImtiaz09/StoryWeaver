@@ -1,5 +1,14 @@
 import { useCallback, useState } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl, ActivityIndicator, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  RefreshControl,
+  ActivityIndicator,
+  Dimensions,
+} from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -12,6 +21,12 @@ import { LinearGradient } from "expo-linear-gradient";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THEME_CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
+
+// Recommendation colors for cards
+const REC_COLORS = [
+  "#6C63FF", "#FF6B6B", "#48C9B0", "#F39C12", "#9B59B6",
+  "#E74C3C", "#3498DB", "#2ECC71", "#E67E22", "#1ABC9C",
+];
 
 export default function TonightScreen() {
   const router = useRouter();
@@ -26,17 +41,31 @@ export default function TonightScreen() {
     const kids = await getLocalChildren();
     setChildren(kids);
     if (kids.length > 0) {
-      const child = selectedChild && kids.find((k) => k.id === selectedChild.id) ? selectedChild : kids[0];
+      const child =
+        selectedChild && kids.find((k) => k.id === selectedChild.id)
+          ? selectedChild
+          : kids[0];
       setSelectedChild(child);
       const arcs = await getLocalStoryArcs();
       setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
-    } else { setSelectedChild(null); setActiveArcs([]); }
+    } else {
+      setSelectedChild(null);
+      setActiveArcs([]);
+    }
     setLoading(false);
   }, []);
 
-  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
-  const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   const selectChild = async (child: LocalChild) => {
     setSelectedChild(child);
@@ -45,22 +74,52 @@ export default function TonightScreen() {
   };
 
   if (loading) {
-    return (<ScreenContainer className="flex-1 items-center justify-center"><ActivityIndicator size="large" color="#FFD700" /></ScreenContainer>);
+    return (
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#FFD700" />
+      </ScreenContainer>
+    );
   }
 
+  // Empty state - no children created yet
   if (children.length === 0) {
     return (
       <View style={styles.emptyRoot}>
-        <Image source={{ uri: ASSETS.bgOnboarding }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
-        <LinearGradient colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0.8)"]} style={StyleSheet.absoluteFillObject} />
-        <Animated.View entering={FadeInDown.duration(800)} style={styles.emptyContent}>
-          <Text style={styles.emptyEmoji}>\u{2728}</Text>
-          <Text style={styles.emptyTitle}>Welcome to StoryWeaver</Text>
-          <Text style={styles.emptySubtitle}>Create your child's profile to start generating magical bedtime stories</Text>
-          <Pressable onPress={() => router.push("/create-child")} style={styles.emptyBtn}>
-            <Text style={styles.emptyBtnText}>Create First Profile</Text>
-          </Pressable>
-        </Animated.View>
+        <Image
+          source={{ uri: ASSETS.bgOnboarding }}
+          style={StyleSheet.absoluteFillObject}
+          contentFit="cover"
+        />
+        <LinearGradient
+          colors={["rgba(10,14,26,0.3)", "rgba(10,14,26,0.85)"]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <ScreenContainer
+          containerClassName="bg-transparent"
+          className="flex-1 items-center justify-center"
+          edges={["top", "bottom", "left", "right"]}
+        >
+          <Animated.View entering={FadeInDown.duration(800)} style={styles.emptyContent}>
+            <Image
+              source={require("@/assets/images/icon.png")}
+              style={styles.emptyLogo}
+              contentFit="contain"
+            />
+            <Text style={styles.emptyTitle}>Welcome to StoryWeaver</Text>
+            <Text style={styles.emptySubtitle}>
+              Create your first child profile to start generating personalized bedtime stories
+            </Text>
+            <Pressable
+              onPress={() => router.push("/create-child")}
+              style={({ pressed }) => [
+                styles.emptyBtn,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              ]}
+            >
+              <Text style={styles.emptyBtnText}>Create Child Profile</Text>
+            </Pressable>
+          </Animated.View>
+        </ScreenContainer>
       </View>
     );
   }
@@ -68,7 +127,7 @@ export default function TonightScreen() {
   // AI-powered story recommendations
   const RECOMMENDATIONS = [
     { id: "r1", title: "The Moonlight Orchestra", theme: "music", emoji: "\u{1F3B5}", reason: "Combines music + imagination" },
-    { id: "r2", title: "Captain Starfish's Treasure", theme: "ocean", emoji: "\u{1F3F4}", reason: "Ocean adventure with pirate twist" },
+    { id: "r2", title: "Captain Starfish's Treasure", theme: "ocean", emoji: "\u{1F30A}", reason: "Ocean adventure with pirate twist" },
     { id: "r3", title: "The Kindness Robot", theme: "robot", emoji: "\u{1F916}", reason: "Tech meets empathy" },
     { id: "r4", title: "Whispers in the Enchanted Garden", theme: "garden", emoji: "\u{1F33B}", reason: "Nature + mystery" },
     { id: "r5", title: "Dino Detective Academy", theme: "dinosaur", emoji: "\u{1F995}", reason: "Dinosaurs + problem solving" },
@@ -81,22 +140,46 @@ export default function TonightScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />}>
-
-        <Animated.View entering={FadeIn.duration(600)}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
+        }
+      >
+        {/* Greeting */}
+        <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
           <Text style={[styles.greeting, { color: colors.text }]}>Tonight's Story</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {selectedChild ? `What adventure awaits ${selectedChild.name}?` : "Select a child to begin"}
+          <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
+            {selectedChild
+              ? `What adventure awaits ${selectedChild.name}?`
+              : "Select a child to begin"}
           </Text>
         </Animated.View>
 
+        {/* Child selector */}
         {children.length > 1 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.childScroll}
+          >
             {children.map((child) => (
-              <Pressable key={child.id} onPress={() => selectChild(child)}
-                style={[styles.childChip, selectedChild?.id === child.id && { backgroundColor: colors.primary }]}>
-                <Text style={[styles.childChipText, selectedChild?.id === child.id && { color: "#fff" }]}>
+              <Pressable
+                key={child.id}
+                onPress={() => selectChild(child)}
+                style={[
+                  styles.childChip,
+                  selectedChild?.id === child.id && { backgroundColor: colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.childChipText,
+                    { color: colors.text },
+                    selectedChild?.id === child.id && { color: "#0A0E1A" },
+                  ]}
+                >
                   {child.name}
                 </Text>
               </Pressable>
@@ -104,16 +187,33 @@ export default function TonightScreen() {
           </ScrollView>
         )}
 
+        {/* Selected child card */}
         {selectedChild && (
-          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={[styles.childCard, { backgroundColor: colors.card }]}>
+          <Animated.View
+            entering={FadeInDown.delay(200).duration(500)}
+            style={[styles.childCard, { backgroundColor: colors.card }]}
+          >
             <View style={styles.childAvatar}>
-              <Text style={styles.avatarEmoji}>\u{1F476}</Text>
+              <Text style={styles.avatarEmoji}>{"\u{1F476}"}</Text>
             </View>
             <View style={styles.childInfo}>
-              <Text style={[styles.childName, { color: colors.text }]}>{selectedChild.name}</Text>
-              <Text style={[styles.childAge, { color: colors.textSecondary }]}>Age {selectedChild.age} \u{00B7} {selectedChild.interests.slice(0, 3).join(", ")}</Text>
+              <Text style={[styles.childName, { color: colors.text }]}>
+                {selectedChild.name}
+              </Text>
+              <Text style={[styles.childAge, { color: colors.textSecondary }]}>
+                Age {selectedChild.age}
+                {selectedChild.interests.length > 0
+                  ? ` \u00B7 ${selectedChild.interests.slice(0, 3).join(", ")}`
+                  : ""}
+              </Text>
             </View>
-            <Pressable onPress={() => router.push("/create-child")} style={styles.addChildBtn}>
+            <Pressable
+              onPress={() => router.push("/create-child")}
+              style={({ pressed }) => [
+                styles.addChildBtn,
+                pressed && { opacity: 0.6 },
+              ]}
+            >
               <Text style={styles.addChildBtnText}>+</Text>
             </Pressable>
           </Animated.View>
@@ -122,68 +222,147 @@ export default function TonightScreen() {
         {/* Recommendations */}
         {selectedChild && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>✨ Recommended for {selectedChild.name}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recScroll}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {"\u2728"} Recommended for {selectedChild.name}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.recScroll}
+            >
               {RECOMMENDATIONS.map((rec, idx) => (
                 <Pressable
-                  key={idx}
+                  key={rec.id}
                   style={[styles.recCard, { backgroundColor: colors.card }]}
-                  onPress={() => router.push({ pathname: "/new-story", params: { childId: selectedChild.id, theme: rec.theme, educationalValue: rec.educationalValue } })}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/new-story" as any,
+                      params: {
+                        childId: selectedChild.id,
+                        childName: selectedChild.name,
+                        theme: rec.theme,
+                        themeName: rec.title,
+                      },
+                    })
+                  }
                 >
-                  <View style={[styles.recImagePlaceholder, { backgroundColor: rec.color }]}>
+                  <View
+                    style={[
+                      styles.recImagePlaceholder,
+                      { backgroundColor: REC_COLORS[idx % REC_COLORS.length] },
+                    ]}
+                  >
                     <Text style={styles.recEmoji}>{rec.emoji}</Text>
                   </View>
-                  <Text style={[styles.recTitle, { color: colors.text }]} numberOfLines={2}>{rec.title}</Text>
-                  <Text style={[styles.recTheme, { color: colors.textSecondary }]}>{rec.theme}</Text>
+                  <Text
+                    style={[styles.recTitle, { color: colors.text }]}
+                    numberOfLines={2}
+                  >
+                    {rec.title}
+                  </Text>
+                  <Text style={[styles.recTheme, { color: colors.textSecondary }]}>
+                    {rec.reason}
+                  </Text>
                 </Pressable>
               ))}
             </ScrollView>
           </View>
         )}
 
-        {/* Story Arcs */}
-        {storyArcs.length > 0 && (
+        {/* Continue Reading - Active Story Arcs */}
+        {activeArcs.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>📚 Continue Reading</Text>
-            {storyArcs.map((arc) => (
-              <Pressable
-                key={arc.id}
-                style={[styles.arcCard, { backgroundColor: colors.card }]}
-                onPress={() => router.push({ pathname: "/story-arc", params: { id: arc.id } })}
-              >
-                {arc.coverImageUrl && (
-                  <Image source={{ uri: arc.coverImageUrl }} style={styles.arcImage} />
-                )}
-                <View style={styles.arcInfo}>
-                  <Text style={[styles.arcTitle, { color: colors.text }]}>{arc.title}</Text>
-                  <Text style={[styles.arcMeta, { color: colors.textSecondary }]}>
-                    Episode {arc.currentEpisode}/{arc.totalEpisodes} · {arc.theme}
-                  </Text>
-                  <View style={styles.progressBar}>
-                    <View style={[styles.progressFill, { width: `${(arc.currentEpisode / arc.totalEpisodes) * 100}%` }]} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {"\u{1F4DA}"} Continue Reading
+            </Text>
+            {activeArcs.map((arc) => {
+              const themeData = STORY_THEMES.find((t) => t.id === arc.theme);
+              const progress =
+                arc.totalEpisodes > 0
+                  ? (arc.currentEpisode / arc.totalEpisodes) * 100
+                  : 0;
+              return (
+                <Pressable
+                  key={arc.id}
+                  style={[styles.arcCard, { backgroundColor: colors.card }]}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/story-reader" as any,
+                      params: {
+                        episodeTitle: arc.title,
+                        childName: arc.childName,
+                        arcId: arc.id,
+                      },
+                    })
+                  }
+                >
+                  {themeData?.image && (
+                    <Image
+                      source={{ uri: themeData.image }}
+                      style={styles.arcImage}
+                      contentFit="cover"
+                    />
+                  )}
+                  <View style={styles.arcInfo}>
+                    <Text style={[styles.arcTitle, { color: colors.text }]}>
+                      {arc.title}
+                    </Text>
+                    <Text style={[styles.arcMeta, { color: colors.textSecondary }]}>
+                      Episode {arc.currentEpisode}/{arc.totalEpisodes}{" "}
+                      {"\u00B7"} {arc.themeName}
+                    </Text>
+                    <View style={styles.progressBar}>
+                      <View
+                        style={[styles.progressFill, { width: `${progress}%` }]}
+                      />
+                    </View>
                   </View>
-                </View>
-              </Pressable>
-            ))}
+                </Pressable>
+              );
+            })}
           </View>
         )}
 
-        {/* Browse Themes */}
+        {/* Browse All Themes */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>🎨 Browse All Themes</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {"\u{1F3A8}"} Browse All Themes
+          </Text>
           <View style={styles.themeGrid}>
             {STORY_THEMES.map((theme, idx) => (
               <Pressable
-                key={idx}
-                style={[styles.themeCard, { backgroundColor: colors.card }]}
+                key={theme.id}
+                style={({ pressed }) => [
+                  styles.themeCard,
+                  pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
+                ]}
                 onPress={() => {
                   if (selectedChild) {
-                    router.push({ pathname: "/new-story", params: { childId: selectedChild.id, theme: theme.label } });
+                    router.push({
+                      pathname: "/new-story" as any,
+                      params: {
+                        childId: selectedChild.id,
+                        childName: selectedChild.name,
+                        theme: theme.id,
+                        themeName: theme.name,
+                      },
+                    });
                   }
                 }}
               >
-                <Text style={styles.themeEmoji}>{theme.emoji}</Text>
-                <Text style={[styles.themeLabel, { color: colors.text }]}>{theme.label}</Text>
+                <Image
+                  source={{ uri: theme.image }}
+                  style={StyleSheet.absoluteFillObject}
+                  contentFit="cover"
+                />
+                <LinearGradient
+                  colors={["transparent", "rgba(0,0,0,0.7)"]}
+                  locations={[0.3, 1]}
+                  style={styles.themeGradient}
+                >
+                  <Text style={styles.themeEmoji}>{theme.emoji}</Text>
+                  <Text style={styles.themeLabel}>{theme.name}</Text>
+                </LinearGradient>
               </Pressable>
             ))}
           </View>
@@ -191,62 +370,62 @@ export default function TonightScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   emptyRoot: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 32,
   },
   emptyContent: {
     alignItems: "center",
     gap: 16,
+    paddingHorizontal: 32,
   },
-  emptyEmoji: {
-    fontSize: 64,
+  emptyLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    textAlign: "center",
   },
   emptySubtitle: {
     fontSize: 16,
     textAlign: "center",
     lineHeight: 24,
-    opacity: 0.7,
+    color: "rgba(255,255,255,0.7)",
   },
-  ctaButton: {
-    marginTop: 8,
+  emptyBtn: {
+    backgroundColor: "#FFD700",
+    borderRadius: 16,
+    paddingVertical: 16,
     paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 25,
+    marginTop: 8,
   },
-  ctaText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  container: {
-    flex: 1,
+  emptyBtnText: {
+    color: "#0A0E1A",
+    fontSize: 17,
+    fontWeight: "700",
   },
   scrollContent: {
     padding: 20,
   },
   greetingSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   greeting: {
     fontSize: 28,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   subGreeting: {
     fontSize: 15,
     marginTop: 4,
-    opacity: 0.7,
   },
   childScroll: {
     marginBottom: 16,
@@ -256,29 +435,29 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   childChipText: {
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   childCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 14,
     borderRadius: 16,
     marginBottom: 20,
   },
   childAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,215,0,0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
   avatarEmoji: {
-    fontSize: 28,
+    fontSize: 26,
   },
   childInfo: {
     flex: 1,
@@ -286,7 +465,7 @@ const styles = StyleSheet.create({
   },
   childName: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   childAge: {
     fontSize: 13,
@@ -296,13 +475,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    backgroundColor: "rgba(255,215,0,0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
   addChildBtnText: {
     fontSize: 20,
-    color: "#fff",
+    color: "#FFD700",
     fontWeight: "600",
   },
   section: {
@@ -341,7 +520,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     paddingHorizontal: 10,
     paddingBottom: 10,
-    opacity: 0.6,
   },
   arcCard: {
     flexDirection: "row",
@@ -368,13 +546,13 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,215,0,0.15)",
     borderRadius: 2,
     marginTop: 8,
   },
   progressFill: {
     height: 4,
-    backgroundColor: "#6C63FF",
+    backgroundColor: "#FFD700",
     borderRadius: 2,
   },
   themeGrid: {
@@ -383,20 +561,23 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   themeCard: {
-    width: "31%",
-    aspectRatio: 1,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 8,
+    width: THEME_CARD_WIDTH,
+    height: 120,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  themeGradient: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 12,
   },
   themeEmoji: {
     fontSize: 28,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   themeLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    textAlign: "center",
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });

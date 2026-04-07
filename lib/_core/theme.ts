@@ -30,12 +30,15 @@ export const SchemeColors = buildSchemePalette(ThemeColors);
 
 type RuntimePalette = SchemePaletteItem & {
   text: string;
+  textSecondary: string;
   background: string;
   tint: string;
   icon: string;
   tabIconDefault: string;
   tabIconSelected: string;
   border: string;
+  card: string;
+  placeholder: string;
 };
 
 function buildRuntimePalette(scheme: ColorScheme): RuntimePalette {
@@ -43,12 +46,15 @@ function buildRuntimePalette(scheme: ColorScheme): RuntimePalette {
   return {
     ...base,
     text: base.foreground,
+    textSecondary: base.muted,
     background: base.background,
     tint: base.primary,
     icon: base.muted,
     tabIconDefault: base.muted,
     tabIconSelected: base.primary,
     border: base.border,
+    card: base.surface,
+    placeholder: base.muted,
   };
 }
 
