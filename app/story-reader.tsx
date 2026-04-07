@@ -21,7 +21,11 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  withSequence,
+  withDelay,
   Easing,
+  interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -85,6 +89,34 @@ export default function StoryReaderScreen() {
   const progressUpdateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const progressAnim = useSharedValue(0);
+
+  // Golden page transition animation values
+  const pageOpacity = useSharedValue(1);
+  const pageScale = useSharedValue(1);
+  const shimmerPosition = useSharedValue(-1);
+  const goldenOverlayOpacity = useSharedValue(0);
+  const isTransitioning = useRef(false);
+
+  const pageTransitionStyle = useAnimatedStyle(() => ({
+    opacity: pageOpacity.value,
+    transform: [{ scale: pageScale.value }],
+  }));
+
+  const goldenShimmerStyle = useAnimatedStyle(() => {
+    const translateX = interpolate(
+      shimmerPosition.value,
+      [-1, 1],
+      [-width, width]
+    );
+    return {
+      transform: [{ translateX }],
+      opacity: goldenOverlayOpacity.value,
+    };
+  });
+
+  const goldenOverlayStyle = useAnimatedStyle(() => ({
+    opacity: goldenOverlayOpacity.value,
+  }));
 
   const episodeId = parseInt(params?.episodeId ?? "0", 10);
 
@@ -267,9 +299,36 @@ export default function StoryReaderScreen() {
   }, [isLastPage]);
 
   const handlePageChange = useCallback((index: number) => {
+    if (index === currentPageIndex || isTransitioning.current) return;
     Haptics.selectionAsync();
-    setCurrentPageIndex(index);
-  }, [isNarrating, pages]);
+
+    isTransitioning.current = true;
+
+    // Phase 1: Fade out current page with subtle scale
+    pageOpacity.value = withTiming(0, { duration: 180, easing: Easing.out(Easing.ease) });
+    pageScale.value = withTiming(0.97, { duration: 180, easing: Easing.out(Easing.ease) });
+
+    // Phase 2: Golden shimmer flash
+    goldenOverlayOpacity.value = withSequence(
+      withDelay(100, withTiming(0.35, { duration: 150 })),
+      withTiming(0, { duration: 250 })
+    );
+    shimmerPosition.value = -1;
+    shimmerPosition.value = withDelay(100, withTiming(1, { duration: 400, easing: Easing.inOut(Easing.ease) }));
+
+    // Phase 3: Switch page content and fade in
+    setTimeout(() => {
+      setCurrentPageIndex(index);
+      flatListRef.current?.scrollToIndex({ index, animated: false });
+
+      pageOpacity.value = withTiming(1, { duration: 250, easing: Easing.in(Easing.ease) });
+      pageScale.value = withTiming(1, { duration: 250, easing: Easing.in(Easing.ease) });
+
+      setTimeout(() => {
+        isTransitioning.current = false;
+      }, 260);
+    }, 200);
+  }, [currentPageIndex, isNarrating, pages]);
 
   const handleGenerateMusic = useCallback(async () => {
     try {
@@ -365,7 +424,7 @@ export default function StoryReaderScreen() {
             <Text style={[styles.progressText, { color: colors.muted }]}>{progressPercent.toFixed(0)}%</Text>
           </View>
 
-          <View style={styles.imageContainer}>
+          <Animated.View style={[styles.imageContainer, pageTransitionStyle]}>
             {currentPage?.imageUrl ? (
               <ImageBackground source={{ uri: currentPage.imageUrl }} style={styles.imageBackground} resizeMode="cover">
                 <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.3)']} style={styles.imageGradientOverlay} />
@@ -380,14 +439,31 @@ export default function StoryReaderScreen() {
                 )}
               </LinearGradient>
             )}
+            {/* Golden shimmer overlay */}
+            <Animated.View style={[styles.goldenOverlay, goldenOverlayStyle]} pointerEvents="none">
+              <LinearGradient
+                colors={['rgba(255,215,0,0)', 'rgba(255,215,0,0.4)', 'rgba(255,200,0,0.6)', 'rgba(255,215,0,0.4)', 'rgba(255,215,0,0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </Animated.View>
+            <Animated.View style={[styles.shimmerStreak, goldenShimmerStyle]} pointerEvents="none">
+              <LinearGradient
+                colors={['rgba(255,255,255,0)', 'rgba(255,215,0,0.3)', 'rgba(255,255,255,0.6)', 'rgba(255,215,0,0.3)', 'rgba(255,255,255,0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.shimmerGradient}
+              />
+            </Animated.View>
             <Animated.View entering={FadeIn} style={styles.moodBadge}>
               <LinearGradient colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.85)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.moodBadgeContent}>
                 <Text style={styles.moodBadgeLabel}>{MOOD_LABELS[currentPage?.mood ?? ''] || 'Calm'}</Text>
               </LinearGradient>
             </Animated.View>
-          </View>
+          </Animated.View>
 
-          <View style={[styles.textContainer, { backgroundColor: colors.background }]}>
+          <Animated.View style={[styles.textContainer, { backgroundColor: colors.background }, pageTransitionStyle]}>
             <FlatList
               ref={flatListRef}
               data={pages}
@@ -413,7 +489,7 @@ export default function StoryReaderScreen() {
               }}
               scrollEnabled={!isNarrating}
             />
-          </View>
+          </Animated.View>
 
           {isNarrating && currentSpeaker && (
             <Animated.View entering={FadeIn} style={styles.speakerIndicator}>
@@ -691,5 +767,20 @@ const styles = StyleSheet.create({
   endscreenButtonText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  goldenOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+  },
+  shimmerStreak: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: width * 0.4,
+    height: '100%',
+    zIndex: 11,
+  },
+  shimmerGradient: {
+    flex: 1,
   },
 });

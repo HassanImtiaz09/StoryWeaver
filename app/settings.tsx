@@ -13,6 +13,11 @@ import {
 } from "@/lib/settings-store";
 import { createAudioPlayer } from "expo-audio";
 import { trpc } from "@/lib/trpc";
+import {
+  scheduleBedtimeReminder,
+  cancelBedtimeReminder,
+  requestNotificationPermissions,
+} from "@/lib/bedtime-notifications";
 
 const STORY_LENGTH_OPTIONS: { value: AppSettings["storyLength"]; label: string; pages: number }[] = [
   { value: "short", label: "Short", pages: 4 },
@@ -100,6 +105,26 @@ export default function SettingsScreen() {
     const updated = { ...settings, [key]: value };
     setSettings(updated);
     await saveSettings({ [key]: value });
+
+    // Sync bedtime notifications when relevant settings change
+    if (key === "bedtimeReminderEnabled") {
+      if (value) {
+        const granted = await requestNotificationPermissions();
+        if (granted) {
+          await scheduleBedtimeReminder(updated.bedtimeHour, updated.bedtimeMinute);
+        } else {
+          Alert.alert(
+            "Notifications Disabled",
+            "Please enable notifications in your device settings to receive bedtime reminders."
+          );
+          // Revert the toggle
+          setSettings({ ...updated, bedtimeReminderEnabled: false });
+          await saveSettings({ bedtimeReminderEnabled: false });
+        }
+      } else {
+        await cancelBedtimeReminder();
+      }
+    }
   };
 
   const adjustBedtime = (direction: "hour_up" | "hour_down" | "min_up" | "min_down") => {
@@ -114,6 +139,10 @@ export default function SettingsScreen() {
     const updated = { ...settings, bedtimeHour, bedtimeMinute };
     setSettings(updated);
     saveSettings({ bedtimeHour, bedtimeMinute });
+    // Reschedule notification at new time if enabled
+    if (settings.bedtimeReminderEnabled) {
+      scheduleBedtimeReminder(bedtimeHour, bedtimeMinute);
+    }
   };
 
   const handleVoicePreview = async (role: string) => {

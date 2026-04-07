@@ -14,9 +14,9 @@
 - [x] Build story library screen (active/completed arcs)
 - [x] Build profile/family screen with children management
 - [x] Build settings screen
-- [ ] Build bedtime push notification reminder
+- [x] Build bedtime push notification reminder
 - [x] Build print book upsell flow (UI only)
-- [ ] Add golden transitions between screens
+- [x] Add golden transitions between screens
 - [ ] Add contextual tooltips for first-time users
 - [x] Add icon mappings for all tab icons
 - [x] Run tests and fix issues (14 tests passing)
@@ -50,3 +50,6 @@
 - [x] Add lock.fill and crown.fill icon mappings
 - [x] Write 25 tests for subscription-store (all passing)
 - [x] Sync project with latest GitHub changes (third sync - 0 TS errors, 55 tests passing, fixed routers.ts MySQL/.returning() issues, story-reader.tsx type mismatches, settings.tsx voice preview, print-book.tsx order flow, new-story.tsx arc/episode params, auth.logout procedure with cookie clearing)
+- [x] Add Anthropic API credits (key valid but insufficient credits - user must add funds at console.anthropic.com/settings/billing)
+- [x] Build bedtime push notification reminder (schedule picker, local notifications, settings integration, 22 tests passing)
+- [x] Add golden screen transitions between story pages (crossfade + golden shimmer overlay using react-native-reanimated)
