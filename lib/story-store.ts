@@ -16,6 +16,9 @@ export type LocalStoryArc = {
   status: "active" | "completed" | "paused";
   createdAt: string;
   updatedAt: string;
+  serverArcId?: number;
+  coverImageUrl?: string;
+  synopsis?: string;
 };
 
 export async function getLocalStoryArcs(): Promise<LocalStoryArc[]> {

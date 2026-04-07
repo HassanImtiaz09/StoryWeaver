@@ -13,6 +13,7 @@ import { useColors } from "@/hooks/use-colors";
 import { STORY_THEMES } from "@/constants/assets";
 import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -87,6 +88,21 @@ export default function LibraryScreen() {
                   {item.status === "active" ? "In Progress" : item.status === "completed" ? "Complete" : "Paused"}
                 </Text>
               </View>
+              {item.status === "completed" && (
+                <Pressable
+                  onPress={() => router.push({
+                    pathname: "/print-book" as any,
+                    params: { arcId: item.id, title: item.title },
+                  })}
+                  style={({ pressed }) => [
+                    styles.printBtn,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <IconSymbol name="printer.fill" size={14} color="#FFD700" />
+                  <Text style={styles.printBtnText}>Print Book</Text>
+                </Pressable>
+              )}
             </View>
           </View>
         </Pressable>
@@ -211,6 +227,21 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 11,
     fontWeight: "600",
+  },
+  printBtn: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    marginLeft: 8,
+  },
+  printBtnText: {
+    fontSize: 11,
+    fontWeight: "600" as const,
+    color: "#FFD700",
   },
   emptyContainer: {
     flex: 1,

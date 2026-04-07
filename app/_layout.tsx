@@ -91,6 +91,8 @@ export default function RootLayout() {
             <Stack.Screen name="create-child" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="new-story" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="story-reader" options={{ presentation: "fullScreenModal" }} />
+            <Stack.Screen name="settings" options={{ presentation: "fullScreenModal" }} />
+            <Stack.Screen name="print-book" options={{ presentation: "fullScreenModal" }} />
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="auto" />

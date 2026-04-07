@@ -18,6 +18,7 @@ import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
 import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THEME_CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
@@ -149,7 +150,18 @@ export default function TonightScreen() {
       >
         {/* Greeting */}
         <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
-          <Text style={[styles.greeting, { color: colors.text }]}>Tonight's Story</Text>
+          <View style={styles.greetingRow}>
+            <Text style={[styles.greeting, { color: colors.text }]}>Tonight's Story</Text>
+            <Pressable
+              onPress={() => router.push("/settings" as any)}
+              style={({ pressed }) => [
+                styles.settingsBtn,
+                pressed && { opacity: 0.6 },
+              ]}
+            >
+              <IconSymbol name="gearshape.fill" size={24} color={colors.muted} />
+            </Pressable>
+          </View>
           <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
             {selectedChild
               ? `What adventure awaits ${selectedChild.name}?`
@@ -418,6 +430,18 @@ const styles = StyleSheet.create({
   },
   greetingSection: {
     marginBottom: 20,
+  },
+  greetingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  settingsBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   greeting: {
     fontSize: 28,

@@ -13,9 +13,9 @@
 - [x] Build audio narration playback (TTS via expo-speech)
 - [x] Build story library screen (active/completed arcs)
 - [x] Build profile/family screen with children management
-- [ ] Build settings screen
+- [x] Build settings screen
 - [ ] Build bedtime push notification reminder
-- [ ] Build print book upsell flow (UI only)
+- [x] Build print book upsell flow (UI only)
 - [ ] Add golden transitions between screens
 - [ ] Add contextual tooltips for first-time users
 - [x] Add icon mappings for all tab icons
@@ -26,3 +26,11 @@
 - [x] Enhance story reader with 260px theme illustration per page
 - [x] Improve visual polish: LinearGradient overlays, empty state hero background, larger cards
 - [x] Sync project with latest changes from GitHub repo (fixed TS errors, added color aliases, installed expo-av)
+- [x] Wire up built-in LLM for personalized story generation (server API)
+- [x] Connect story generation to new-story screen (generate on theme tap)
+- [x] Generate AI illustrations for each story page via server image API
+- [x] Build settings screen (bedtime reminder, voice, story length, subscription)
+- [x] Add settings gear icon to home screen header
+- [x] Build print book upsell flow (preview mockup + order form UI)
+- [x] Add "Turn into a real book" button after story arc completion + in library
+- [x] Connect all new screens to navigation (settings, print-book registered in _layout.tsx)

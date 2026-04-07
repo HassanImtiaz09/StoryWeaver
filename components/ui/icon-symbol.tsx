@@ -30,6 +30,18 @@ const MAPPING = {
   "pause.fill": "pause",
   "backward.fill": "skip-previous",
   "forward.fill": "skip-next",
+  "printer.fill": "print",
+  "cart.fill": "shopping-cart",
+  "bell.fill": "notifications",
+  "speaker.wave.2.fill": "volume-up",
+  "clock.fill": "access-time",
+  "creditcard.fill": "credit-card",
+  "checkmark.circle.fill": "check-circle",
+  "xmark": "close",
+  "photo.fill": "photo",
+  "gift.fill": "card-giftcard",
+  "arrow.right": "arrow-forward",
+  "sparkles": "auto-awesome",
 } as IconMapping;
 
 /**
