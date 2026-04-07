@@ -1,14 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Dimensions,
-  Platform,
-  ScrollView,
-} from "react-native";
+import { View, Text, FlatList, Pressable, StyleSheet, Dimensions, Platform, ScrollView, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -17,451 +8,218 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ASSETS } from "@/constants/assets";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
+import { Audio } from "expo-av";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 const { width, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-// Demo story pages for local mode
 const DEMO_PAGES = [
-  {
-    id: 1,
-    pageNumber: 1,
-    storyText:
-      "Once upon a time, in a land where the stars sang lullabies and the moon painted silver paths across the sky, there lived a brave little explorer.\n\nEvery night, when the world grew quiet and the fireflies began their dance, a magical doorway would appear at the foot of the bed.",
-    imageUrl: null,
-  },
-  {
-    id: 2,
-    pageNumber: 2,
-    storyText:
-      "Tonight, the doorway shimmered with golden light, and from within came the softest whisper: \"Are you ready for an adventure?\"\n\nWith a deep breath and a heart full of courage, our little hero stepped through the doorway and into a world of wonder.",
-    imageUrl: null,
-  },
-  {
-    id: 3,
-    pageNumber: 3,
-    storyText:
-      "The sky was painted in swirls of purple and blue, dotted with stars that twinkled like tiny diamonds. A friendly owl perched on a branch of a glowing tree waved a wing in greeting.\n\n\"Welcome, young traveler,\" hooted the owl. \"I've been waiting for someone brave like you.\"",
-    imageUrl: null,
-  },
-  {
-    id: 4,
-    pageNumber: 4,
-    storyText:
-      "Together, they journeyed through a meadow of flowers that hummed gentle melodies. Each flower was a different color, and each one sang a different note.\n\n\"These are the Dream Flowers,\" explained the owl. \"They help children everywhere have the most wonderful dreams.\"",
-    imageUrl: null,
-  },
-  {
-    id: 5,
-    pageNumber: 5,
-    storyText:
-      "But something was wrong. Some of the flowers had stopped singing, their petals drooping sadly. \"A shadow has been stealing their songs,\" the owl said with concern.\n\nOur hero knew exactly what to do. With kindness in their heart, they knelt beside the quiet flowers and whispered words of encouragement.",
-    imageUrl: null,
-  },
-  {
-    id: 6,
-    pageNumber: 6,
-    storyText:
-      "One by one, the flowers began to glow again, their melodies returning stronger than before. The shadow melted away, unable to stand against such warmth and kindness.\n\nAs the meadow filled with music once more, our little hero felt their eyelids grow heavy. \"Until tomorrow night,\" whispered the owl, as the magical doorway carried them gently back to their cozy bed.\n\nThe end... for tonight.",
-    imageUrl: null,
-  },
+  { id: 1, pageNumber: 1, storyText: "NARRATOR: Once upon a time, in a land where the stars sang lullabies and the moon painted silver paths across the sky, there lived a brave little explorer.\n\nNARRATOR: Every night, when the world grew quiet and the fireflies began their dance, a magical doorway would appear at the foot of the bed.", imageUrl: null, audioUrl: null, mood: "mysterious", characters: null },
+  { id: 2, pageNumber: 2, storyText: 'NARRATOR: Tonight, the doorway shimmered with golden light, and from within came the softest whisper.\n\nMAGICAL_DOOR: "Are you ready for an adventure?"\n\nNARRATOR: With a deep breath and a heart full of courage, our little hero stepped through the doorway and into a world of wonder.', imageUrl: null, audioUrl: null, mood: "exciting", characters: null },
+  { id: 3, pageNumber: 3, storyText: 'NARRATOR: The sky was painted in swirls of purple and blue, dotted with stars that twinkled like tiny diamonds.\n\nWISE_OWL: "Welcome, young traveler, hoo-hoo! I\'ve been waiting for someone brave like you."', imageUrl: null, audioUrl: null, mood: "adventurous", characters: JSON.stringify([{ name: "WISE_OWL", traits: "wise old owl", voiceRole: "animal_large" }]) },
+  { id: 4, pageNumber: 4, storyText: 'NARRATOR: Together, they journeyed through a meadow of flowers that hummed gentle melodies.\n\nWISE_OWL: "These are the Dream Flowers, hoo-hoo! They help children everywhere have the most wonderful dreams."', imageUrl: null, audioUrl: null, mood: "warm", characters: JSON.stringify([{ name: "WISE_OWL", traits: "wise old owl", voiceRole: "animal_large" }]) },
+  { id: 5, pageNumber: 5, storyText: 'NARRATOR: Our hero knew exactly what to do. With kindness in their heart, they knelt beside the quiet flowers and whispered words of encouragement.\n\nWISE_OWL: "Your kindness is the strongest magic of all, hoo-hoo..."', imageUrl: null, audioUrl: null, mood: "calm", characters: JSON.stringify([{ name: "WISE_OWL", traits: "wise old owl", voiceRole: "animal_large" }]) },
+  { id: 6, pageNumber: 6, storyText: "NARRATOR: One by one, the flowers began to glow again, their melodies rising softly into the night sky. The shadow melted away like morning mist.\n\nNARRATOR: The wise old owl smiled and gently guided our hero back to the magical doorway. As they stepped through, the stars outside their window seemed to shine a little brighter.\n\nNARRATOR: And as our brave little explorer snuggled under the warm blankets, the Dream Flowers' lullaby drifted through the window... singing them softly... gently... to sleep.", imageUrl: null, audioUrl: null, mood: "calm", characters: null },
 ];
 
-type ThemeKey = keyof typeof ASSETS.themes;
-
-function getThemeImage(theme?: string): string {
-  if (theme && theme in ASSETS.themes) {
-    return ASSETS.themes[theme as ThemeKey];
-  }
-  return ASSETS.bgOnboarding;
+function getDisplayText(rawText: string): string {
+  return rawText
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return "";
+      const match = trimmed.match(/^([A-Z_]+):\s*(.+)$/);
+      if (match) {
+        const [, speaker, text] = match;
+        if (speaker === "NARRATOR") return text;
+        const name = speaker.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        return name + ": " + text;
+      }
+      return trimmed;
+    })
+    .filter(Boolean)
+    .join("\n\n");
 }
+
+const MOOD_COLORS: Record<string, { bg: string; label: string }> = {
+  exciting: { bg: "#FF6B6B", label: "Exciting" },
+  calm: { bg: "#48C9B0", label: "Calming" },
+  mysterious: { bg: "#9B59B6", label: "Mysterious" },
+  adventurous: { bg: "#F39C12", label: "Adventurous" },
+  warm: { bg: "#E67E22", label: "Warm" },
+  funny: { bg: "#2ECC71", label: "Funny" },
+};
 
 export default function StoryReaderScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const colors = useColors();
-  const params = useLocalSearchParams<{
-    episodeTitle?: string;
-    childName?: string;
-    arcId?: string;
-    theme?: string;
-  }>();
+  const flatListRef = useRef<FlatList>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   const [currentPage, setCurrentPage] = useState(0);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [autoPlay, setAutoPlay] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [voiceMode, setVoiceMode] = useState<"elevenlabs" | "device">("elevenlabs");
+  const [loadingAudio, setLoadingAudio] = useState(false);
+
   const pages = DEMO_PAGES;
-  const themeImage = getThemeImage(params.theme);
+  const storyTitle = (params.title as string) || "A Magical Bedtime Adventure";
 
   useEffect(() => {
     return () => {
       Speech.stop();
+      if (soundRef.current) { soundRef.current.unloadAsync(); }
     };
   }, []);
 
-  const speakPage = (text: string) => {
-    if (Platform.OS === "web") return;
+  const stopAll = async () => {
+    setIsPlaying(false);
     Speech.stop();
-    setIsSpeaking(true);
-    Speech.speak(text, {
-      language: "en-GB",
-      pitch: 1.05,
-      rate: 0.85,
-      onDone: () => {
-        setIsSpeaking(false);
-        if (autoPlay && currentPage < pages.length - 1) {
-          goToPage(currentPage + 1);
-        }
-      },
-      onStopped: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
+    if (soundRef.current) {
+      await soundRef.current.stopAsync();
+      await soundRef.current.unloadAsync();
+      soundRef.current = null;
+    }
+  };
+
+  const playElevenLabsAudio = async (audioUrl: string | null) => {
+    if (!audioUrl) { speakWithDeviceTTS(pages[currentPage].storyText); return; }
+    try {
+      setLoadingAudio(true);
+      if (soundRef.current) { await soundRef.current.unloadAsync(); }
+      const { sound } = await Audio.Sound.createAsync({ uri: audioUrl }, { shouldPlay: true });
+      soundRef.current = sound;
+      setIsPlaying(true);
+      setLoadingAudio(false);
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) { setIsPlaying(false); }
+      });
+    } catch (e) {
+      setLoadingAudio(false);
+      speakWithDeviceTTS(pages[currentPage].storyText);
+    }
+  };
+
+  const speakWithDeviceTTS = (text: string) => {
+    const cleanText = getDisplayText(text);
+    setIsPlaying(true);
+    Speech.speak(cleanText, {
+      rate: 0.85, pitch: 1.0,
+      onDone: () => setIsPlaying(false),
+      onError: () => setIsPlaying(false),
     });
   };
 
-  const toggleSpeech = () => {
-    if (isSpeaking) {
-      Speech.stop();
-      setIsSpeaking(false);
+  const togglePlay = async () => {
+    if (isPlaying) { await stopAll(); return; }
+    const page = pages[currentPage];
+    if (voiceMode === "elevenlabs" && page.audioUrl) {
+      await playElevenLabsAudio(page.audioUrl);
     } else {
-      speakPage(pages[currentPage].storyText);
+      speakWithDeviceTTS(page.storyText);
     }
   };
 
-  const goToPage = (index: number) => {
-    if (index >= 0 && index < pages.length) {
-      setCurrentPage(index);
-      flatListRef.current?.scrollToIndex({ index, animated: true });
-      if (autoPlay) {
-        setTimeout(() => speakPage(pages[index].storyText), 500);
-      }
-    }
+  const goToPage = async (index: number) => {
+    await stopAll();
+    setCurrentPage(index);
+    flatListRef.current?.scrollToIndex({ index, animated: true });
   };
 
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: any[] }) => {
-      if (viewableItems.length > 0 && viewableItems[0].index !== null) {
-        setCurrentPage(viewableItems[0].index);
-      }
-    }
-  ).current;
+  const renderPage = ({ item, index }: { item: typeof DEMO_PAGES[0]; index: number }) => {
+    const mood = MOOD_COLORS[item.mood] || MOOD_COLORS.calm;
+    return (
+      <View style={[rs.page, { width }]}>
+        <ScrollView contentContainerStyle={rs.pageScroll} showsVerticalScrollIndicator={false}>
+          <Animated.View entering={FadeIn.duration(600)}>
+            <View style={rs.illustrationContainer}>
+              <Image source={{ uri: item.imageUrl || ASSETS.themes.forest }} style={rs.illustration} contentFit="cover" />
+              <LinearGradient colors={["transparent", "rgba(0,0,0,0.6)"]} style={rs.illustGradient} />
+              <View style={[rs.moodBadge, { backgroundColor: mood.bg }]}>
+                <Text style={rs.moodText}>{mood.label}</Text>
+              </View>
+              <Text style={rs.pageNum}>Page {item.pageNumber} of {pages.length}</Text>
+            </View>
+          </Animated.View>
 
-  const renderPage = ({ item, index }: { item: typeof DEMO_PAGES[0]; index: number }) => (
-    <View style={[styles.page, { width }]}>
-      <ScrollView
-        contentContainerStyle={styles.pageScrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Theme illustration at top of each page */}
-        <View style={styles.illustrationArea}>
-          {item.imageUrl ? (
-            <Image source={{ uri: item.imageUrl }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
-          ) : (
-            <Image
-              source={{ uri: themeImage }}
-              style={StyleSheet.absoluteFillObject}
-              contentFit="cover"
-              transition={200}
-            />
-          )}
-          <LinearGradient
-            colors={["transparent", "rgba(10,14,26,0.6)", colors.background]}
-            locations={[0.2, 0.7, 1]}
-            style={styles.illustrationGradient}
-          />
-          {/* Page number badge */}
-          <View style={styles.pageBadge}>
-            <Text style={styles.pageBadgeText}>
-              Page {index + 1} of {pages.length}
-            </Text>
-          </View>
-        </View>
-
-        {/* Story text */}
-        <View style={styles.textArea}>
-          <Text style={[styles.storyText, { color: colors.foreground }]}>
-            {item.storyText}
-          </Text>
-        </View>
-      </ScrollView>
-    </View>
-  );
+          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={rs.textContainer}>
+            <Text style={[rs.storyText, { color: colors.text }]}>{getDisplayText(item.storyText)}</Text>
+          </Animated.View>
+        </ScrollView>
+      </View>
+    );
+  };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScreenContainer
-        containerClassName="bg-transparent"
-        edges={["top", "bottom", "left", "right"]}
-        className="flex-1"
-      >
-        {/* Header */}
-        <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
-          <Pressable
-            onPress={() => {
-              Speech.stop();
-              router.back();
-            }}
-            style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}
-          >
-            <IconSymbol name="arrow.left" size={24} color={colors.foreground} />
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
-              {params.episodeTitle || "Tonight's Story"}
-            </Text>
-            {params.childName && (
-              <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
-                For {params.childName}
-              </Text>
-            )}
-          </View>
-          <View style={{ width: 44 }} />
-        </Animated.View>
+    <ScreenContainer>
+      <View style={[rs.header, { borderBottomColor: colors.border }]}>
+        <Pressable onPress={() => router.back()} style={rs.backBtn}>
+          <IconSymbol name="chevron.left" size={24} color={colors.text} />
+        </Pressable>
+        <View style={rs.headerCenter}>
+          <Text style={[rs.headerTitle, { color: colors.text }]} numberOfLines={1}>{storyTitle}</Text>
+        </View>
+        <Pressable onPress={() => setVoiceMode(voiceMode === "elevenlabs" ? "device" : "elevenlabs")} style={[rs.voiceToggle, { backgroundColor: voiceMode === "elevenlabs" ? "#6C63FF" : colors.border }]}>
+          <Text style={rs.voiceToggleText}>{voiceMode === "elevenlabs" ? "HD" : "TTS"}</Text>
+        </Pressable>
+      </View>
 
-        {/* Pages */}
-        <FlatList
-          ref={flatListRef}
-          data={pages}
-          renderItem={renderPage}
-          keyExtractor={(item) => item.id.toString()}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-          bounces={false}
-        />
+      <FlatList
+        ref={flatListRef}
+        data={pages}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        renderItem={renderPage}
+        keyExtractor={(item) => item.id.toString()}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+          if (idx !== currentPage) { stopAll(); setCurrentPage(idx); }
+        }}
+        getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+      />
 
-        {/* Controls */}
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.controls}>
-          {/* Progress dots */}
-          <View style={styles.progressDots}>
-            {pages.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  i === currentPage && styles.dotActive,
-                  i < currentPage && styles.dotRead,
-                ]}
-              />
-            ))}
-          </View>
-
-          <View style={styles.controlRow}>
-            {/* Previous */}
-            <Pressable
-              onPress={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 0}
-              style={({ pressed }) => [
-                styles.navButton,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                currentPage === 0 && { opacity: 0.3 },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <IconSymbol name="arrow.left" size={20} color={colors.foreground} />
-            </Pressable>
-
-            {/* Narration button */}
-            <Pressable
-              onPress={toggleSpeech}
-              style={({ pressed }) => [
-                styles.playButton,
-                isSpeaking && styles.playButtonActive,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-              ]}
-            >
-              <IconSymbol
-                name={isSpeaking ? "star.fill" : "play.fill"}
-                size={24}
-                color={isSpeaking ? "#FFD700" : "#0A0E1A"}
-              />
-              <Text style={[styles.playText, isSpeaking && { color: "#FFD700" }]}>
-                {isSpeaking ? "Speaking..." : "Read Aloud"}
-              </Text>
-            </Pressable>
-
-            {/* Next */}
-            <Pressable
-              onPress={() => goToPage(currentPage + 1)}
-              disabled={currentPage === pages.length - 1}
-              style={({ pressed }) => [
-                styles.navButton,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-                currentPage === pages.length - 1 && { opacity: 0.3 },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <IconSymbol name="chevron.right" size={20} color={colors.foreground} />
-            </Pressable>
-          </View>
-
-          {/* Auto-play toggle */}
-          <Pressable
-            onPress={() => setAutoPlay(!autoPlay)}
-            style={({ pressed }) => [
-              styles.autoPlayToggle,
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <View style={[styles.autoPlayDot, autoPlay && styles.autoPlayDotActive]} />
-            <Text style={[styles.autoPlayText, { color: colors.muted }]}>
-              Auto-narrate pages
-            </Text>
-          </Pressable>
-        </Animated.View>
-      </ScreenContainer>
-    </View>
+      <View style={[rs.controls, { borderTopColor: colors.border }]}>
+        <Pressable onPress={() => currentPage > 0 && goToPage(currentPage - 1)} style={rs.controlBtn} disabled={currentPage === 0}>
+          <IconSymbol name="backward.fill" size={22} color={currentPage === 0 ? colors.border : colors.text} />
+        </Pressable>
+        <Pressable onPress={togglePlay} style={[rs.playBtn, { backgroundColor: colors.primary }]}>
+          {loadingAudio ? <ActivityIndicator color="#fff" /> :
+            <IconSymbol name={isPlaying ? "pause.fill" : "play.fill"} size={28} color="#fff" />}
+        </Pressable>
+        <Pressable onPress={() => currentPage < pages.length - 1 && goToPage(currentPage + 1)} style={rs.controlBtn} disabled={currentPage === pages.length - 1}>
+          <IconSymbol name="forward.fill" size={22} color={currentPage === pages.length - 1 ? colors.border : colors.text} />
+        </Pressable>
+        <View style={[rs.voiceIndicator, { backgroundColor: voiceMode === "elevenlabs" ? "#6C63FF22" : "#aaa22" }]}>
+          <Text style={[rs.voiceLabel, { color: voiceMode === "elevenlabs" ? "#6C63FF" : "#aaa" }]}>
+            {voiceMode === "elevenlabs" ? "ElevenLabs HD" : "Device Voice"}
+          </Text>
+        </View>
+      </View>
+    </ScreenContainer>
   );
-}
+          }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  page: {
-    flex: 1,
-  },
-  pageScrollContent: {
-    flexGrow: 1,
-  },
-  // Illustration area with theme image
-  illustrationArea: {
-    height: 260,
-    overflow: "hidden",
-    position: "relative",
-  },
-  illustrationGradient: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  pageBadge: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: "rgba(255,215,0,0.25)",
-  },
-  pageBadgeText: {
-    color: "#FFD700",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  textArea: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 4,
-    paddingBottom: 16,
-  },
-  storyText: {
-    fontSize: 18,
-    lineHeight: 30,
-    fontWeight: "400",
-    letterSpacing: 0.2,
-  },
-  controls: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  progressDots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 6,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 215, 0, 0.2)",
-  },
-  dotActive: {
-    backgroundColor: "#FFD700",
-    width: 20,
-  },
-  dotRead: {
-    backgroundColor: "rgba(255, 215, 0, 0.5)",
-  },
-  controlRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  navButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  playButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFD700",
-    borderRadius: 16,
-    paddingVertical: 14,
-    gap: 8,
-  },
-  playButtonActive: {
-    backgroundColor: "rgba(255, 215, 0, 0.15)",
-    borderWidth: 1,
-    borderColor: "#FFD700",
-  },
-  playText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0A0E1A",
-  },
-  autoPlayToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 4,
-  },
-  autoPlayDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 215, 0, 0.4)",
-  },
-  autoPlayDotActive: {
-    backgroundColor: "#FFD700",
-    borderColor: "#FFD700",
-  },
-  autoPlayText: {
-    fontSize: 13,
-  },
+const rs = StyleSheet.create({
+  page: { flex: 1 },
+  pageScroll: { paddingBottom: 20 },
+  illustrationContainer: { width: "100%", height: SCREEN_HEIGHT * 0.38, position: "relative" },
+  illustration: { width: "100%", height: "100%" },
+  illustGradient: { position: "absolute", bottom: 0, left: 0, right: 0, height: 80 },
+  moodBadge: { position: "absolute", top: 12, right: 12, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  moodText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  pageNum: { position: "absolute", bottom: 8, left: 16, color: "#fff", fontSize: 13, fontWeight: "500" },
+  textContainer: { padding: 20 },
+  storyText: { fontSize: 18, lineHeight: 30, fontFamily: Platform.OS === "ios" ? "Georgia" : "serif" },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
+  backBtn: { padding: 4 },
+  headerCenter: { flex: 1, marginHorizontal: 12 },
+  headerTitle: { fontSize: 16, fontWeight: "600" },
+  voiceToggle: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  voiceToggleText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  controls: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 16, borderTopWidth: 1, gap: 20 },
+  controlBtn: { padding: 12 },
+  playBtn: { width: 56, height: 56, borderRadius: 28, justifyContent: "center", alignItems: "center" },
+  voiceIndicator: { position: "absolute", right: 16, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  voiceLabel: { fontSize: 10, fontWeight: "600" },
 });
