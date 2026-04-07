@@ -1,17 +1,7 @@
 import { boolean, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -22,7 +12,6 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
-// Children profiles created by parents
 export const children = mysqlTable("children", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -33,11 +22,15 @@ export const children = mysqlTable("children", {
   skinTone: varchar("skinTone", { length: 30 }),
   interests: text("interests"),
   avatarUrl: text("avatarUrl"),
+  favoriteColor: varchar("favoriteColor", { length: 30 }),
+  personalityTraits: text("personalityTraits"),
+  fears: text("fears"),
+  readingLevel: varchar("readingLevel", { length: 30 }),
+  language: varchar("language", { length: 10 }).default("en"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-// Story arcs - a series of episodic stories
 export const storyArcs = mysqlTable("story_arcs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -54,7 +47,6 @@ export const storyArcs = mysqlTable("story_arcs", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-// Individual episodes within a story arc
 export const episodes = mysqlTable("episodes", {
   id: int("id").autoincrement().primaryKey(),
   storyArcId: int("storyArcId").notNull(),
@@ -66,7 +58,6 @@ export const episodes = mysqlTable("episodes", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-// Pages within an episode (each has text + illustration)
 export const pages = mysqlTable("pages", {
   id: int("id").autoincrement().primaryKey(),
   episodeId: int("episodeId").notNull(),
@@ -74,6 +65,26 @@ export const pages = mysqlTable("pages", {
   storyText: text("storyText").notNull(),
   imageUrl: text("imageUrl"),
   imagePrompt: text("imagePrompt"),
+  audioUrl: text("audioUrl"),
+  audioDurationMs: int("audioDurationMs"),
+  mood: varchar("mood", { length: 30 }),
+  characters: text("characters"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const storyRecommendations = mysqlTable("story_recommendations", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  childId: int("childId").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  theme: varchar("theme", { length: 50 }).notNull(),
+  educationalValue: varchar("educationalValue", { length: 50 }).notNull(),
+  synopsis: text("synopsis"),
+  imageUrl: text("imageUrl"),
+  imagePrompt: text("imagePrompt"),
+  whyRecommended: text("whyRecommended"),
+  estimatedEpisodes: int("estimatedEpisodes").default(7),
+  isUsed: boolean("isUsed").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -87,3 +98,5 @@ export type Episode = typeof episodes.$inferSelect;
 export type InsertEpisode = typeof episodes.$inferInsert;
 export type Page = typeof pages.$inferSelect;
 export type InsertPage = typeof pages.$inferInsert;
+export type StoryRecommendation = typeof storyRecommendations.$inferSelect;
+export type InsertStoryRecommendation = typeof storyRecommendations.$inferInsert;
