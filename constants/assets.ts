@@ -200,7 +200,9 @@ export const SUBSCRIPTION_TIERS = {
   },
 };
 
-// ─── Gender Options (expanded) ─────────────────────────────────
+// ─── Story Hero Appearance (character avatar customization) ────
+// NOTE: These describe the fictional story character, not the child.
+// Data is stored locally and used only for AI illustration generation.
 export const GENDER_OPTIONS = [
   { label: "Boy", emoji: "👦" },
   { label: "Girl", emoji: "👧" },
@@ -208,13 +210,15 @@ export const GENDER_OPTIONS = [
   { label: "Prefer not to say", emoji: "✨" },
 ];
 
-// ─── Hair Colors ───────────────────────────────────────────────
+// ─── Story Hero Hair Styles (character avatar customization) ───
+// Includes fantasy colors to emphasize this is character design
 export const HAIR_COLORS = [
   "Black", "Brown", "Blonde", "Red", "Auburn",
   "Gray", "White", "Blue", "Pink", "Purple",
+  "Green", "Silver", "Rainbow",
 ];
 
-// ─── Skin Tones ────────────────────────────────────────────────
+// ─── Story Hero Skin Tones (character avatar customization) ────
 export const SKIN_TONES = [
   { label: "Light", color: "#FFDBB4" },
   { label: "Fair", color: "#EDB98A" },
