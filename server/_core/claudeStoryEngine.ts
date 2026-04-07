@@ -1,6 +1,7 @@
 import { ENV } from "./env";
 
 // ─── Types ─────────────────────────────────────────────────────
+
 export type NeurodivergentInfo = {
   type: string;
   sensoryPreferences?: string[];
@@ -43,6 +44,8 @@ export type GeneratedPage = {
   text: string;
   imagePrompt: string;
   mood: string;
+  sceneDescription: string;
+  soundEffectHint: string;
 };
 
 export type GeneratedEpisode = {
@@ -50,6 +53,8 @@ export type GeneratedEpisode = {
   summary: string;
   characters: { name: string; traits: string[]; voiceRole: string }[];
   pages: GeneratedPage[];
+  musicMood: string;
+  estimatedReadTimeMinutes: number;
 };
 
 export type StoryRecommendation = {
@@ -64,20 +69,22 @@ export type StoryRecommendation = {
 };
 
 // ─── Age Guidance ──────────────────────────────────────────────
+
 function getAgeGuidance(age: number): string {
   if (age <= 3) {
-    return `TARGET: Toddler (age ${age}). Use very simple words (1-2 syllables). Short sentences (5-8 words). Lots of repetition and rhyming. Onomatopoeia (whoosh, splash, roar). Each page: 2-3 sentences max. Focus on sensory experiences. Always end happily and safely.`;
+    return `TARGET: Toddler (age ${age}). Use very simple words (1-2 syllables). Short sentences (5-8 words). Lots of repetition and rhyming. Onomatopoeia (whoosh, splash, roar). Each page: 3-5 sentences for a richer experience. Focus on sensory experiences. Always end happily and safely. Add interactive moments ("Can you roar like a dinosaur?").`;
   }
   if (age <= 5) {
-    return `TARGET: Preschooler (age ${age}). Simple but varied vocabulary. Sentences of 8-12 words. Introduce 1-2 new words per page. Light humor and wordplay. Each page: 3-5 sentences. Stories should have clear beginning, middle, end. Gentle lessons woven naturally.`;
+    return `TARGET: Preschooler (age ${age}). Simple but varied vocabulary. Sentences of 8-12 words. Introduce 1-2 new words per page. Light humor and wordplay. Each page: 5-8 sentences with descriptive detail. Stories should have clear beginning, middle, end. Gentle lessons woven naturally. Include moments of wonder and discovery.`;
   }
   if (age <= 8) {
-    return `TARGET: Early reader (age ${age}). Rich vocabulary with context clues for new words. Sentences of 10-15 words. Use metaphors and similes. Each page: 3-4 paragraphs. Include dialogue between characters. Mild suspense is okay but always resolve positively.`;
+    return `TARGET: Early reader (age ${age}). Rich vocabulary with context clues for new words. Sentences of 10-15 words. Use metaphors and similes. Each page: 2-3 paragraphs of 4-6 sentences each. Include meaningful dialogue between characters that reveals personality. Mild suspense is okay but always resolve positively. Add sensory details (sounds, smells, textures).`;
   }
-  return `TARGET: Independent reader (age ${age}). Sophisticated vocabulary and complex sentences. Literary devices (foreshadowing, irony). Each page: 3-5 substantial paragraphs. Nuanced characters with growth arcs. Themes can explore deeper emotions. Still age-appropriate.`;
+  return `TARGET: Independent reader (age ${age}). Sophisticated vocabulary and complex sentences. Literary devices (foreshadowing, irony). Each page: 3-5 substantial paragraphs with rich descriptions. Nuanced characters with growth arcs. Themes can explore deeper emotions. Internal monologue and character reflection. Still age-appropriate but intellectually engaging.`;
 }
 
 // ─── Neurodivergent Guidance ───────────────────────────────────
+
 function getNeurodivergentGuidance(profiles: NeurodivergentInfo[]): string {
   const sections: string[] = [];
 
@@ -189,6 +196,7 @@ GIFTED/TWICE-EXCEPTIONAL ADAPTATIONS:
 }
 
 // ─── Image Prompt Builder ──────────────────────────────────────
+
 function buildImageStyleGuide(child: ChildProfile, theme: string): string {
   return `Style: Warm watercolor children's book illustration, soft dreamy lighting, gentle colors, no text overlays, safe for children.
 Character: A ${child.age}-year-old ${child.gender ?? "child"} with ${child.hairColor ?? "brown"} hair and ${child.skinTone ?? "warm"} skin tone, wearing clothes in ${child.favoriteColor ?? "blue"} tones.
@@ -198,6 +206,7 @@ IMPORTANT: Illustration only, no words or letters in the image. Suitable for pro
 }
 
 // ─── Build Episode Prompt ──────────────────────────────────────
+
 function buildEpisodeGenerationPrompt(
   child: ChildProfile,
   arc: StoryArcContext,
@@ -212,7 +221,9 @@ function buildEpisodeGenerationPrompt(
 
   const imageStyle = buildImageStyleGuide(child, arc.theme);
 
-  return `You are a world-class children's story author creating a personalized bedtime story.
+  const pageCount = child.age <= 3 ? 8 : child.age <= 5 ? 10 : 12;
+
+  return `You are a world-class children's story author creating a personalized bedtime story. Create a RICH, DETAILED, ENGAGING story that children will love listening to.
 
 STORY CONTEXT:
 - Series: "${arc.title}"
@@ -235,34 +246,55 @@ ${ageGuide}
 
 ${ndGuide ? `\n--- NEURODIVERGENT STORY ADAPTATIONS ---\n${ndGuide}\n---` : ""}
 
+CRITICAL STORYTELLING REQUIREMENTS:
+1. STORY LENGTH: Generate exactly ${pageCount} pages. Each page must have SUBSTANTIAL content — not just 1-2 sentences.
+2. ENGAGEMENT: Every page should hook the listener. Use vivid sensory details, character emotions, dialogue, and mini-discoveries.
+3. PACING: Build tension gradually. Pages 1-2: introduce setting and characters. Pages 3-${Math.floor(pageCount * 0.4)}: rising action with discoveries and challenges. Pages ${Math.floor(pageCount * 0.4) + 1}-${Math.floor(pageCount * 0.8)}: climax and resolution. Final pages: warm wind-down for bedtime.
+4. CHARACTERS: Give each character a distinct personality and speaking style. Use at least 3 named characters with meaningful dialogue. The hero (${heroName}) should speak frequently.
+5. DIALOGUE: At least 40% of the story should be dialogue. Characters should have back-and-forth conversations, not just single lines.
+6. DESCRIPTIONS: Each scene should paint a vivid picture — describe colors, sounds, smells, textures. Make the listener FEEL like they're there.
+7. EMOTIONAL ARC: The story should take the listener on an emotional journey: curiosity → excitement → challenge → triumph → warmth → sleepiness.
+8. BEDTIME ENDING: The final 2 pages must gently wind down. Use calming language, slowing pace, mentions of stars/moon/sleep/dreams. End with the hero feeling safe, loved, and ready for sleep.
+
+VOICE FORMAT (CRITICAL — follow exactly):
+Each line of text MUST start with a speaker label:
+- "NARRATOR: " for all narration, scene-setting, descriptions, and transitions
+- "CHARACTER_NAME: " for dialogue (use the exact character name, e.g., "LUNA: ", "${heroName.toUpperCase()}: ")
+Mix narration and dialogue naturally. NARRATOR lines should describe what characters do and feel between dialogue lines.
+
+Example of good multi-voice format:
+NARRATOR: The cave sparkled with a thousand tiny crystals, each one catching the moonlight and sending rainbow reflections dancing across the walls.
+${heroName.toUpperCase()}: "Wow, it's like being inside a giant snow globe!" ${heroName} whispered, eyes wide with wonder.
+LUNA: "Shh," the fairy giggled softly, pressing a tiny finger to her lips. "The crystals are sleeping. If we're gentle, they'll sing for us."
+NARRATOR: ${heroName} tiptoed forward, heart racing with excitement. The air smelled like fresh rain and something sweet — like honey mixed with starlight.
+
 IMAGE PROMPT GUIDELINES:
 ${imageStyle}
-
-VOICE FORMAT:
-Use multi-voice format for narration. Each line must start with a speaker label:
-- "NARRATOR: " for narration and scene-setting
-- "CHARACTER_NAME: " for dialogue (use the actual character's name)
 
 OUTPUT FORMAT:
 Return valid JSON with this exact structure:
 {
-  "title": "Episode title",
-  "summary": "2-3 sentence summary",
+  "title": "Episode title (creative and evocative)",
+  "summary": "3-4 sentence summary capturing the emotional arc",
+  "musicMood": "whimsical|adventurous|calm|mysterious|triumphant|playful|dreamy|exciting|warm|magical",
+  "estimatedReadTimeMinutes": <number based on word count, roughly 150 words per minute for narration>,
   "characters": [
-    { "name": "character name", "traits": ["trait1", "trait2"], "voiceRole": "narrator|child_hero|wise_old|friendly_creature|villain_silly|magical_being|animal_small|animal_large|robot_friendly" }
+    { "name": "CHARACTER_NAME", "traits": ["trait1", "trait2", "trait3"], "voiceRole": "narrator|child_hero|wise_old|friendly_creature|villain_silly|magical_being|animal_small|animal_large|robot_friendly" }
   ],
   "pages": [
     {
-      "text": "NARRATOR: narration text\\nCHARACTER: dialogue",
-      "imagePrompt": "Detailed watercolor illustration prompt describing this specific scene. Include character appearance, setting details, mood, and action. ${imageStyle}",
-      "mood": "exciting|calm|mysterious|adventurous|warm|funny|reassuring|triumphant"
+      "text": "NARRATOR: Rich narration text...\\nCHARACTER: \\"Dialogue here.\\"\\nNARRATOR: More narration...",
+      "imagePrompt": "Detailed watercolor illustration prompt for this scene. ${imageStyle}",
+      "mood": "exciting|calm|mysterious|adventurous|warm|funny|reassuring|triumphant",
+      "sceneDescription": "Brief 1-sentence description of the visual scene for sound effect matching",
+      "soundEffectHint": "Brief description of ambient sounds that would enhance this scene (e.g., 'gentle forest sounds with birdsong', 'underwater bubbles and whale songs')"
     }
   ]
 }
 
-Generate exactly 6 pages. Make ${heroName} the hero. The story should feel complete for this episode while building toward the larger arc. End on a warm, satisfying note appropriate for bedtime.
+Generate exactly ${pageCount} pages. Make ${heroName} the hero. The story should feel COMPLETE for this episode while building toward the larger arc. Every page should be richly detailed and engaging. The story should be long enough to be a satisfying 5-8 minute listening experience when narrated aloud.
 
-Each imagePrompt must be a complete, detailed description for an AI image generator to create a unique watercolor illustration. Include specific visual details about colors, composition, characters, and environment.`;
+IMPORTANT: Each page's text should be at LEAST 100 words. Short pages make the story feel rushed and unsatisfying. Take your time with descriptions, dialogue, and emotional moments.`;
 }
 
 // ─── Build Recommendation Prompt ───────────────────────────────
@@ -282,21 +314,24 @@ ${child.personalityTraits?.length ? `- Personality: ${child.personalityTraits.jo
 ${child.fears?.length ? `- Fears: ${child.fears.join(", ")}` : ""}
 ${ndContext}
 
+For each recommendation, create a VIVID, APPEALING cover image prompt that will generate a beautiful watercolor-style children's book cover. The cover should feature the theme prominently and look magical and inviting.
+
 Return JSON array of 10 objects:
 [{
-  "title": "Story title",
+  "title": "Creative, evocative story title",
   "theme": "one of: Space Adventure, Ocean Exploration, Enchanted Forest, Dinosaur World, Pirate Voyage, Robot Friends, Fairy Kingdom, Safari Journey, Arctic Expedition, Medieval Quest, Jungle Trek, Candy Land, Musical Adventure, Secret Garden",
   "educationalValue": "one of: Kindness, Bravery, Sharing, Honesty, Curiosity, Friendship, Patience, Empathy, Resilience, Gratitude, Teamwork, Creativity, Respect, Responsibility, Perseverance, Generosity",
-  "synopsis": "2-3 sentence synopsis",
-  "imagePrompt": "Cover illustration prompt in watercolor style",
-  "whyRecommended": "Why this story is perfect for this child",
+  "synopsis": "3-4 sentence synopsis that makes the story sound irresistible",
+  "imagePrompt": "Detailed watercolor children's book COVER illustration. Show [specific scene/characters]. Style: warm magical watercolor, soft dreamy lighting, no text. Feature a ${child.age}-year-old ${child.gender ?? "child"} as the hero. ${child.favoriteColor ? `Include ${child.favoriteColor} tones.` : ""} Professional quality, enchanting and inviting.",
+  "whyRecommended": "Personal reason why this is perfect for ${child.name}",
   "ageAppropriate": true,
   "estimatedEpisodes": 5
 }]`;
 }
 
 // ─── API Calls ─────────────────────────────────────────────────
-async function callClaudeAPI(prompt: string): Promise<string> {
+
+async function callClaudeAPI(prompt: string, maxTokens: number = 16000): Promise<string> {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -306,7 +341,7 @@ async function callClaudeAPI(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 8000,
+      max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -326,18 +361,42 @@ async function callClaudeAPIRaw(prompt: string): Promise<string> {
 }
 
 // ─── Public Functions ──────────────────────────────────────────
+
 export async function generateEpisodeWithClaude(
   child: ChildProfile,
   arc: StoryArcContext,
   episodeNumber: number
 ): Promise<GeneratedEpisode> {
   const prompt = buildEpisodeGenerationPrompt(child, arc, episodeNumber);
-  const raw = await callClaudeAPI(prompt);
+  const raw = await callClaudeAPI(prompt, 16000);
 
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Failed to parse episode JSON from Claude response");
 
   const parsed = JSON.parse(jsonMatch[0]) as GeneratedEpisode;
+
+  // Validate minimum page count and content length
+  if (parsed.pages.length < 6) {
+    throw new Error(`Episode only has ${parsed.pages.length} pages, minimum is 6`);
+  }
+
+  // Add default sceneDescription and soundEffectHint if missing
+  for (const page of parsed.pages) {
+    if (!page.sceneDescription) {
+      page.sceneDescription = page.imagePrompt?.substring(0, 100) ?? "A magical scene";
+    }
+    if (!page.soundEffectHint) {
+      page.soundEffectHint = `Gentle ${arc.theme.toLowerCase()} ambient sounds`;
+    }
+  }
+
+  // Set defaults for new fields
+  if (!parsed.musicMood) parsed.musicMood = "whimsical";
+  if (!parsed.estimatedReadTimeMinutes) {
+    const totalWords = parsed.pages.reduce((sum, p) => sum + p.text.split(/\s+/).length, 0);
+    parsed.estimatedReadTimeMinutes = Math.ceil(totalWords / 150);
+  }
+
   return parsed;
 }
 
