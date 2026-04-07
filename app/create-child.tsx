@@ -52,7 +52,7 @@ export default function CreateChildScreen() {
   const [language, setLanguage] = useState("English");
   const [bedtime, setBedtime] = useState("");
 
-  // Step 1: Appearance
+  // Step 1: Story Hero Appearance (character avatar design)
   const [hairColor, setHairColor] = useState("");
   const [skinTone, setSkinTone] = useState("");
   const [favoriteColor, setFavoriteColor] = useState("");
@@ -86,7 +86,7 @@ export default function CreateChildScreen() {
       case 0:
         return name.trim().length > 0 && age.trim().length > 0;
       case 1:
-        return true; // appearance is optional
+        return true; // hero design is optional
       case 2:
         return true; // personality is optional
       case 3:
@@ -191,7 +191,7 @@ export default function CreateChildScreen() {
         <View style={styles.header}>
           <Pressable onPress={handleBack} style={styles.backBtn}>
             <Text style={[styles.backText, { color: colors.primary }]}>
-              {step > 0 ? "← Back" : "✕ Cancel"}
+              {step > 0 ? "\u2190 Back" : "\u2715 Cancel"}
             </Text>
           </Pressable>
           <Text style={[styles.stepLabel, { color: colors.textSecondary }]}>
@@ -222,7 +222,7 @@ export default function CreateChildScreen() {
           {step === 0 && (
             <Animated.View entering={FadeInRight.duration(300)}>
               <Text style={[styles.stepTitle, { color: colors.text }]}>
-                👶 Tell us about your child
+                {"\u{1F476}"} Tell us about your child
               </Text>
               <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
                 This helps us create personalized stories
@@ -289,24 +289,25 @@ export default function CreateChildScreen() {
             </Animated.View>
           )}
 
-          {/* ─── Step 1: Appearance ────────────────────── */}
+          {/* ─── Step 1: Design Story Hero ─────────────── */}
           {step === 1 && (
             <Animated.View entering={FadeInRight.duration(300)}>
               <Text style={[styles.stepTitle, { color: colors.text }]}>
-                🎨 How does {name || "your child"} look?
+                {"\u{1F3A8}"} Design {name ? `${name}'s` : "Your"} Story Hero
               </Text>
               <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
-                Used for story illustrations starring {name || "them"}
+                Create an avatar for {name ? `${name}'s` : "your"} storybook adventures.
+                This is how the character will appear in illustrations.
               </Text>
 
-              <Text style={[styles.label, { color: colors.text }]}>Hair Color</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Hero's Hair</Text>
               <View style={styles.chipRow}>
                 {HAIR_COLORS.map((h) =>
                   renderChip(h, hairColor === h, () => setHairColor(h))
                 )}
               </View>
 
-              <Text style={[styles.label, { color: colors.text }]}>Skin Tone</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Hero's Skin Tone</Text>
               <View style={styles.chipRow}>
                 {SKIN_TONES.map((s) => (
                   <Pressable
@@ -323,12 +324,17 @@ export default function CreateChildScreen() {
                 ))}
               </View>
 
-              <Text style={[styles.label, { color: colors.text }]}>Favorite Color</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Hero's Favorite Color</Text>
               <View style={styles.chipRow}>
                 {FAVORITE_COLORS.map((c) =>
                   renderChip(c, favoriteColor === c, () => setFavoriteColor(c))
                 )}
               </View>
+
+              <Text style={[styles.heroHint, { color: colors.textSecondary }]}>
+                {"\u{2139}\u{FE0F}"} These choices customize your story character's look — like designing a game avatar.
+                Feel free to pick any combination you like!
+              </Text>
             </Animated.View>
           )}
 
@@ -336,7 +342,7 @@ export default function CreateChildScreen() {
           {step === 2 && (
             <Animated.View entering={FadeInRight.duration(300)}>
               <Text style={[styles.stepTitle, { color: colors.text }]}>
-                🌟 {name || "Your child"}'s personality
+                {"\u{1F31F}"} {name || "Your child"}'s personality
               </Text>
               <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
                 Stories adapt to their unique character
@@ -386,7 +392,7 @@ export default function CreateChildScreen() {
           {step === 3 && (
             <Animated.View entering={FadeInRight.duration(300)}>
               <Text style={[styles.stepTitle, { color: colors.text }]}>
-                ✨ What does {name || "your child"} love?
+                {"\u{2728}"} What does {name || "your child"} love?
               </Text>
               <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
                 Pick up to 10 interests to inspire stories
@@ -412,7 +418,7 @@ export default function CreateChildScreen() {
           {step === 4 && (
             <Animated.View entering={FadeInRight.duration(300)}>
               <Text style={[styles.stepTitle, { color: colors.text }]}>
-                🧩 Neurodivergent Support
+                {"\u{1F9E9}"} Neurodivergent Support
               </Text>
               <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
                 Optional: Tailor stories for your child's unique way of experiencing the world
@@ -472,7 +478,6 @@ export default function CreateChildScreen() {
                       )
                     )}
                   </View>
-
                   <Text style={[styles.label, { color: colors.text }]}>Communication Style</Text>
                   <View style={styles.chipRow}>
                     {COMMUNICATION_STYLES.map((c) =>
@@ -537,7 +542,7 @@ export default function CreateChildScreen() {
             ]}
           >
             <Text style={styles.nextText}>
-              {step === TOTAL_STEPS - 1 ? "✓ Create Profile" : "Continue →"}
+              {step === TOTAL_STEPS - 1 ? "\u2713 Create Profile" : "Continue \u2192"}
             </Text>
           </Pressable>
         </View>
@@ -566,6 +571,7 @@ const styles = StyleSheet.create({
   stepSubtitle: { fontSize: 14, marginBottom: 24, lineHeight: 20 },
   label: { fontSize: 15, fontWeight: "600", marginBottom: 8, marginTop: 20 },
   labelHint: { fontSize: 12, marginBottom: 8, marginTop: -4 },
+  heroHint: { fontSize: 12, marginTop: 20, lineHeight: 18, fontStyle: "italic" },
   input: {
     height: 48,
     borderRadius: 12,
