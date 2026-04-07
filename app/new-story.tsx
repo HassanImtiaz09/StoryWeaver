@@ -133,27 +133,17 @@ export default function NewStoryScreen() {
 
       setGenerationStep("done");
 
-      Alert.alert(
-        "Story Created!",
-        `"${arcResult.title}" is ready with its first episode: "${episodeResult.title}". Head to the story reader to begin the adventure!`,
-        [{
-          text: "Read Now!",
-          onPress: () => router.replace({
-            pathname: "/story-reader" as any,
-            params: {
-              episodeTitle: episodeResult.title,
-              childName: params.childName,
-              arcId: arcResult.id.toString(),
-              episodeId: episodeResult.id.toString(),
-              serverMode: "true",
-            },
-          }),
-        }, {
-          text: "Later",
-          onPress: () => router.replace("/"),
-          style: "cancel",
-        }]
-      );
+      // Navigate directly to story detail page
+      router.replace({
+        pathname: "/story-detail" as any,
+        params: {
+          arcId: localArc.id,
+          title: arcResult.title || localArc.title,
+          childName: params.childName,
+          theme: params.theme,
+          serverArcId: arcResult.id.toString(),
+        },
+      });
     } catch (serverError) {
       // Fallback to local-only story arc
       console.log("Server generation failed, falling back to local:", serverError);
@@ -178,11 +168,16 @@ export default function NewStoryScreen() {
         // Increment local stories used counter
         await incrementStoriesUsed();
 
-        Alert.alert(
-          "Story Arc Created!",
-          `"${arc.title}" is ready! AI generation will be available when connected. Go to the Library tab to start reading.`,
-          [{ text: "OK", onPress: () => router.replace("/") }]
-        );
+        // Navigate directly to story detail page
+        router.replace({
+          pathname: "/story-detail" as any,
+          params: {
+            arcId: arc.id,
+            title: arc.title,
+            childName: params.childName,
+            theme: params.theme,
+          },
+        });
       } catch (e) {
         Alert.alert("Error", "Failed to create story. Please try again.");
       }

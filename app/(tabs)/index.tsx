@@ -340,11 +340,13 @@ export default function TonightScreen() {
                   style={[styles.arcCard, { backgroundColor: colors.card }]}
                   onPress={() =>
                     router.push({
-                      pathname: "/story-reader" as any,
+                      pathname: "/story-detail" as any,
                       params: {
-                        episodeTitle: arc.title,
-                        childName: arc.childName,
                         arcId: arc.id,
+                        title: arc.title,
+                        childName: arc.childName,
+                        theme: arc.theme,
+                        serverArcId: arc.serverArcId?.toString() || "",
                       },
                     })
                   }

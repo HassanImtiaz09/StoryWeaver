@@ -53,3 +53,6 @@
 - [x] Add Anthropic API credits (key valid but insufficient credits - user must add funds at console.anthropic.com/settings/billing)
 - [x] Build bedtime push notification reminder (schedule picker, local notifications, settings integration, 22 tests passing)
 - [x] Add golden screen transitions between story pages (crossfade + golden shimmer overlay using react-native-reanimated)
+- [x] Audit integrations: sunoMusic.ts, claudeStoryEngine.ts, elevenlabs.ts, schema.ts, routers.ts, story-reader.tsx — all fully implemented
+- [x] Fix: Generated stories not appearing in Library tab (Library now navigates to story-detail screen)
+- [x] Fix: After story generation, navigate user directly to story-detail episode list page

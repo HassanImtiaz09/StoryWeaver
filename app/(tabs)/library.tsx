@@ -38,11 +38,13 @@ export default function LibraryScreen() {
         <Pressable
           onPress={() => {
             router.push({
-              pathname: "/story-reader" as any,
+              pathname: "/story-detail" as any,
               params: {
-                episodeTitle: item.title,
-                childName: item.childName,
                 arcId: item.id,
+                title: item.title,
+                childName: item.childName,
+                theme: item.theme,
+                serverArcId: item.serverArcId?.toString() || "",
               },
             });
           }}
