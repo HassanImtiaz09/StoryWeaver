@@ -1,463 +1,496 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, TextInput, Alert,
-  Dimensions, Platform,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Image,
 } from "react-native";
-import { Image } from "expo-image";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { ScreenContainer } from "@/components/screen-container";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useColors } from "@/hooks/use-colors";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { LinearGradient } from "expo-linear-gradient";
-import { ASSETS } from "@/constants/assets";
-import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
+import { PRINT_FORMATS } from "@/constants/assets";
+import { trpc } from "@/lib/trpc";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-type BookFormat = "hardcover" | "softcover" | "premium";
-
-const BOOK_FORMATS: { id: BookFormat; name: string; price: string; priceNum: number; description: string; features: string[] }[] = [
-  {
-    id: "softcover",
-    name: "Softcover",
-    price: "\u00A314.99",
-    priceNum: 14.99,
-    description: "Perfect for everyday reading",
-    features: ["Matte finish cover", "High-quality paper", "Full color illustrations", "24-32 pages"],
-  },
-  {
-    id: "hardcover",
-    name: "Hardcover",
-    price: "\u00A324.99",
-    priceNum: 24.99,
-    description: "Built to last a lifetime",
-    features: ["Durable hardcover binding", "Premium glossy pages", "Full color illustrations", "24-32 pages", "Dust jacket included"],
-  },
-  {
-    id: "premium",
-    name: "Premium Gift Edition",
-    price: "\u00A339.99",
-    priceNum: 39.99,
-    description: "The ultimate keepsake gift",
-    features: ["Linen-wrapped hardcover", "Archival quality paper", "Gold foil title", "Gift box included", "Personalized dedication page", "24-32 pages"],
-  },
-];
-
-type OrderStep = "preview" | "format" | "details" | "confirmation";
+type PrintStep = "format" | "preview" | "shipping" | "payment" | "confirmation";
 
 export default function PrintBookScreen() {
   const router = useRouter();
   const colors = useColors();
-  const params = useLocalSearchParams<{ arcId: string; title: string }>();
+  const params = useLocalSearchParams<{ arcId: string; episodeId?: string }>();
 
-  const [step, setStep] = useState<OrderStep>("preview");
-  const [selectedFormat, setSelectedFormat] = useState<BookFormat>("hardcover");
+  const [step, setStep] = useState<PrintStep>("format");
+  const [selectedFormat, setSelectedFormat] = useState("");
   const [dedication, setDedication] = useState("");
-  const [recipientName, setRecipientName] = useState("");
-  const [shippingAddress, setShippingAddress] = useState("");
-  const [processing, setProcessing] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pricing, setPricing] = useState<{ subtotal: number; discount: number; total: number } | null>(null);
 
-  const storyTitle = params.title || "A Magical Adventure";
-  const selectedBook = BOOK_FORMATS.find((b) => b.id === selectedFormat)!;
+  // Shipping
+  const [shippingName, setShippingName] = useState("");
+  const [address1, setAddress1] = useState("");
+  const [address2, setAddress2] = useState("");
+  const [city, setCity] = useState("");
+  const [stateCode, setStateCode] = useState("");
+  const [zip, setZip] = useState("");
+  const [country, setCountry] = useState("US");
+  const [email, setEmail] = useState("");
 
-  const handlePlaceOrder = () => {
-    if (!recipientName.trim() || !shippingAddress.trim()) {
-      Alert.alert("Missing Information", "Please fill in the recipient name and shipping address.");
+  // Order result
+  const [orderId, setOrderId] = useState("");
+  const [orderStatus, setOrderStatus] = useState("");
+
+  // tRPC mutations
+  const createOrderMutation = trpc.printOrders.create.useMutation();
+  const getShippingMutation = trpc.printOrders.shippingRates.useMutation();
+  const confirmOrderMutation = trpc.printOrders.confirm.useMutation();
+
+  const handleSelectFormat = useCallback((formatId: string) => {
+    setSelectedFormat(formatId);
+  }, []);
+
+  const handleProceedToPreview = useCallback(async () => {
+    if (!selectedFormat) {
+      Alert.alert("Select a format", "Please choose a book format to continue.");
       return;
     }
-    setProcessing(true);
-    // Simulate order processing
-    setTimeout(() => {
-      setProcessing(false);
+    setStep("preview");
+  }, [selectedFormat]);
+
+  const handleProceedToShipping = useCallback(() => {
+    setStep("shipping");
+  }, []);
+
+  const handleProceedToPayment = useCallback(async () => {
+    if (!shippingName || !address1 || !city || !stateCode || !zip) {
+      Alert.alert("Missing info", "Please fill in all required shipping fields.");
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const result = await createOrderMutation.mutateAsync({
+        storyArcId: parseInt(params.arcId ?? "0", 10),
+        episodeId: params.episodeId ? parseInt(params.episodeId, 10) : undefined,
+        bookFormat: selectedFormat,
+        dedication,
+        shipping: {
+          name: shippingName,
+          address1,
+          address2: address2 || undefined,
+          city,
+          stateCode,
+          zip,
+          countryCode: country,
+          email: email || undefined,
+        },
+      });
+
+      setOrderId(result.orderId);
+      setPricing(result.pricing);
+      setStep("payment");
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Failed to prepare your order. Please try again.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [
+    params.arcId, params.episodeId, selectedFormat, dedication,
+    shippingName, address1, address2, city, stateCode, zip, country, email,
+    createOrderMutation,
+  ]);
+
+  const handleConfirmOrder = useCallback(async () => {
+    try {
+      const result = await confirmOrderMutation.mutateAsync({ orderId });
+      setOrderStatus("submitted");
       setStep("confirmation");
-    }, 2000);
-  };
-
-  // Preview Step
-  const renderPreview = () => (
-    <>
-      <Animated.View entering={FadeIn.duration(600)} style={styles.bookPreviewContainer}>
-        <View style={styles.bookMockup}>
-          <Image
-            source={{ uri: ASSETS.themes.forest }}
-            style={styles.bookCover}
-            contentFit="cover"
-          />
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.6)"]}
-            locations={[0.4, 1]}
-            style={styles.bookGradient}
-          >
-            <Text style={styles.bookTitle}>{storyTitle}</Text>
-            <Text style={styles.bookSubtitle}>A Personalized Bedtime Story</Text>
-          </LinearGradient>
-          <View style={styles.bookSpine} />
-        </View>
-        <View style={styles.bookShadow} />
-      </Animated.View>
-
-      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.previewInfo}>
-        <Text style={[styles.previewTitle, { color: colors.foreground }]}>
-          Turn This Adventure Into a Real Book
-        </Text>
-        <Text style={[styles.previewDesc, { color: colors.muted }]}>
-          Every page of your child's personalized story, beautifully printed with AI-generated illustrations. A keepsake they'll treasure forever.
-        </Text>
-
-        <View style={styles.featureGrid}>
-          {[
-            { icon: "sparkles" as const, title: "AI Illustrations", desc: "Every page beautifully illustrated" },
-            { icon: "gift.fill" as const, title: "Perfect Gift", desc: "Arrives in beautiful packaging" },
-            { icon: "printer.fill" as const, title: "Premium Print", desc: "Archival quality materials" },
-            { icon: "star.fill" as const, title: "Personalized", desc: "Your child is the hero" },
-          ].map((feat, idx) => (
-            <View key={idx} style={[styles.featureCard, { backgroundColor: colors.surface }]}>
-              <IconSymbol name={feat.icon} size={24} color="#FFD700" />
-              <Text style={[styles.featureTitle, { color: colors.foreground }]}>{feat.title}</Text>
-              <Text style={[styles.featureDesc, { color: colors.muted }]}>{feat.desc}</Text>
-            </View>
-          ))}
-        </View>
-      </Animated.View>
-
-      <Pressable
-        onPress={() => setStep("format")}
-        style={({ pressed }) => [
-          styles.primaryBtn,
-          pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-        ]}
-      >
-        <IconSymbol name="cart.fill" size={20} color="#0A0E1A" />
-        <Text style={styles.primaryBtnText}>Choose Book Format</Text>
-      </Pressable>
-
-      <Text style={[styles.startingPrice, { color: colors.muted }]}>
-        Starting from {"\u00A3"}14.99 {"\u00B7"} Free shipping on Premium plans
-      </Text>
-    </>
-  );
-
-  // Format Selection Step
-  const renderFormatSelection = () => (
-    <>
-      <Animated.View entering={FadeInDown.duration(400)}>
-        <Text style={[styles.stepTitle, { color: colors.foreground }]}>Choose Your Format</Text>
-        <Text style={[styles.stepSubtitle, { color: colors.muted }]}>
-          Select the perfect format for "{storyTitle}"
-        </Text>
-      </Animated.View>
-
-      {BOOK_FORMATS.map((format, idx) => (
-        <Animated.View key={format.id} entering={FadeInDown.delay(idx * 100).duration(400)}>
-          <Pressable
-            onPress={() => setSelectedFormat(format.id)}
-            style={({ pressed }) => [
-              styles.formatCard,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              selectedFormat === format.id && { borderColor: "#FFD700", borderWidth: 2 },
-              pressed && { opacity: 0.85 },
-            ]}
-          >
-            {format.id === "hardcover" && (
-              <View style={styles.popularBadge}>
-                <Text style={styles.popularText}>Most Popular</Text>
-              </View>
-            )}
-            <View style={styles.formatHeader}>
-              <View>
-                <Text style={[styles.formatName, { color: colors.foreground }]}>{format.name}</Text>
-                <Text style={[styles.formatDesc, { color: colors.muted }]}>{format.description}</Text>
-              </View>
-              <Text style={[styles.formatPrice, { color: "#FFD700" }]}>{format.price}</Text>
-            </View>
-            <View style={styles.formatFeatures}>
-              {format.features.map((feat, fIdx) => (
-                <View key={fIdx} style={styles.formatFeatureRow}>
-                  <IconSymbol name="checkmark.circle.fill" size={16} color={selectedFormat === format.id ? "#FFD700" : colors.muted} />
-                  <Text style={[styles.formatFeatureText, { color: colors.muted }]}>{feat}</Text>
-                </View>
-              ))}
-            </View>
-            {selectedFormat === format.id && (
-              <View style={styles.selectedIndicator}>
-                <IconSymbol name="checkmark.circle.fill" size={24} color="#FFD700" />
-              </View>
-            )}
-          </Pressable>
-        </Animated.View>
-      ))}
-
-      <Pressable
-        onPress={() => setStep("details")}
-        style={({ pressed }) => [
-          styles.primaryBtn,
-          { marginTop: 8 },
-          pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-        ]}
-      >
-        <Text style={styles.primaryBtnText}>Continue - {selectedBook.price}</Text>
-      </Pressable>
-    </>
-  );
-
-  // Details Step
-  const renderDetails = () => (
-    <>
-      <Animated.View entering={FadeInDown.duration(400)}>
-        <Text style={[styles.stepTitle, { color: colors.foreground }]}>Personalize & Ship</Text>
-        <Text style={[styles.stepSubtitle, { color: colors.muted }]}>
-          Add a personal touch and tell us where to send it
-        </Text>
-      </Animated.View>
-
-      {/* Order Summary */}
-      <Animated.View entering={FadeInDown.delay(100).duration(400)} style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.muted }]}>Book</Text>
-          <Text style={[styles.summaryValue, { color: colors.foreground }]}>{storyTitle}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.muted }]}>Format</Text>
-          <Text style={[styles.summaryValue, { color: colors.foreground }]}>{selectedBook.name}</Text>
-        </View>
-        <View style={[styles.summaryRow, styles.summaryTotal]}>
-          <Text style={[styles.summaryLabel, { color: colors.foreground, fontWeight: "700" }]}>Total</Text>
-          <Text style={[styles.summaryValue, { color: "#FFD700", fontWeight: "800", fontSize: 20 }]}>{selectedBook.price}</Text>
-        </View>
-      </Animated.View>
-
-      {/* Dedication */}
-      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.inputLabel, { color: colors.foreground }]}>Dedication (optional)</Text>
-        <Text style={[styles.inputHint, { color: colors.muted }]}>
-          Add a personal message on the first page
-        </Text>
-        <TextInput
-          value={dedication}
-          onChangeText={setDedication}
-          placeholder="For my little explorer, with all my love..."
-          placeholderTextColor={colors.muted}
-          multiline
-          numberOfLines={3}
-          style={[styles.textInput, { color: colors.foreground, borderColor: colors.border }]}
-          returnKeyType="done"
-        />
-      </Animated.View>
-
-      {/* Shipping */}
-      <Animated.View entering={FadeInDown.delay(300).duration(400)} style={[styles.inputCard, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.inputLabel, { color: colors.foreground }]}>Shipping Details</Text>
-        <TextInput
-          value={recipientName}
-          onChangeText={setRecipientName}
-          placeholder="Recipient Name"
-          placeholderTextColor={colors.muted}
-          style={[styles.textInputSingle, { color: colors.foreground, borderColor: colors.border }]}
-          returnKeyType="next"
-        />
-        <TextInput
-          value={shippingAddress}
-          onChangeText={setShippingAddress}
-          placeholder="Full Shipping Address"
-          placeholderTextColor={colors.muted}
-          multiline
-          numberOfLines={3}
-          style={[styles.textInput, { color: colors.foreground, borderColor: colors.border, marginTop: 10 }]}
-          returnKeyType="done"
-        />
-      </Animated.View>
-
-      <Pressable
-        onPress={handlePlaceOrder}
-        disabled={processing}
-        style={({ pressed }) => [
-          styles.primaryBtn,
-          { marginTop: 8 },
-          processing && { opacity: 0.6 },
-          pressed && !processing && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-        ]}
-      >
-        {processing ? (
-          <Text style={styles.primaryBtnText}>Processing...</Text>
-        ) : (
-          <>
-            <IconSymbol name="creditcard.fill" size={20} color="#0A0E1A" />
-            <Text style={styles.primaryBtnText}>Place Order - {selectedBook.price}</Text>
-          </>
-        )}
-      </Pressable>
-
-      <Text style={[styles.securityNote, { color: colors.muted }]}>
-        Secure checkout {"\u00B7"} Ships in 5-7 business days
-      </Text>
-    </>
-  );
-
-  // Confirmation Step
-  const renderConfirmation = () => (
-    <Animated.View entering={FadeInUp.duration(600)} style={styles.confirmationContainer}>
-      <View style={styles.confirmCheckmark}>
-        <IconSymbol name="checkmark.circle.fill" size={72} color="#4ADE80" />
-      </View>
-      <Text style={[styles.confirmTitle, { color: colors.foreground }]}>Order Placed!</Text>
-      <Text style={[styles.confirmSubtitle, { color: colors.muted }]}>
-        Your personalized copy of "{storyTitle}" is being prepared. We'll send you a tracking number once it ships.
-      </Text>
-
-      <View style={[styles.confirmDetails, { backgroundColor: colors.surface }]}>
-        <View style={styles.confirmRow}>
-          <Text style={[styles.confirmLabel, { color: colors.muted }]}>Order #</Text>
-          <Text style={[styles.confirmValue, { color: colors.foreground }]}>SW-{Date.now().toString().slice(-6)}</Text>
-        </View>
-        <View style={styles.confirmRow}>
-          <Text style={[styles.confirmLabel, { color: colors.muted }]}>Format</Text>
-          <Text style={[styles.confirmValue, { color: colors.foreground }]}>{selectedBook.name}</Text>
-        </View>
-        <View style={styles.confirmRow}>
-          <Text style={[styles.confirmLabel, { color: colors.muted }]}>Shipping to</Text>
-          <Text style={[styles.confirmValue, { color: colors.foreground }]}>{recipientName}</Text>
-        </View>
-        <View style={styles.confirmRow}>
-          <Text style={[styles.confirmLabel, { color: colors.muted }]}>Est. Delivery</Text>
-          <Text style={[styles.confirmValue, { color: colors.foreground }]}>5-7 business days</Text>
-        </View>
-        <View style={[styles.confirmRow, { borderBottomWidth: 0 }]}>
-          <Text style={[styles.confirmLabel, { color: colors.muted }]}>Total</Text>
-          <Text style={[styles.confirmValue, { color: "#FFD700", fontWeight: "800" }]}>{selectedBook.price}</Text>
-        </View>
-      </View>
-
-      <Pressable
-        onPress={() => router.replace("/")}
-        style={({ pressed }) => [
-          styles.primaryBtn,
-          pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-        ]}
-      >
-        <Text style={styles.primaryBtnText}>Back to Home</Text>
-      </Pressable>
-    </Animated.View>
-  );
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Failed to confirm order.");
+    }
+  }, [orderId, confirmOrderMutation]);
 
   return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable onPress={() => {
-            if (step === "preview" || step === "confirmation") router.back();
-            else if (step === "format") setStep("preview");
-            else if (step === "details") setStep("format");
-          }} style={styles.backBtn}>
-            <IconSymbol name="chevron.left" size={24} color={colors.foreground} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            {step === "confirmation" ? "Order Confirmed" : "Print Book"}
-          </Text>
-          <Pressable onPress={() => router.back()} style={styles.closeBtn}>
-            <IconSymbol name="xmark" size={20} color={colors.muted} />
-          </Pressable>
-        </View>
+    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={[styles.backText, { color: colors.primary }]}>{"\u{2190}"} Back</Text>
+        </Pressable>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          {step === "format" && "\u{1F4D6} Print Your Book"}
+          {step === "preview" && "\u{1F440} Preview"}
+          {step === "shipping" && "\u{1F4E6} Shipping"}
+          {step === "payment" && "\u{1F4B3} Review Order"}
+          {step === "confirmation" && "\u{2705} Order Placed!"}
+        </Text>
+        <View style={{ width: 60 }} />
+      </View>
 
-        {/* Step Indicator */}
-        {step !== "confirmation" && (
-          <View style={styles.stepIndicator}>
-            {(["preview", "format", "details"] as OrderStep[]).map((s, idx) => (
-              <View key={s} style={styles.stepDotRow}>
-                <View style={[
-                  styles.stepDot,
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* ─── Step: Format ────────────────── */}
+        {step === "format" && (
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Choose your book format
+            </Text>
+            <Text style={[styles.sectionDesc, { color: colors.textSecondary }]}>
+              Every story page includes its AI-generated illustration
+            </Text>
+
+            {PRINT_FORMATS.map((fmt) => (
+              <Pressable
+                key={fmt.id}
+                onPress={() => handleSelectFormat(fmt.id)}
+                style={[
+                  styles.formatCard,
                   {
-                    backgroundColor:
-                      s === step ? "#FFD700" :
-                      (["preview", "format", "details"].indexOf(step) > idx) ? "#4ADE80" :
-                      colors.border,
+                    backgroundColor: selectedFormat === fmt.id ? colors.primary + "15" : colors.card,
+                    borderColor: selectedFormat === fmt.id ? colors.primary : colors.border,
                   },
-                ]} />
-                {idx < 2 && <View style={[styles.stepLine, {
-                  backgroundColor: (["preview", "format", "details"].indexOf(step) > idx) ? "#4ADE80" : colors.border,
-                }]} />}
-              </View>
+                ]}
+              >
+                <View style={styles.formatIcon}>
+                  <Text style={styles.formatEmoji}>
+                    {fmt.id.includes("hard") ? "\u{1F4D5}" : "\u{1F4D4}"}
+                  </Text>
+                </View>
+                <View style={styles.formatInfo}>
+                  <Text style={[styles.formatLabel, { color: colors.text }]}>{fmt.label}</Text>
+                  <Text style={[styles.formatDesc, { color: colors.textSecondary }]}>
+                    {fmt.description}
+                  </Text>
+                  <Text style={[styles.formatPrice, { color: colors.primary }]}>
+                    {fmt.priceRange}
+                  </Text>
+                </View>
+                {selectedFormat === fmt.id && (
+                  <Text style={[styles.checkmark, { color: colors.primary }]}>{"\u{2713}"}</Text>
+                )}
+              </Pressable>
             ))}
-          </View>
+
+            <Text style={[styles.label, { color: colors.text }]}>Dedication (optional)</Text>
+            <TextInput
+              style={[styles.textArea, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              placeholder="For my little explorer, may your dreams always be this magical..."
+              placeholderTextColor={colors.textSecondary}
+              value={dedication}
+              onChangeText={setDedication}
+              multiline
+              numberOfLines={3}
+            />
+
+            <Pressable
+              onPress={handleProceedToPreview}
+              style={[styles.ctaButton, { backgroundColor: selectedFormat ? colors.primary : colors.muted }]}
+            >
+              <Text style={styles.ctaText}>Preview Book {"\u{2192}"}</Text>
+            </Pressable>
+          </Animated.View>
         )}
 
-        {step === "preview" && renderPreview()}
-        {step === "format" && renderFormatSelection()}
-        {step === "details" && renderDetails()}
-        {step === "confirmation" && renderConfirmation()}
+        {/* ─── Step: Preview ───────────────── */}
+        {step === "preview" && (
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Your storybook preview
+            </Text>
+            <Text style={[styles.sectionDesc, { color: colors.textSecondary }]}>
+              Each page will include the full-color AI illustration and story text
+            </Text>
+
+            <View style={[styles.previewBox, { backgroundColor: colors.card }]}>
+              <Text style={[styles.previewTitle, { color: colors.text }]}>
+                {"\u{1F4D6}"} Book Details
+              </Text>
+              <Text style={[styles.previewDetail, { color: colors.textSecondary }]}>
+                Format: {PRINT_FORMATS.find((f) => f.id === selectedFormat)?.label}
+              </Text>
+              <Text style={[styles.previewDetail, { color: colors.textSecondary }]}>
+                Pages: Full-color illustrations + text on every page
+              </Text>
+              <Text style={[styles.previewDetail, { color: colors.textSecondary }]}>
+                Cover: AI-generated custom artwork
+              </Text>
+              {dedication ? (
+                <Text style={[styles.previewDetail, { color: colors.textSecondary }]}>
+                  Dedication: "{dedication}"
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={styles.buttonRow}>
+              <Pressable onPress={() => setStep("format")} style={[styles.secondaryBtn, { borderColor: colors.border }]}>
+                <Text style={[styles.secondaryText, { color: colors.text }]}>{"\u{2190}"} Back</Text>
+              </Pressable>
+              <Pressable onPress={handleProceedToShipping} style={[styles.ctaButton, { backgroundColor: colors.primary, flex: 1 }]}>
+                <Text style={styles.ctaText}>Add Shipping {"\u{2192}"}</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ─── Step: Shipping ──────────────── */}
+        {step === "shipping" && (
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Shipping Address</Text>
+
+            <Text style={[styles.label, { color: colors.text }]}>Full Name *</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              value={shippingName}
+              onChangeText={setShippingName}
+              placeholder="John Smith"
+              placeholderTextColor={colors.textSecondary}
+            />
+
+            <Text style={[styles.label, { color: colors.text }]}>Address Line 1 *</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              value={address1}
+              onChangeText={setAddress1}
+              placeholder="123 Story Lane"
+              placeholderTextColor={colors.textSecondary}
+            />
+
+            <Text style={[styles.label, { color: colors.text }]}>Address Line 2</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              value={address2}
+              onChangeText={setAddress2}
+              placeholder="Apt 4B"
+              placeholderTextColor={colors.textSecondary}
+            />
+
+            <View style={styles.row}>
+              <View style={{ flex: 2 }}>
+                <Text style={[styles.label, { color: colors.text }]}>City *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+                  value={city}
+                  onChangeText={setCity}
+                  placeholder="New York"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.label, { color: colors.text }]}>State *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+                  value={stateCode}
+                  onChangeText={setStateCode}
+                  placeholder="NY"
+                  placeholderTextColor={colors.textSecondary}
+                  maxLength={2}
+                />
+              </View>
+            </View>
+
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.label, { color: colors.text }]}>ZIP Code *</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+                  value={zip}
+                  onChangeText={setZip}
+                  placeholder="10001"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.label, { color: colors.text }]}>Country</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+                  value={country}
+                  onChangeText={setCountry}
+                  placeholder="US"
+                  placeholderTextColor={colors.textSecondary}
+                  maxLength={2}
+                />
+              </View>
+            </View>
+
+            <Text style={[styles.label, { color: colors.text }]}>Email (for tracking)</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="parent@email.com"
+              placeholderTextColor={colors.textSecondary}
+              keyboardType="email-address"
+            />
+
+            <Pressable
+              onPress={handleProceedToPayment}
+              disabled={isGeneratingPdf}
+              style={[styles.ctaButton, { backgroundColor: colors.primary }]}
+            >
+              {isGeneratingPdf ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={[styles.ctaText, { marginLeft: 8 }]}>Preparing book...</Text>
+                </View>
+              ) : (
+                <Text style={styles.ctaText}>Review Order {"\u{2192}"}</Text>
+              )}
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* ─── Step: Payment ───────────────── */}
+        {step === "payment" && pricing && (
+          <Animated.View entering={FadeInDown.duration(400)}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Order Summary</Text>
+
+            <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Book</Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
+                  {PRINT_FORMATS.find((f) => f.id === selectedFormat)?.label}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Subtotal</Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
+                  ${pricing.subtotal.toFixed(2)}
+                </Text>
+              </View>
+              {pricing.discount > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: "#4ECDC4" }]}>
+                    Subscriber Discount
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: "#4ECDC4" }]}>
+                    -${pricing.discount.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Shipping</Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>Calculated at checkout</Text>
+              </View>
+              <View style={[styles.summaryRow, styles.totalRow]}>
+                <Text style={[styles.totalLabel, { color: colors.text }]}>Estimated Total</Text>
+                <Text style={[styles.totalValue, { color: colors.primary }]}>
+                  ${pricing.total.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.shippingPreview, { backgroundColor: colors.card }]}>
+              <Text style={[styles.previewTitle, { color: colors.text }]}>{"\u{1F4E6}"} Ships to:</Text>
+              <Text style={[styles.previewDetail, { color: colors.textSecondary }]}>
+                {shippingName}
+              </Text>
+              <Text style={[styles.previewDetail, { color: colors.textSecondary }]}>
+                {address1}{address2 ? `, ${address2}` : ""}
+              </Text>
+              <Text style={[styles.previewDetail, { color: colors.textSecondary }]}>
+                {city}, {stateCode} {zip}
+              </Text>
+            </View>
+
+            <Pressable onPress={handleConfirmOrder} style={[styles.ctaButton, { backgroundColor: "#4ECDC4" }]}>
+              <Text style={styles.ctaText}>{"\u{2713}"} Place Order</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* ─── Step: Confirmation ──────────── */}
+        {step === "confirmation" && (
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.confirmationView}>
+            <Text style={styles.confirmEmoji}>{"\u{1F389}"}</Text>
+            <Text style={[styles.confirmTitle, { color: colors.text }]}>Order Placed!</Text>
+            <Text style={[styles.confirmDesc, { color: colors.textSecondary }]}>
+              Your personalized storybook is being prepared for printing.
+              You'll receive an email with tracking information once it ships.
+            </Text>
+
+            <View style={[styles.orderIdBox, { backgroundColor: colors.card }]}>
+              <Text style={[styles.orderIdLabel, { color: colors.textSecondary }]}>Order ID</Text>
+              <Text style={[styles.orderIdValue, { color: colors.text }]}>{orderId}</Text>
+            </View>
+
+            <Pressable onPress={() => router.replace("/(tabs)")} style={[styles.ctaButton, { backgroundColor: colors.primary }]}>
+              <Text style={styles.ctaText}>Back to Stories</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
-  backBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  closeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  headerTitle: { fontSize: 18, fontWeight: "700" },
-  stepIndicator: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 24 },
-  stepDotRow: { flexDirection: "row", alignItems: "center" },
-  stepDot: { width: 12, height: 12, borderRadius: 6 },
-  stepLine: { width: 40, height: 2, marginHorizontal: 4 },
-
-  // Preview
-  bookPreviewContainer: { alignItems: "center", marginBottom: 28, paddingTop: 16 },
-  bookMockup: { width: SCREEN_WIDTH * 0.55, height: SCREEN_WIDTH * 0.75, borderRadius: 8, overflow: "hidden", position: "relative", elevation: 8, shadowColor: "#000", shadowOffset: { width: 4, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12 },
-  bookCover: { width: "100%", height: "100%" },
-  bookGradient: { position: "absolute", bottom: 0, left: 0, right: 0, height: "60%", justifyContent: "flex-end", padding: 16 },
-  bookTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
-  bookSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 4 },
-  bookSpine: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4, backgroundColor: "rgba(0,0,0,0.2)" },
-  bookShadow: { width: SCREEN_WIDTH * 0.5, height: 20, backgroundColor: "rgba(0,0,0,0.1)", borderRadius: 100, marginTop: -4 },
-
-  previewInfo: { alignItems: "center", marginBottom: 24 },
-  previewTitle: { fontSize: 24, fontWeight: "800", textAlign: "center", marginBottom: 8 },
-  previewDesc: { fontSize: 15, lineHeight: 22, textAlign: "center", paddingHorizontal: 8 },
-  featureGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 20, width: "100%" },
-  featureCard: { width: (SCREEN_WIDTH - 50) / 2 - 5, borderRadius: 14, padding: 14, alignItems: "center", gap: 6 },
-  featureTitle: { fontSize: 13, fontWeight: "700" },
-  featureDesc: { fontSize: 11, textAlign: "center" },
-
-  primaryBtn: { backgroundColor: "#FFD700", borderRadius: 16, paddingVertical: 18, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, width: "100%", marginTop: 16 },
-  primaryBtnText: { color: "#0A0E1A", fontSize: 17, fontWeight: "700" },
-  startingPrice: { fontSize: 13, textAlign: "center", marginTop: 10 },
-
-  // Format
-  stepTitle: { fontSize: 22, fontWeight: "800", marginBottom: 4 },
-  stepSubtitle: { fontSize: 14, lineHeight: 20, marginBottom: 20 },
-  formatCard: { borderRadius: 18, borderWidth: 1, padding: 18, marginBottom: 12, position: "relative" },
-  popularBadge: { position: "absolute", top: -10, right: 16, backgroundColor: "#FFD700", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  popularText: { color: "#0A0E1A", fontSize: 11, fontWeight: "700" },
-  formatHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 },
-  formatName: { fontSize: 18, fontWeight: "700" },
+  root: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  backBtn: { width: 60 },
+  backText: { fontSize: 16, fontWeight: "500" },
+  headerTitle: { fontSize: 17, fontWeight: "700" },
+  content: { paddingHorizontal: 20, paddingTop: 12 },
+  sectionTitle: { fontSize: 22, fontWeight: "700", marginBottom: 6 },
+  sectionDesc: { fontSize: 14, lineHeight: 20, marginBottom: 20 },
+  // Format cards
+  formatCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  formatIcon: { width: 48, height: 48, justifyContent: "center", alignItems: "center" },
+  formatEmoji: { fontSize: 28 },
+  formatInfo: { flex: 1, marginLeft: 12 },
+  formatLabel: { fontSize: 16, fontWeight: "600" },
   formatDesc: { fontSize: 13, marginTop: 2 },
-  formatPrice: { fontSize: 22, fontWeight: "800" },
-  formatFeatures: { gap: 4 },
-  formatFeatureRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  formatFeatureText: { fontSize: 13 },
-  selectedIndicator: { position: "absolute", bottom: 16, right: 16 },
-
-  // Details
-  summaryCard: { borderRadius: 16, padding: 16, marginBottom: 16 },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 },
-  summaryTotal: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", marginTop: 4, paddingTop: 12 },
+  formatPrice: { fontSize: 14, fontWeight: "600", marginTop: 4 },
+  checkmark: { fontSize: 22, fontWeight: "700" },
+  // Inputs
+  label: { fontSize: 14, fontWeight: "600", marginBottom: 6, marginTop: 16 },
+  input: { height: 48, borderRadius: 12, paddingHorizontal: 16, fontSize: 16, borderWidth: 1 },
+  textArea: { minHeight: 80, borderRadius: 12, paddingHorizontal: 16, paddingTop: 12, fontSize: 15, borderWidth: 1, textAlignVertical: "top" },
+  row: { flexDirection: "row" },
+  // CTA
+  ctaButton: { paddingVertical: 16, borderRadius: 25, alignItems: "center", marginTop: 24 },
+  ctaText: { color: "#fff", fontSize: 17, fontWeight: "600" },
+  loadingRow: { flexDirection: "row", alignItems: "center" },
+  secondaryBtn: { paddingVertical: 14, paddingHorizontal: 20, borderRadius: 25, borderWidth: 1, marginRight: 12 },
+  secondaryText: { fontSize: 15, fontWeight: "500" },
+  buttonRow: { flexDirection: "row", alignItems: "center", marginTop: 24 },
+  // Preview
+  previewBox: { padding: 20, borderRadius: 14, marginBottom: 16 },
+  previewTitle: { fontSize: 16, fontWeight: "600", marginBottom: 10 },
+  previewDetail: { fontSize: 14, lineHeight: 22 },
+  // Summary
+  summaryCard: { padding: 20, borderRadius: 14, marginBottom: 16 },
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 },
   summaryLabel: { fontSize: 14 },
-  summaryValue: { fontSize: 14, fontWeight: "600" },
-  inputCard: { borderRadius: 16, padding: 16, marginBottom: 12 },
-  inputLabel: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
-  inputHint: { fontSize: 13, marginBottom: 10 },
-  textInput: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 15, minHeight: 80, textAlignVertical: "top" },
-  textInputSingle: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 15, height: 48 },
-  securityNote: { fontSize: 12, textAlign: "center", marginTop: 10 },
-
+  summaryValue: { fontSize: 14, fontWeight: "500" },
+  totalRow: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)", marginTop: 8, paddingTop: 12 },
+  totalLabel: { fontSize: 16, fontWeight: "700" },
+  totalValue: { fontSize: 20, fontWeight: "800" },
+  shippingPreview: { padding: 16, borderRadius: 14, marginBottom: 8 },
   // Confirmation
-  confirmationContainer: { alignItems: "center", paddingTop: 32 },
-  confirmCheckmark: { marginBottom: 20 },
-  confirmTitle: { fontSize: 28, fontWeight: "800", marginBottom: 8 },
-  confirmSubtitle: { fontSize: 15, lineHeight: 22, textAlign: "center", marginBottom: 28, paddingHorizontal: 16 },
-  confirmDetails: { borderRadius: 16, padding: 16, width: "100%", marginBottom: 24 },
-  confirmRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" },
-  confirmLabel: { fontSize: 14 },
-  confirmValue: { fontSize: 14, fontWeight: "600" },
+  confirmationView: { alignItems: "center", paddingTop: 40 },
+  confirmEmoji: { fontSize: 64, marginBottom: 16 },
+  confirmTitle: { fontSize: 28, fontWeight: "800", marginBottom: 12 },
+  confirmDesc: { fontSize: 15, textAlign: "center", lineHeight: 24, paddingHorizontal: 20, marginBottom: 24 },
+  orderIdBox: { padding: 16, borderRadius: 12, alignItems: "center", marginBottom: 24, width: "100%" },
+  orderIdLabel: { fontSize: 12, marginBottom: 4 },
+  orderIdValue: { fontSize: 18, fontWeight: "700", fontFamily: "monospace" },
 });
