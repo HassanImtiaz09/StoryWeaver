@@ -7,6 +7,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Dimensions,
+  RefreshControl,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -17,12 +19,20 @@ import { getLocalStoryArcs, updateLocalStoryArc, type LocalStoryArc } from "@/li
 import { trpc } from "@/lib/trpc";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HERO_HEIGHT = 260;
+
+type GenerationStep = "idle" | "generating_episode" | "done";
+
+const STEP_MESSAGES: Record<GenerationStep, string> = {
+  idle: "",
+  generating_episode: "Writing the next chapter...",
+  done: "Episode ready!",
+};
 
 type EpisodeItem = {
   id: number;
@@ -48,6 +58,11 @@ export default function StoryDetailScreen() {
 
   const [localArc, setLocalArc] = useState<LocalStoryArc | null>(null);
   const [loadingLocal, setLoadingLocal] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Inline episode generation state
+  const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
+  const isGenerating = generationStep !== "idle" && generationStep !== "done";
 
   // Determine the server arc ID for tRPC queries
   const serverArcId = params.serverArcId
@@ -55,17 +70,24 @@ export default function StoryDetailScreen() {
     : localArc?.serverArcId ?? parseInt(params.arcId, 10);
   const hasServerArc = !!serverArcId && !isNaN(serverArcId) && serverArcId > 0;
 
+  // tRPC mutation for inline episode generation
+  const generateEpisodeMutation = trpc.episodes.generate.useMutation();
+
   // Load local arc data
+  const loadLocalArc = useCallback(async () => {
+    const arcs = await getLocalStoryArcs();
+    const found = arcs.find((a) => a.id === params.arcId);
+    if (found) setLocalArc(found);
+  }, [params.arcId]);
+
   useFocusEffect(
     useCallback(() => {
       (async () => {
         setLoadingLocal(true);
-        const arcs = await getLocalStoryArcs();
-        const found = arcs.find((a) => a.id === params.arcId);
-        if (found) setLocalArc(found);
+        await loadLocalArc();
         setLoadingLocal(false);
       })();
-    }, [params.arcId])
+    }, [loadLocalArc])
   );
 
   // Fetch episodes from server
@@ -98,6 +120,21 @@ export default function StoryDetailScreen() {
   const totalEpisodes = serverArc?.totalEpisodes || localArc?.totalEpisodes || 0;
   const readCount = episodes.filter((e) => e.isRead).length;
   const progress = totalEpisodes > 0 ? (readCount / totalEpisodes) * 100 : 0;
+  const nextEpisodeNumber = episodes.length + 1;
+  const canGenerateMore = episodes.length < totalEpisodes;
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadLocalArc();
+    if (hasServerArc) {
+      await Promise.all([
+        episodesQuery.refetch(),
+        arcQuery.refetch(),
+      ]);
+    }
+    setRefreshing(false);
+  }, [loadLocalArc, hasServerArc, episodesQuery, arcQuery]);
 
   const handleEpisodePress = async (episode: EpisodeItem) => {
     if (Platform.OS !== "web") {
@@ -120,23 +157,57 @@ export default function StoryDetailScreen() {
     });
   };
 
-  const handleGenerateNext = () => {
+  // Inline episode generation
+  const handleGenerateEpisode = async () => {
+    if (!hasServerArc || isGenerating) return;
+
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    // Navigate to new-story with pre-filled params to generate next episode
-    // Or trigger episode generation directly
-    router.push({
-      pathname: "/new-story" as any,
-      params: {
-        childId: localArc?.childId || "",
-        childName,
-        theme: themeId,
-        themeName: localArc?.themeName || themeData?.name || "",
-        existingArcId: serverArcId.toString(),
-        nextEpisodeNumber: (episodes.length + 1).toString(),
-      },
-    });
+
+    try {
+      setGenerationStep("generating_episode");
+
+      const episodeResult = await generateEpisodeMutation.mutateAsync({
+        arcId: serverArcId,
+        episodeNumber: nextEpisodeNumber,
+      });
+
+      setGenerationStep("done");
+
+      // Update local arc's current episode
+      if (localArc) {
+        await updateLocalStoryArc(localArc.id, {
+          currentEpisode: nextEpisodeNumber,
+        });
+        await loadLocalArc();
+      }
+
+      // Refresh the episodes list
+      await episodesQuery.refetch();
+
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      // Reset generation state after a brief delay so user sees "done"
+      setTimeout(() => {
+        setGenerationStep("idle");
+      }, 1500);
+    } catch (error) {
+      console.error("Episode generation failed:", error);
+      setGenerationStep("idle");
+
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+
+      Alert.alert(
+        "Generation Failed",
+        "Could not generate the next episode. Please check your connection and try again.",
+        [{ text: "OK" }]
+      );
+    }
   };
 
   const isLoading = loadingLocal || (hasServerArc && episodesQuery.isLoading);
@@ -156,7 +227,6 @@ export default function StoryDetailScreen() {
   }
 
   const renderEpisode = ({ item, index }: { item: EpisodeItem; index: number }) => {
-    const isAvailable = true; // All generated episodes are available
     const isRead = item.isRead ?? false;
     const hasAudio = !!item.fullAudioUrl;
     const hasMusic = !!item.musicUrl;
@@ -318,7 +388,7 @@ export default function StoryDetailScreen() {
         </Text>
         {episodes.length === 0 && !episodesQuery.isLoading && (
           <Text style={[styles.noEpisodesText, { color: colors.muted }]}>
-            No episodes generated yet. Start reading to generate the first episode!
+            No episodes generated yet. Tap the button below to generate your first episode!
           </Text>
         )}
       </Animated.View>
@@ -327,32 +397,86 @@ export default function StoryDetailScreen() {
 
   const ListFooter = () => (
     <View style={styles.footer}>
-      {/* Generate next episode button */}
-      {episodes.length < totalEpisodes && episodes.length > 0 && (
+      {/* Inline Generate Episode button */}
+      {canGenerateMore && hasServerArc && (
         <Animated.View entering={FadeInDown.delay(episodes.length * 80 + 200).duration(400)}>
           <Pressable
-            onPress={handleGenerateNext}
+            onPress={handleGenerateEpisode}
+            disabled={isGenerating}
             style={({ pressed }) => [
               styles.generateBtn,
-              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              isGenerating && styles.generateBtnDisabled,
+              pressed && !isGenerating && { opacity: 0.85, transform: [{ scale: 0.97 }] },
             ]}
           >
             <LinearGradient
-              colors={["rgba(255,215,0,0.15)", "rgba(255,215,0,0.05)"]}
+              colors={
+                isGenerating
+                  ? ["rgba(255,215,0,0.08)", "rgba(255,215,0,0.03)"]
+                  : ["rgba(255,215,0,0.18)", "rgba(255,215,0,0.06)"]
+              }
               style={styles.generateBtnGradient}
             >
-              <IconSymbol name="sparkles" size={20} color="#FFD700" />
-              <View style={styles.generateBtnText}>
-                <Text style={[styles.generateBtnTitle, { color: colors.foreground }]}>
-                  Generate Next Episode
-                </Text>
-                <Text style={[styles.generateBtnSub, { color: colors.muted }]}>
-                  Episode {episodes.length + 1} of {totalEpisodes}
-                </Text>
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#FFD700" />
+              ) : (
+                <IconSymbol name="sparkles" size={22} color="#FFD700" />
+              )}
+              <View style={styles.generateBtnTextContainer}>
+                {isGenerating ? (
+                  <>
+                    <Text style={[styles.generateBtnTitle, { color: "#FFD700" }]}>
+                      {STEP_MESSAGES[generationStep]}
+                    </Text>
+                    <Text style={[styles.generateBtnSub, { color: colors.muted }]}>
+                      This may take a moment...
+                    </Text>
+                  </>
+                ) : generationStep === "done" ? (
+                  <>
+                    <Text style={[styles.generateBtnTitle, { color: "#4ADE80" }]}>
+                      {"\u2713"} Episode Ready!
+                    </Text>
+                    <Text style={[styles.generateBtnSub, { color: colors.muted }]}>
+                      Tap an episode above to start reading
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.generateBtnTitle, { color: colors.foreground }]}>
+                      Generate Episode {nextEpisodeNumber}
+                    </Text>
+                    <Text style={[styles.generateBtnSub, { color: colors.muted }]}>
+                      Episode {nextEpisodeNumber} of {totalEpisodes}
+                    </Text>
+                  </>
+                )}
               </View>
-              <IconSymbol name="chevron.right" size={16} color="#FFD700" />
+              {!isGenerating && generationStep !== "done" && (
+                <IconSymbol name="chevron.right" size={16} color="#FFD700" />
+              )}
             </LinearGradient>
           </Pressable>
+
+          {/* Animated progress indicator during generation */}
+          {isGenerating && (
+            <View style={styles.generationProgress}>
+              <View style={[styles.progressDot, styles.progressDotActive]} />
+              <View style={[styles.progressDot, styles.progressDotInactive]} />
+            </View>
+          )}
+        </Animated.View>
+      )}
+
+      {/* All episodes generated message */}
+      {!canGenerateMore && episodes.length > 0 && (
+        <Animated.View entering={FadeInDown.delay(400).duration(400)}>
+          <View style={styles.allDoneContainer}>
+            <Text style={styles.allDoneEmoji}>{"\u2728"}</Text>
+            <Text style={[styles.allDoneText, { color: colors.muted }]}>
+              All {totalEpisodes} episodes have been generated!
+            </Text>
+          </View>
         </Animated.View>
       )}
 
@@ -391,6 +515,15 @@ export default function StoryDetailScreen() {
         ListFooterComponent={ListFooter}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#FFD700"
+            colors={["#FFD700"]}
+            progressBackgroundColor="rgba(10,14,26,0.9)"
+          />
+        }
       />
     </ScreenContainer>
   );
@@ -576,8 +709,11 @@ const styles = StyleSheet.create({
   generateBtn: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,215,0,0.2)",
+    borderColor: "rgba(255,215,0,0.25)",
     overflow: "hidden",
+  },
+  generateBtnDisabled: {
+    borderColor: "rgba(255,215,0,0.12)",
   },
   generateBtnGradient: {
     flexDirection: "row",
@@ -585,7 +721,7 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
-  generateBtnText: {
+  generateBtnTextContainer: {
     flex: 1,
   },
   generateBtnTitle: {
@@ -595,6 +731,37 @@ const styles = StyleSheet.create({
   generateBtnSub: {
     fontSize: 12,
     marginTop: 2,
+  },
+  generationProgress: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  progressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  progressDotActive: {
+    backgroundColor: "#FFD700",
+  },
+  progressDotInactive: {
+    backgroundColor: "rgba(255,215,0,0.2)",
+  },
+  allDoneContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+  },
+  allDoneEmoji: {
+    fontSize: 18,
+  },
+  allDoneText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   printBookBtn: {
     flexDirection: "row",

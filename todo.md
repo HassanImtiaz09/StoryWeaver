@@ -56,3 +56,5 @@
 - [x] Audit integrations: sunoMusic.ts, claudeStoryEngine.ts, elevenlabs.ts, schema.ts, routers.ts, story-reader.tsx — all fully implemented
 - [x] Fix: Generated stories not appearing in Library tab (Library now navigates to story-detail screen)
 - [x] Fix: After story generation, navigate user directly to story-detail episode list page
+- [x] Add inline "Generate Episode" button on story-detail with server-side generation and progress indicator
+- [x] Add pull-to-refresh on Library and story-detail screens

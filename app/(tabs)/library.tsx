@@ -5,6 +5,7 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
+  RefreshControl,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -19,15 +20,24 @@ export default function LibraryScreen() {
   const router = useRouter();
   const colors = useColors();
   const [arcs, setArcs] = useState<LocalStoryArc[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadArcs = useCallback(async () => {
+    const loaded = await getLocalStoryArcs();
+    setArcs(loaded);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      (async () => {
-        const loaded = await getLocalStoryArcs();
-        setArcs(loaded);
-      })();
-    }, [])
+      loadArcs();
+    }, [loadArcs])
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadArcs();
+    setRefreshing(false);
+  }, [loadArcs]);
 
   const renderArc = ({ item, index }: { item: LocalStoryArc; index: number }) => {
     const themeData = STORY_THEMES.find((t) => t.id === item.theme);
@@ -124,7 +134,7 @@ export default function LibraryScreen() {
 
         {arcs.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📚</Text>
+            <Text style={styles.emptyIcon}>{"\u{1F4DA}"}</Text>
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
               No Stories Yet
             </Text>
@@ -148,6 +158,15 @@ export default function LibraryScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#FFD700"
+                colors={["#FFD700"]}
+                progressBackgroundColor="rgba(10,14,26,0.9)"
+              />
+            }
           />
         )}
       </View>
