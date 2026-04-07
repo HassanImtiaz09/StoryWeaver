@@ -37,3 +37,6 @@
 - [x] Integrate ElevenLabs API key for HD voice narration (validated: auth + voices endpoint)
 - [x] Integrate Claude (Anthropic) API key for AI story generation (key valid, needs credits)
 - [x] Sync project with latest GitHub changes (second sync - 0 TS errors, 29 tests passing)
+- [x] Add server-side voice preview API route (ElevenLabs TTS short sample)
+- [x] Add voice picker UI in Settings with play/stop preview buttons
+- [x] Save selected voice preference to local settings store (selectedVoicePreset)

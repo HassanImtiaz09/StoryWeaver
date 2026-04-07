@@ -19,7 +19,7 @@ import {
   generatePageImagePrompt,
   type ChildProfile,
 } from "./_core/claudeStoryEngine";
-import { generatePageAudio } from "./_core/elevenlabs";
+import { generatePageAudio, generateSpeech, VOICE_PRESETS, type VoiceRole } from "./_core/elevenlabs";
 import { generateImage } from "./_core/imageGeneration";
 import {
   calculateBookPrice,
@@ -612,6 +612,55 @@ export const appRouter = router({
         }).where(eq(users.id, ctx.user.id));
 
         return { success: true, plan: input.plan, expiresAt };
+      }),
+  }),
+
+  // ─── Voice Preview Routes ──────────────────────────────────────
+  voices: router({
+    listPresets: publicProcedure.query(() => {
+      return Object.entries(VOICE_PRESETS).map(([role, config]) => ({
+        role,
+        name: config.name,
+        description: config.description,
+        voiceId: config.voiceId,
+      }));
+    }),
+
+    preview: publicProcedure
+      .input(z.object({ role: z.string() }))
+      .mutation(async ({ input }) => {
+        const voiceConfig = VOICE_PRESETS[input.role as VoiceRole];
+        if (!voiceConfig) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown voice role: ${input.role}` });
+        }
+
+        const sampleTexts: Record<string, string> = {
+          narrator: "Once upon a time, in a land of twinkling stars and whispering trees, a little adventurer set off on a magical journey.",
+          child_hero: "Wow, look at all those stars! I bet there's a secret hiding behind that big sparkly one!",
+          wise_old: "Ah, young one, the greatest treasures are not gold or jewels, but the friends we meet along the way.",
+          friendly_creature: "Hey there, new friend! Want to come explore the enchanted meadow with me? It's going to be so much fun!",
+          villain_silly: "Mwahahaha! I shall steal all the cookies in the kingdom! No one can stop the great Cookie Bandit!",
+          magical_being: "With a sprinkle of stardust and a whisper of moonlight, anything your heart desires can come true.",
+          animal_small: "Squeak squeak! Did you see that? A rainbow just appeared over the mushroom houses!",
+          animal_large: "Grrrr... don't worry little one, I may be big but I have the gentlest heart in the whole forest.",
+          robot_friendly: "Beep boop! My sensors detect an adventure nearby. Shall we investigate together, friend?",
+        };
+
+        const sampleText = sampleTexts[input.role] || sampleTexts.narrator;
+
+        const audioBuffer = await generateSpeech({
+          text: sampleText,
+          voiceConfig,
+        });
+
+        // Return as base64 data URI so the client can play it directly
+        const base64 = audioBuffer.toString("base64");
+        return {
+          audioDataUri: `data:audio/mpeg;base64,${base64}`,
+          role: input.role,
+          name: voiceConfig.name,
+          sampleText,
+        };
       }),
   }),
 });

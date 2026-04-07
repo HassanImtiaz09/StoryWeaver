@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, Switch, Alert, Platform,
+  View, Text, ScrollView, Pressable, StyleSheet, Switch, Alert, Platform, ActivityIndicator,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -11,6 +11,8 @@ import {
   getSettings, saveSettings, formatBedtime,
   type AppSettings,
 } from "@/lib/settings-store";
+import { createAudioPlayer } from "expo-audio";
+import { trpc } from "@/lib/trpc";
 
 const STORY_LENGTH_OPTIONS: { value: AppSettings["storyLength"]; label: string; pages: number }[] = [
   { value: "short", label: "Short", pages: 4 },
@@ -49,17 +51,49 @@ const SUBSCRIPTION_TIERS = [
   },
 ];
 
+// Voice role display info with emoji icons
+const VOICE_ROLE_DISPLAY: Record<string, { emoji: string; label: string }> = {
+  narrator: { emoji: "\uD83D\uDCD6", label: "Narrator" },
+  child_hero: { emoji: "\uD83E\uDDD2", label: "Child Hero" },
+  wise_old: { emoji: "\uD83E\uDDD9", label: "Wise Elder" },
+  friendly_creature: { emoji: "\uD83D\uDC3B", label: "Friendly Creature" },
+  villain_silly: { emoji: "\uD83E\uDD39", label: "Silly Villain" },
+  magical_being: { emoji: "\u2728", label: "Magical Being" },
+  animal_small: { emoji: "\uD83D\uDC3F\uFE0F", label: "Small Animal" },
+  animal_large: { emoji: "\uD83E\uDD81", label: "Large Animal" },
+  robot_friendly: { emoji: "\uD83E\uDD16", label: "Friendly Robot" },
+};
+
 export default function SettingsScreen() {
   const router = useRouter();
   const colors = useColors();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Voice preview state
+  const [previewingRole, setPreviewingRole] = useState<string | null>(null);
+  const [playingRole, setPlayingRole] = useState<string | null>(null);
+  const audioPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+
+  // Fetch voice presets from server
+  const voicePresetsQuery = trpc.voices.listPresets.useQuery();
+  const previewMutation = trpc.voices.preview.useMutation();
+
   useFocusEffect(
     useCallback(() => {
       getSettings().then(setSettings);
     }, [])
   );
+
+  // Clean up audio player on unmount
+  useEffect(() => {
+    return () => {
+      if (audioPlayerRef.current) {
+        try { audioPlayerRef.current.remove(); } catch {}
+        audioPlayerRef.current = null;
+      }
+    };
+  }, []);
 
   const updateSetting = async <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     if (!settings) return;
@@ -80,6 +114,62 @@ export default function SettingsScreen() {
     const updated = { ...settings, bedtimeHour, bedtimeMinute };
     setSettings(updated);
     saveSettings({ bedtimeHour, bedtimeMinute });
+  };
+
+  const handleVoicePreview = async (role: string) => {
+    // If already playing this role, stop it
+    if (playingRole === role) {
+      stopAudio();
+      return;
+    }
+
+    // Stop any currently playing audio
+    stopAudio();
+
+    setPreviewingRole(role);
+    try {
+      const result = await previewMutation.mutateAsync({ role });
+
+      // Create audio player from the base64 data URI
+      const player = createAudioPlayer({ uri: result.audioDataUri });
+      audioPlayerRef.current = player;
+      setPlayingRole(role);
+      setPreviewingRole(null);
+
+      player.play();
+
+      // Auto-stop after estimated duration (base64 length / 1.37 gives approximate byte size, then estimate duration)
+      const estimatedDurationMs = Math.max(3000, (result.audioDataUri.length / 1.37 / 16000) * 1000);
+      setTimeout(() => {
+        if (audioPlayerRef.current === player) {
+          stopAudio();
+        }
+      }, estimatedDurationMs);
+    } catch (error: any) {
+      setPreviewingRole(null);
+      Alert.alert(
+        "Preview Unavailable",
+        error?.message?.includes("ELEVENLABS_API_KEY")
+          ? "ElevenLabs API key is not configured. Please add it in the app settings."
+          : "Could not generate voice preview. Please try again later."
+      );
+    }
+  };
+
+  const stopAudio = () => {
+    if (audioPlayerRef.current) {
+      try {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.remove();
+      } catch {}
+      audioPlayerRef.current = null;
+    }
+    setPlayingRole(null);
+    setPreviewingRole(null);
+  };
+
+  const handleSelectVoice = (role: string) => {
+    updateSetting("selectedVoicePreset", role);
   };
 
   const handleSubscriptionSelect = (tier: typeof SUBSCRIPTION_TIERS[0]) => {
@@ -106,6 +196,8 @@ export default function SettingsScreen() {
   };
 
   if (!settings) return null;
+
+  const voicePresets = voicePresetsQuery.data ?? [];
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]}>
@@ -200,6 +292,96 @@ export default function SettingsScreen() {
               ))}
             </View>
           </View>
+
+          {/* Voice Preview Section - only shown when ElevenLabs is selected */}
+          {settings.voiceMode === "elevenlabs" && (
+            <View style={styles.voicePreviewSection}>
+              <Text style={[styles.voicePreviewTitle, { color: colors.foreground }]}>
+                Choose a Narrator Voice
+              </Text>
+              <Text style={[styles.voicePreviewSubtitle, { color: colors.muted }]}>
+                Tap the play button to hear a sample
+              </Text>
+              <View style={styles.voiceList}>
+                {voicePresets.length > 0 ? (
+                  voicePresets.map((preset) => {
+                    const display = VOICE_ROLE_DISPLAY[preset.role] || { emoji: "\uD83C\uDFA4", label: preset.role };
+                    const isSelected = settings.selectedVoicePreset === preset.role;
+                    const isLoading = previewingRole === preset.role;
+                    const isPlaying = playingRole === preset.role;
+
+                    return (
+                      <Pressable
+                        key={preset.role}
+                        onPress={() => handleSelectVoice(preset.role)}
+                        style={({ pressed }) => [
+                          styles.voiceCard,
+                          { borderColor: isSelected ? "#6C63FF" : colors.border },
+                          isSelected && styles.voiceCardSelected,
+                          pressed && { opacity: 0.85 },
+                        ]}
+                      >
+                        <View style={styles.voiceCardLeft}>
+                          <Text style={styles.voiceEmoji}>{display.emoji}</Text>
+                          <View style={styles.voiceCardInfo}>
+                            <View style={styles.voiceNameRow}>
+                              <Text style={[styles.voiceName, { color: colors.foreground }]}>
+                                {display.label}
+                              </Text>
+                              {isSelected && (
+                                <View style={styles.selectedBadge}>
+                                  <Text style={styles.selectedBadgeText}>Selected</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={[styles.voiceActorName, { color: "#6C63FF" }]}>
+                              {preset.name}
+                            </Text>
+                            <Text style={[styles.voiceDescription, { color: colors.muted }]} numberOfLines={2}>
+                              {preset.description}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Play/Stop Preview Button */}
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            handleVoicePreview(preset.role);
+                          }}
+                          style={({ pressed }) => [
+                            styles.playBtn,
+                            isPlaying && styles.playBtnActive,
+                            pressed && { opacity: 0.7 },
+                          ]}
+                        >
+                          {isLoading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : isPlaying ? (
+                            <IconSymbol name="pause.fill" size={18} color="#FFFFFF" />
+                          ) : (
+                            <IconSymbol name="play.fill" size={18} color="#FFFFFF" />
+                          )}
+                        </Pressable>
+                      </Pressable>
+                    );
+                  })
+                ) : voicePresetsQuery.isLoading ? (
+                  <View style={styles.voiceLoadingContainer}>
+                    <ActivityIndicator size="small" color="#6C63FF" />
+                    <Text style={[styles.voiceLoadingText, { color: colors.muted }]}>
+                      Loading voice presets...
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={[styles.voiceLoadingText, { color: colors.muted }]}>
+                    Could not load voice presets. Check your connection and try again.
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+
           <View style={styles.optionRow}>
             <Text style={[styles.optionLabel, { color: colors.foreground }]}>Reading Speed</Text>
             <View style={styles.speedRow}>
@@ -375,6 +557,54 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: "#6C63FF" },
   segmentText: { fontSize: 13, fontWeight: "600" },
   segmentTextActive: { color: "#FFFFFF" },
+
+  // Voice Preview styles
+  voicePreviewSection: { marginTop: 8, marginBottom: 8 },
+  voicePreviewTitle: { fontSize: 15, fontWeight: "700", marginBottom: 2 },
+  voicePreviewSubtitle: { fontSize: 12, marginBottom: 12 },
+  voiceList: { gap: 8 },
+  voiceCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  voiceCardSelected: {
+    borderWidth: 2,
+    backgroundColor: "rgba(108,99,255,0.08)",
+  },
+  voiceCardLeft: { flexDirection: "row", alignItems: "center", flex: 1, gap: 10 },
+  voiceEmoji: { fontSize: 28 },
+  voiceCardInfo: { flex: 1 },
+  voiceNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  voiceName: { fontSize: 15, fontWeight: "700" },
+  voiceActorName: { fontSize: 12, fontWeight: "600", marginTop: 1 },
+  voiceDescription: { fontSize: 11, marginTop: 2, lineHeight: 15 },
+  selectedBadge: {
+    backgroundColor: "#6C63FF",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  selectedBadgeText: { color: "#FFFFFF", fontSize: 9, fontWeight: "700" },
+  playBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#6C63FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  playBtnActive: {
+    backgroundColor: "#FF6B6B",
+  },
+  voiceLoadingContainer: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 16 },
+  voiceLoadingText: { fontSize: 13, textAlign: "center" },
+
   speedRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   speedBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(255,215,0,0.15)", justifyContent: "center", alignItems: "center" },
   speedBtnText: { fontSize: 18, color: "#FFD700", fontWeight: "700" },

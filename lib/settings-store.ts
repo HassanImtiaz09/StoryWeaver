@@ -11,6 +11,7 @@ export interface AppSettings {
   // Voice preferences
   voiceMode: "elevenlabs" | "device";
   voiceSpeed: number; // 0.5 - 1.5
+  selectedVoicePreset: string; // ElevenLabs voice role key e.g. "narrator", "child_hero"
 
   // Story preferences
   storyLength: "short" | "medium" | "long"; // 4, 6, 8 pages
@@ -32,6 +33,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   bedtimeMinute: 30,
   voiceMode: "elevenlabs",
   voiceSpeed: 0.85,
+  selectedVoicePreset: "narrator",
   storyLength: "medium",
   autoPlayAudio: false,
   subscriptionTier: "free",
