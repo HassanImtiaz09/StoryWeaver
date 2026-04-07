@@ -21,7 +21,6 @@ export async function resetOnboarding(): Promise<void> {
   await AsyncStorage.removeItem(ONBOARDING_KEY);
 }
 
-// Local child profiles (for guest mode without auth)
 export type LocalChild = {
   id: string;
   name: string;
@@ -30,6 +29,11 @@ export type LocalChild = {
   hairColor?: string;
   skinTone?: string;
   interests: string[];
+  favoriteColor?: string;
+  personalityTraits?: string[];
+  fears?: string[];
+  readingLevel?: string;
+  language?: string;
   createdAt: string;
 };
 
