@@ -1,524 +1,985 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  Pressable,
-  StyleSheet,
   FlatList,
-  Dimensions,
+  TouchableOpacity,
   ActivityIndicator,
+  ImageBackground,
+  Dimensions,
   Image,
+  StyleSheet,
+  SafeAreaView,
   Alert,
-} from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
-import * as Speech from "expo-speech";
-import { useColors } from "@/hooks/use-colors";
-import { trpc } from "@/lib/trpc";
-import {
-  getSubscriptionState,
-  getRemainingFreeStories,
-} from "@/lib/subscription-store";
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Audio } from 'expo-av';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  Layout,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+import { trpc } from '@/lib/trpc';
+import { useColors } from '@/hooks/use-colors';
 
-type StoryPage = {
-  id: number;
+type PageData = {
+  id: string;
   pageNumber: number;
   storyText: string;
-  imageUrl?: string;
-  imagePrompt?: string;
-  audioUrl?: string;
-  mood?: string;
-  characters?: { name: string; traits: string[]; voiceRole?: string }[];
+  imageUrl: string | null;
+  imagePrompt: string | null;
+  audioUrl: string | null;
+  mood: string;
+  characters: string[];
+  sceneDescription: string;
+  soundEffectHint: string | null;
+  soundEffectUrl: string | null;
 };
 
-const MOOD_COLORS: Record<string, string[]> = {
-  exciting: ["#FF6B6B", "#FF8E8E"],
-  calm: ["#6C63FF", "#8B83FF"],
-  mysterious: ["#2D1B69", "#5B2C8E"],
-  adventurous: ["#FFD93D", "#FFE66D"],
-  warm: ["#FF9A56", "#FFBE76"],
-  funny: ["#4ECDC4", "#6EE7DE"],
-  reassuring: ["#A8E6CF", "#DCEDC1"],
-  triumphant: ["#FFD700", "#FFA500"],
+type EpisodeData = {
+  id: string;
+  title: string;
+  fullAudioUrl: string | null;
+  musicUrl: string | null;
+  mood: string;
+  childName: string;
+  ageGroup: string;
+};
+
+const MOOD_COLORS: Record<string, [string, string]> = {
+  exciting: ['#FF6B6B', '#FF8E8E'],
+  calm: ['#6C63FF', '#8B83FF'],
+  mysterious: ['#2D1B69', '#5B2C8E'],
+  adventurous: ['#FFD93D', '#FFE66D'],
+  warm: ['#FF9A56', '#FFBE76'],
+  funny: ['#4ECDC4', '#6EE7DE'],
+  reassuring: ['#A8E6CF', '#DCEDC1'],
+  triumphant: ['#FFD700', '#FFA500'],
 };
 
 const MOOD_LABELS: Record<string, string> = {
-  exciting: "\u{26A1} Exciting",
-  calm: "\u{1F31C} Calm",
-  mysterious: "\u{1F52E} Mysterious",
-  adventurous: "\u{1F9ED} Adventurous",
-  warm: "\u{2728} Warm",
-  funny: "\u{1F604} Funny",
-  reassuring: "\u{1F49A} Reassuring",
-  triumphant: "\u{1F3C6} Triumphant",
+  exciting: 'Exciting',
+  calm: 'Calm',
+  mysterious: 'Mysterious',
+  adventurous: 'Adventurous',
+  warm: 'Warm',
+  funny: 'Funny',
+  reassuring: 'Reassuring',
+  triumphant: 'Triumphant',
 };
+
+const { width, height } = Dimensions.get('window');
+const IMAGE_HEIGHT = height * 0.55;
+const TEXT_AREA_HEIGHT = height * 0.35;
 
 export default function StoryReaderScreen() {
   const router = useRouter();
-  const colors = useColors();
   const params = useLocalSearchParams<{
     episodeId: string;
     arcId: string;
-    title?: string;
-    childName?: string;
+    title: string;
+    childName: string;
   }>();
 
+  const colors = useColors();
+
+  // State
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [isNarrating, setIsNarrating] = useState(false);
+  const [isMusicEnabled, setIsMusicEnabled] = useState(true);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
+  const [generatingMusic, setGeneratingMusic] = useState(false);
+  const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set());
+  const [showingEndscreen, setShowingEndscreen] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0);
+  const [currentSpeaker, setCurrentSpeaker] = useState<string | null>(null);
+
+  // Refs
+  const narratorSoundRef = useRef<Audio.Sound | null>(null);
+  const musicSoundRef = useRef<Audio.Sound | null>(null);
   const flatListRef = useRef<FlatList>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pages, setPages] = useState<StoryPage[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voiceMode, setVoiceMode] = useState<"elevenlabs" | "device">("device");
-  const [generatingImageForPage, setGeneratingImageForPage] = useState<number | null>(null);
-  const [generatingAudioForPage, setGeneratingAudioForPage] = useState<number | null>(null);
+  const autoAdvanceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const progressUpdateIntervalRef = useRef<NodeJS.Timer | null>(null);
 
-  // tRPC
+  // Animations
+  const progressAnim = useSharedValue(0);
+
+  // tRPC queries
+  const episodeId = parseInt(params?.episodeId ?? "0", 10);
+
   const pagesQuery = trpc.pages.list.useQuery(
-    { episodeId: parseInt(params.episodeId ?? "0", 10) },
-    { enabled: !!params.episodeId }
+    { episodeId },
+    { enabled: !!episodeId }
   );
+
+  const episodeQuery = trpc.episodes.get.useQuery(
+    { id: episodeId },
+    { enabled: !!episodeId }
+  );
+
+  const generateFullAudioMutation = trpc.episodes.generateFullAudio.useMutation();
+  const generateMusicMutation = trpc.episodes.generateMusic.useMutation();
   const generateImageMutation = trpc.pages.generateImage.useMutation();
-  const generateAudioMutation = trpc.pages.generateAudio.useMutation();
-  useEffect(() => {
-    if (pagesQuery.data) {
-      setPages(
-        pagesQuery.data.map((p: any) => ({
-          id: p.id,
-          pageNumber: p.pageNumber,
-          storyText: p.storyText ?? "",
-          imageUrl: p.imageUrl,
-          imagePrompt: p.imagePrompt,
-          audioUrl: p.audioUrl,
-          mood: p.mood,
-          characters: p.characters,
-        }))
-      );
-      setIsLoading(false);
-    }
-  }, [pagesQuery.data]);
 
-  // ─── Auto-generate image when page comes into view ───────────
-  useEffect(() => {
-    if (pages.length === 0) return;
-    const page = pages[currentPage];
-    if (!page) return;
-
-    // Auto-generate image if missing
-    if (!page.imageUrl && generatingImageForPage !== page.pageNumber) {
-      generateImageForPage(page);
-    }
-  }, [currentPage, pages]);
-
-  const generateImageForPage = useCallback(
-    async (page: StoryPage) => {
-      setGeneratingImageForPage(page.pageNumber);
-      try {
-        const result = await generateImageMutation.mutateAsync({
-          pageId: page.id,
-        });
-        setPages((prev) =>
-          prev.map((p) =>
-            p.id === page.id ? { ...p, imageUrl: result.imageUrl as string } : p
-          )
-        );
-      } catch (err) {
-        console.log("Image generation failed, using fallback");
-      } finally {
-        setGeneratingImageForPage(null);
+  // Computed values
+  const pages = useMemo(() => pagesQuery.data || [], [pagesQuery.data]);
+  const episode = episodeQuery.data;
+  const currentPage = pages[currentPageIndex];
+  const pageTimingsMap = useMemo(() => {
+    const map = new Map<number, { startMs: number; endMs: number }>();
+    if (episode?.pageTimings) {
+      for (const pt of episode.pageTimings) {
+        map.set(pt.pageNumber, { startMs: pt.startMs, endMs: pt.endMs });
       }
-    },
-    [generateImageMutation]
-  );
+    }
+    return map;
+  }, [episode?.pageTimings]);
+  const isLastPage = currentPageIndex === pages.length - 1;
+  const moodColors = currentPage ? MOOD_COLORS[currentPage.mood] : ['#6C63FF', '#8B83FF'];
 
-  // ─── Audio ───────────────────────────────────────────────────
-  const getDisplayText = (raw: string): string => {
-    return raw
-      .replace(/^NARRATOR:\s*/gm, "")
-      .replace(/^[A-Z_]+:\s*/gm, "")
-      .trim();
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      cleanupAudio();
+      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
+      if (progressUpdateIntervalRef.current) clearInterval(progressUpdateIntervalRef.current);
+    };
+  }, []);
+
+  // Initialize Audio module
+  useEffect(() => {
+    const initAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+        });
+      } catch (error) {
+        console.error('Failed to set audio mode:', error);
+      }
+    };
+    initAudio();
+  }, []);
+
+  const cleanupAudio = async () => {
+    try {
+      if (narratorSoundRef.current) {
+        await narratorSoundRef.current.stopAsync();
+        await narratorSoundRef.current.unloadAsync();
+        narratorSoundRef.current = null;
+      }
+      if (musicSoundRef.current) {
+        await musicSoundRef.current.stopAsync();
+        await musicSoundRef.current.unloadAsync();
+        musicSoundRef.current = null;
+      }
+    } catch (error) {
+      console.error('Error cleaning up audio:', error);
+    }
   };
 
-  const playAudio = useCallback(
-    async (page: StoryPage) => {
-      if (isSpeaking) {
-        Speech.stop();
-        setIsSpeaking(false);
+  // Generate page image if missing
+  useEffect(() => {
+    if (!currentPage || currentPage.imageUrl) return;
+
+    const generateImage = async () => {
+      if (generatingImages.has(currentPage.id)) return;
+
+      setGeneratingImages((prev) => new Set(prev).add(currentPage.id));
+      try {
+        await generateImageMutation.mutateAsync({
+          pageId: currentPage.id,
+          prompt: currentPage.imagePrompt || currentPage.sceneDescription,
+        });
+      } catch (error) {
+        console.error('Failed to generate page image:', error);
+      } finally {
+        setGeneratingImages((prev) => {
+          const next = new Set(prev);
+          next.delete(currentPage.id);
+          return next;
+        });
+      }
+    };
+
+    generateImage();
+  }, [currentPage?.id]);
+
+  const handlePlayNarration = useCallback(async () => {
+    if (isNarrating) {
+      // Pause
+      try {
+        if (narratorSoundRef.current) {
+          await narratorSoundRef.current.pauseAsync();
+        }
+        if (musicSoundRef.current) {
+          await musicSoundRef.current.pauseAsync();
+        }
+        if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
+        if (progressUpdateIntervalRef.current) clearInterval(progressUpdateIntervalRef.current);
+        setIsNarrating(false);
+      } catch (error) {
+        console.error('Error pausing audio:', error);
+      }
+      return;
+    }
+
+    // Play
+    try {
+      setGeneratingAudio(true);
+
+      // If no fullAudioUrl, generate it
+      if (!episode?.fullAudioUrl) {
+        const result = await generateFullAudioMutation.mutateAsync({
+          episodeId,
+          childName: params?.childName || 'Friend',
+        });
+      }
+
+      const fullAudioUrl = episode?.fullAudioUrl;
+
+      if (!fullAudioUrl) {
+        Alert.alert('Error', 'No audio available for this episode');
+        setGeneratingAudio(false);
         return;
       }
 
-      if (voiceMode === "elevenlabs" && !page.audioUrl) {
-        // Generate ElevenLabs audio
-        setGeneratingAudioForPage(page.pageNumber);
+      await cleanupAudio();
+
+      // Load narrator sound
+      const { sound: narratorSound } = await Audio.Sound.createAsync(
+        { uri: fullAudioUrl },
+        { shouldPlay: true, rate: 1.0, volume: 1.0 }
+      );
+      narratorSoundRef.current = narratorSound;
+
+      // Load music if available and enabled
+      if (isMusicEnabled && episode?.musicUrl) {
         try {
-          const result = await generateAudioMutation.mutateAsync({ pageId: page.id });
-          setPages((prev) =>
-            prev.map((p) =>
-              p.id === page.id ? { ...p, audioUrl: result.audioUrl } : p
-            )
+          const { sound: musicSound } = await Audio.Sound.createAsync(
+            { uri: episode?.musicUrl },
+            { shouldPlay: true, rate: 1.0, volume: 0.15, isLooping: true }
           );
-          // TODO: Play the audio URL via expo-av
-          setGeneratingAudioForPage(null);
-          return;
-        } catch {
-          setGeneratingAudioForPage(null);
+          musicSoundRef.current = musicSound;
+        } catch (error) {
+          console.error('Failed to load music:', error);
         }
       }
 
-      // Fallback to device TTS
-      const text = getDisplayText(page.storyText);
-      setIsSpeaking(true);
-      Speech.speak(text, {
-        rate: 0.85,
-        pitch: 1.0,
-        onDone: () => setIsSpeaking(false),
-        onStopped: () => setIsSpeaking(false),
+      // Get duration
+      const status = await narratorSound.getStatusAsync();
+      if (status.isLoaded) {
+        setTotalDuration(status.durationMillis || 0);
+      }
+
+      setIsNarrating(true);
+
+      // Setup progress tracking
+      progressUpdateIntervalRef.current = setInterval(async () => {
+        const currentStatus = await narratorSound.getStatusAsync();
+        if (currentStatus.isLoaded) {
+          const position = currentStatus.positionMillis || 0;
+          setAudioProgress(position);
+          progressAnim.value = withTiming(position / (totalDuration || 1), {
+            duration: 500,
+            easing: Easing.linear,
+          });
+
+          // Update current speaker based on page timings
+          if (pageTimingsMap.get(currentPage?.pageNumber ?? 0)?.startMs && pageTimingsMap.get(currentPage?.pageNumber ?? 0)?.endMs) {
+            if (
+              position >= currentPage.pageTimings.startMs &&
+              position <= currentPage.pageTimings.endMs
+            ) {
+              if (currentPage?.characters?.length > 0) {
+                setCurrentSpeaker(currentPage.characters[0]);
+              }
+            }
+          }
+
+          // Check if narration finished
+          if (currentStatus.didJustFinish) {
+            await handleNarrationFinish();
+          }
+        }
+      }, 200);
+
+      // Setup auto-advance based on page timings
+      scheduleNextPageAdvance(0);
+    } catch (error) {
+      console.error('Error starting narration:', error);
+      Alert.alert('Error', 'Failed to play narration');
+    } finally {
+      setGeneratingAudio(false);
+    }
+  }, [isNarrating, pages, isMusicEnabled, params?.episodeId, params?.childName]);
+
+  const scheduleNextPageAdvance = useCallback((pageIndex: number) => {
+    if (pageIndex >= pages.length - 1) return;
+
+    const nextPage = pages[pageIndex + 1];
+    if (!pageTimingsMap.get(nextPage?.pageNumber ?? 0)?.startMs) return;
+
+    const currentStatus = narratorSoundRef.current?.getStatusAsync();
+    if (!currentStatus?.isLoaded) return;
+
+    const timeUntilNextPage = nextPage.pageTimings.startMs - audioProgress;
+    if (timeUntilNextPage <= 0) {
+      // Advance immediately
+      setCurrentPageIndex(pageIndex + 1);
+      flatListRef.current?.scrollToIndex({
+        index: pageIndex + 1,
+        animated: true,
       });
-    },
-    [isSpeaking, voiceMode, generateAudioMutation]
-  );
-
-  const handlePrevPage = () => {
-    if (currentPage > 0) {
-      Speech.stop();
-      setIsSpeaking(false);
-      flatListRef.current?.scrollToIndex({ index: currentPage - 1, animated: true });
+      scheduleNextPageAdvance(pageIndex + 1);
+    } else {
+      // Schedule for later
+      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
+      autoAdvanceTimeoutRef.current = setTimeout(() => {
+        setCurrentPageIndex(pageIndex + 1);
+        flatListRef.current?.scrollToIndex({
+          index: pageIndex + 1,
+          animated: true,
+        });
+        scheduleNextPageAdvance(pageIndex + 1);
+      }, timeUntilNextPage);
     }
-  };
+  }, [pages, audioProgress]);
 
-  const handleNextPage = () => {
-    if (currentPage < pages.length - 1) {
-      Speech.stop();
-      setIsSpeaking(false);
-      flatListRef.current?.scrollToIndex({ index: currentPage + 1, animated: true });
+  const handleNarrationFinish = useCallback(async () => {
+    try {
+      await cleanupAudio();
+      setIsNarrating(false);
+      if (progressUpdateIntervalRef.current) clearInterval(progressUpdateIntervalRef.current);
+      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
+
+      if (isLastPage) {
+        setShowingEndscreen(true);
+      }
+    } catch (error) {
+      console.error('Error handling narration finish:', error);
     }
-  };
+  }, [isLastPage]);
 
-  const handleFinish = async () => {
-    Speech.stop();
+  const handlePageChange = useCallback((index: number) => {
+    Haptics.selectionAsync();
+    setCurrentPageIndex(index);
 
-    // Check subscription status to decide post-story flow
-    const subState = await getSubscriptionState();
-    const remaining = getRemainingFreeStories(subState);
+    // If narrating, seek to matching position
+    if (isNarrating && pageTimingsMap.get(pages[index]?.pageNumber ?? 0)?.startMs) {
+      try {
+        const seekTo = pageTimingsMap.get(pages[index]?.pageNumber ?? 0)?.startMs;
+        if (seekTo) narratorSoundRef.current?.setPositionAsync(seekTo);
+      } catch (error) {
+        console.error('Error seeking audio:', error);
+      }
+    }
+  }, [isNarrating, pages]);
 
-    if (subState.plan === "free" && !subState.trialActive && remaining <= 0) {
-      // No free stories left - show paywall
-      router.push({
-        pathname: "/paywall" as any,
-        params: { source: "story_limit", childName: params.childName },
+  const handleGenerateMusic = useCallback(async () => {
+    try {
+      setGeneratingMusic(true);
+      await generateMusicMutation.mutateAsync({
+        episodeId,
+        mood: currentPage?.mood || 'calm',
       });
-      return;
+      setIsMusicEnabled(true);
+    } catch (error) {
+      console.error('Error generating music:', error);
+      Alert.alert('Error', 'Failed to generate music');
+    } finally {
+      setGeneratingMusic(false);
     }
+  }, [params?.episodeId, currentPage?.mood]);
 
-    if (subState.plan === "free" && !subState.trialActive && remaining === 1) {
-      // Last free story - show soft upsell
-      Alert.alert(
-        "\u{2728} Loved the Story?",
-        "You have 1 free story left. Subscribe to unlock unlimited bedtime adventures!",
-        [
-          {
-            text: "See Plans",
-            onPress: () =>
-              router.push({
-                pathname: "/paywall" as any,
-                params: { source: "story_limit", childName: params.childName },
-              }),
-          },
-          {
-            text: "Print Book",
-            onPress: () =>
-              router.push({
-                pathname: "/print-book",
-                params: { arcId: params.arcId, episodeId: params.episodeId },
-              }),
-          },
-          {
-            text: "Done",
-            style: "cancel",
-            onPress: () => router.replace("/"),
-          },
-        ]
-      );
-      return;
+  const handleToggleMusic = useCallback(() => {
+    Haptics.selectionAsync();
+    setIsMusicEnabled(!isMusicEnabled);
+    if (!isMusicEnabled && musicSoundRef.current) {
+      try {
+        musicSoundRef.current.playAsync();
+      } catch (error) {
+        console.error('Error resuming music:', error);
+      }
+    } else if (isMusicEnabled && musicSoundRef.current) {
+      try {
+        musicSoundRef.current.pauseAsync();
+      } catch (error) {
+        console.error('Error pausing music:', error);
+      }
     }
+  }, [isMusicEnabled]);
 
-    // Premium user or still has free stories - go to print book
-    router.push({
-      pathname: "/print-book",
-      params: { arcId: params.arcId, episodeId: params.episodeId },
-    });
-  };
+  const handlePrintBook = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert('Print Book', 'Opening print options...');
+    // TODO: Implement print functionality
+  }, []);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems.length > 0) {
-      setCurrentPage(viewableItems[0].index ?? 0);
-    }
-  }).current;
-
-  // ─── Render Page ─────────────────────────────────────────────
-  const renderPage = useCallback(
-    ({ item, index }: { item: StoryPage; index: number }) => {
-      const moodColors = (MOOD_COLORS[item.mood ?? "warm"] ?? MOOD_COLORS.warm) as [string, string];
-      const moodLabel = MOOD_LABELS[item.mood ?? "warm"] ?? "";
-      const displayText = getDisplayText(item.storyText);
-      const isLastPage = index === pages.length - 1;
-      const isGeneratingImage = generatingImageForPage === item.pageNumber;
-      const isGeneratingAudio = generatingAudioForPage === item.pageNumber;
-
-      return (
-        <View style={styles.pageContainer}>
-          {/* Illustration */}
-          <View style={styles.illustrationWrap}>
-            {item.imageUrl ? (
-              <Image source={{ uri: item.imageUrl }} style={styles.illustration} resizeMode="cover" />
-            ) : isGeneratingImage ? (
-              <LinearGradient colors={moodColors as [string, string]} style={styles.illustrationPlaceholder}>
-                <ActivityIndicator color="#fff" size="large" />
-                <Text style={styles.genLabel}>Creating illustration...</Text>
-              </LinearGradient>
-            ) : (
-              <LinearGradient colors={moodColors as [string, string]} style={styles.illustrationPlaceholder}>
-                <Text style={styles.placeholderEmoji}>{"\u{1F3A8}"}</Text>
-                <Pressable onPress={() => generateImageForPage(item)} style={styles.genBtn}>
-                  <Text style={styles.genBtnText}>Generate Illustration</Text>
-                </Pressable>
-              </LinearGradient>
-            )}
-
-            {/* Mood badge */}
-            {moodLabel ? (
-              <View style={[styles.moodBadge, { backgroundColor: moodColors[0] + "CC" }]}>
-                <Text style={styles.moodBadgeText}>{moodLabel}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {/* Story Text */}
-          <ScrollableStoryText text={displayText} color={colors.text} secondaryColor={colors.textSecondary} />
-
-          {/* Page number */}
-          <Text style={[styles.pageNumber, { color: colors.textSecondary }]}>
-            Page {item.pageNumber} of {pages.length}
-          </Text>
-
-          {/* Controls */}
-          <View style={styles.controls}>
-            <Pressable onPress={handlePrevPage} disabled={index === 0} style={styles.navBtn}>
-              <Text style={[styles.navText, { opacity: index === 0 ? 0.3 : 1, color: colors.text }]}>
-                {"\u{25C0}"}
-              </Text>
-            </Pressable>
-
-            <Pressable onPress={() => playAudio(item)} style={[styles.playBtn, { backgroundColor: colors.primary }]}>
-              {isGeneratingAudio ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.playIcon}>{isSpeaking ? "\u{23F8}" : "\u{25B6}\u{FE0F}"}</Text>
-              )}
-            </Pressable>
-
-            {isLastPage ? (
-              <Pressable onPress={handleFinish} style={[styles.finishBtn, { backgroundColor: "#4ECDC4" }]}>
-                <Text style={styles.finishText}>{"\u{1F4D6}"} Print Book</Text>
-              </Pressable>
-            ) : (
-              <Pressable onPress={handleNextPage} style={styles.navBtn}>
-                <Text style={[styles.navText, { color: colors.text }]}>{"\u{25B6}"}</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {/* Voice mode toggle */}
-          <View style={styles.voiceToggle}>
-            <Pressable
-              onPress={() => setVoiceMode("device")}
-              style={[styles.voiceOption, voiceMode === "device" && { backgroundColor: colors.primary + "20" }]}
-            >
-              <Text style={[styles.voiceOptionText, { color: voiceMode === "device" ? colors.primary : colors.textSecondary }]}>
-                {"\u{1F4F1}"} Device Voice
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setVoiceMode("elevenlabs")}
-              style={[styles.voiceOption, voiceMode === "elevenlabs" && { backgroundColor: colors.primary + "20" }]}
-            >
-              <Text style={[styles.voiceOptionText, { color: voiceMode === "elevenlabs" ? colors.primary : colors.textSecondary }]}>
-                {"\u{1F3A4}"} HD Voices
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      );
-    },
-    [colors, pages.length, currentPage, isSpeaking, voiceMode, generatingImageForPage, generatingAudioForPage]
-  );
-
-  if (isLoading) {
+  if (pagesQuery.isLoading) {
     return (
-      <SafeAreaView style={[styles.loadingRoot, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Loading your story...
-        </Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>
+            Loading story...
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
+  if (!currentPage) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.centerContent}>
+          <Text style={[styles.errorText, { color: colors.text }]}>
+            No pages found for this story
+          </Text>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.buttonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const progressPercent = pages.length > 0 ? ((currentPageIndex + 1) / pages.length) * 100 : 0;
+
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.closeBtn}>
-          <Text style={[styles.closeText, { color: colors.primary }]}>{"\u{2715}"}</Text>
-        </Pressable>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-          {params.title ?? "Story"}
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {showingEndscreen ? (
+        // End Screen
+        <Animated.View entering={FadeIn} style={styles.flex}>
+          <LinearGradient colors={moodColors} style={styles.flex}>
+            <View style={styles.endscreenContent}>
+              <Animated.Text entering={FadeInDown} style={styles.endscreenTitle}>
+                The End!
+              </Animated.Text>
+              <Animated.Text
+                entering={FadeInDown.delay(200)}
+                style={[styles.endscreenSubtitle, { marginVertical: 20 }]}
+              >
+                Great job, {params?.childName || 'Reader'}! You finished the story.
+              </Animated.Text>
 
-      {/* Progress dots */}
-      <View style={styles.dots}>
-        {pages.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === currentPage && styles.dotActive, { backgroundColor: i === currentPage ? colors.primary : colors.muted }]}
-          />
-        ))}
-      </View>
+              <View style={styles.endscreenButtons}>
+                <TouchableOpacity
+                  style={[styles.endscreenButton, { backgroundColor: 'rgba(255,255,255,0.9)' }]}
+                  onPress={handlePrintBook}
+                >
+                  <Ionicons name="print" size={24} color={moodColors[0]} />
+                  <Text style={[styles.endscreenButtonText, { color: moodColors[0] }]}>
+                    Print as Book
+                  </Text>
+                </TouchableOpacity>
 
-      <FlatList
-        ref={flatListRef}
-        data={pages}
-        renderItem={renderPage}
-        keyExtractor={(item) => String(item.id)}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-        bounces={false}
-      />
+                <TouchableOpacity
+                  style={[styles.endscreenButton, { backgroundColor: 'rgba(255,255,255,0.9)' }]}
+                  onPress={() => {
+                    setShowingEndscreen(false);
+                    setCurrentPageIndex(0);
+                    flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+                  }}
+                >
+                  <Ionicons name="refresh" size={24} color={moodColors[0]} />
+                  <Text style={[styles.endscreenButtonText, { color: moodColors[0] }]}>
+                    Read Again
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.endscreenButton, { backgroundColor: 'rgba(255,255,255,0.9)' }]}
+                  onPress={() => router.back()}
+                >
+                  <Ionicons name="home" size={24} color={moodColors[0]} />
+                  <Text style={[styles.endscreenButtonText, { color: moodColors[0] }]}>
+                    Back to Library
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      ) : (
+        <>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={28} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+              {params?.title}
+            </Text>
+            <Text style={[styles.progressText, { color: colors.textSecondary }]}>
+              {progressPercent.toFixed(0)}%
+            </Text>
+          </View>
+
+          {/* Image Background Area */}
+          <View style={styles.imageContainer}>
+            {currentPage?.imageUrl ? (
+              <ImageBackground
+                source={{ uri: currentPage.imageUrl }}
+                style={styles.imageBackground}
+                resizeMode="cover"
+              >
+                <LinearGradient
+                  colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.3)']}
+                  style={styles.imageGradientOverlay}
+                />
+              </ImageBackground>
+            ) : (
+              <LinearGradient
+                colors={moodColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.imageBackground}
+              >
+                {generatingImages.has(currentPage?.id || '') && (
+                  <View style={styles.generatingOverlay}>
+                    <ActivityIndicator size="large" color="#fff" />
+                    <Text style={styles.generatingText}>Generating image...</Text>
+                  </View>
+                )}
+              </LinearGradient>
+            )}
+
+            {/* Mood Badge */}
+            <Animated.View entering={FadeIn} style={styles.moodBadge}>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.85)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.moodBadgeContent}
+              >
+                <Text style={styles.moodBadgeLabel}>
+                  {MOOD_LABELS[currentPage?.mood] || 'Calm'}
+                </Text>
+              </LinearGradient>
+            </Animated.View>
+          </View>
+
+          {/* Text Area with Page Content */}
+          <View style={[styles.textContainer, { backgroundColor: colors.background }]}>
+            <FlatList
+              ref={flatListRef}
+              data={pages}
+              renderItem={({ item }) => (
+                <View style={styles.pageContent}>
+                  <Text style={[styles.pageText, { color: colors.text }]}>
+                    {item.storyText}
+                  </Text>
+                  {item.characters?.length > 0 && (
+                    <Text style={[styles.characterLabel, { color: colors.primary }]}>
+                      Characters: {item.characters.join(', ')}
+                    </Text>
+                  )}
+                </View>
+              )}
+              keyExtractor={(item) => item.id}
+              horizontal
+              pagingEnabled
+              scrollEventThrottle={16}
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) => {
+                const contentOffsetX = event.nativeEvent.contentOffset.x;
+                const index = Math.round(contentOffsetX / width);
+                handlePageChange(index);
+              }}
+              scrollEnabled={!isNarrating}
+            />
+          </View>
+
+          {/* Current Speaker Indicator */}
+          {isNarrating && currentSpeaker && (
+            <Animated.View entering={FadeIn} style={styles.speakerIndicator}>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                style={styles.speakerBadge}
+              >
+                <Ionicons name="mic" size={14} color="#fff" />
+                <Text style={styles.speakerName}>{currentSpeaker}</Text>
+              </LinearGradient>
+            </Animated.View>
+          )}
+
+          {/* Progress Bar */}
+          {isNarrating && (
+            <View style={styles.progressBarContainer}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${(audioProgress / (totalDuration || 1)) * 100}%`,
+                  },
+                ]}
+              />
+            </View>
+          )}
+
+          {/* Controls */}
+          <View style={styles.controlsArea}>
+            <LinearGradient
+              colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+              style={styles.controlsGlass}
+            >
+              <View style={styles.controls}>
+                {/* Play Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.playButton,
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: generatingAudio ? 0.6 : 1,
+                    },
+                  ]}
+                  onPress={handlePlayNarration}
+                  disabled={generatingAudio}
+                >
+                  {generatingAudio ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Ionicons
+                      name={isNarrating ? 'pause' : 'play'}
+                      size={24}
+                      color="#fff"
+                    />
+                  )}
+                </TouchableOpacity>
+
+                {/* Music Toggle */}
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    {
+                      backgroundColor: isMusicEnabled
+                        ? colors.primary
+                        : 'rgba(0,0,0,0.1)',
+                    },
+                  ]}
+                  onPress={
+                    episode?.musicUrl
+                      ? handleToggleMusic
+                      : handleGenerateMusic
+                  }
+                  disabled={generatingMusic}
+                >
+                  {generatingMusic ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={isMusicEnabled ? '#fff' : colors.text}
+                    />
+                  ) : (
+                    <Ionicons
+                      name={isMusicEnabled ? 'musical-notes' : 'musical-notes-outline'}
+                      size={20}
+                      color={isMusicEnabled ? '#fff' : colors.text}
+                    />
+                  )}
+                </TouchableOpacity>
+
+                {/* Page Counter */}
+                <View style={styles.pageCounter}>
+                  <Text style={[styles.pageCountText, { color: colors.text }]}>
+                    {currentPageIndex + 1} / {pages.length}
+                  </Text>
+                </View>
+                {/* Navigation Buttons */}
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    { opacity: currentPageIndex === 0 ? 0.3 : 1 },
+                  ]}
+                  onPress={() => {
+                    if (currentPageIndex > 0) handlePageChange(currentPageIndex - 1);
+                  }}
+                  disabled={currentPageIndex === 0}
+                >
+                  <Ionicons name="chevron-back" size={20} color={colors.text} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    { opacity: isLastPage ? 0.3 : 1 },
+                  ]}
+                  onPress={() => {
+                    if (!isLastPage) handlePageChange(currentPageIndex + 1);
+                  }}
+                  disabled={isLastPage}
+                >
+                  <Ionicons name="chevron-forward" size={20} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
 
-// ─── Scrollable Story Text Component ───────────────────────────
-function ScrollableStoryText({ text, color, secondaryColor }: { text: string; color: string; secondaryColor: string }) {
-  return (
-    <Animated.ScrollView
-      entering={FadeInDown.delay(300).duration(500)}
-      style={styles.textScroll}
-      contentContainerStyle={styles.textContent}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={[styles.storyText, { color }]}>{text}</Text>
-    </Animated.ScrollView>
-  );
-}
-
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  loadingRoot: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 12, fontSize: 16 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  closeBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
-  closeText: { fontSize: 20, fontWeight: "600" },
-  title: { flex: 1, textAlign: "center", fontSize: 16, fontWeight: "600" },
-  dots: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 8,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  dotActive: { width: 18, borderRadius: 3 },
-  // Page
-  pageContainer: {
-    width: SCREEN_WIDTH,
+  container: {
     flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  button: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
-  illustrationWrap: {
-    height: SCREEN_HEIGHT * 0.32,
-    borderRadius: 20,
-    overflow: "hidden",
-    marginBottom: 12,
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: 12,
   },
-  illustration: { width: "100%", height: "100%" },
-  illustrationPlaceholder: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
+  progressText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
-  placeholderEmoji: { fontSize: 48, marginBottom: 8 },
-  genLabel: { color: "#fff", fontSize: 14, marginTop: 8 },
-  genBtn: {
-    backgroundColor: "rgba(255,255,255,0.25)",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+
+  // Image Container
+  imageContainer: {
+    height: IMAGE_HEIGHT,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  genBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  imageBackground: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  imageGradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  generatingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  generatingText: {
+    color: '#fff',
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   moodBadge: {
-    position: "absolute",
+    position: 'absolute',
     top: 12,
     right: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  moodBadgeContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  moodBadgeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#333',
+  },
+
+  // Text Container
+  textContainer: {
+    height: TEXT_AREA_HEIGHT,
+    flex: 1,
+  },
+  pageContent: {
+    width: width,
+    height: TEXT_AREA_HEIGHT,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    justifyContent: 'center',
+  },
+  pageText: {
+    fontSize: 16,
+    lineHeight: 26,
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  characterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 12,
+    opacity: 0.7,
+  },
+
+  // Speaker Indicator
+  speakerIndicator: {
+    position: 'absolute',
+    bottom: 120,
+    left: 16,
+    zIndex: 10,
+  },
+  speakerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  moodBadgeText: { color: "#fff", fontSize: 12, fontWeight: "600" },
-  // Text
-  textScroll: { flex: 1, marginBottom: 8 },
-  textContent: { paddingVertical: 8 },
-  storyText: { fontSize: 17, lineHeight: 28 },
-  pageNumber: { textAlign: "center", fontSize: 12, marginBottom: 8 },
+  speakerName: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+
+  // Progress Bar
+  progressBarContainer: {
+    height: 3,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#FFD700',
+  },
+
   // Controls
-  controls: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 20,
-    paddingVertical: 8,
+  controlsArea: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 12,
   },
-  navBtn: { width: 44, height: 44, justifyContent: "center", alignItems: "center" },
-  navText: { fontSize: 24 },
-  playBtn: {
+  controlsGlass: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  playButton: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  playIcon: { fontSize: 24 },
-  finishBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
+  controlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  finishText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  // Voice toggle
-  voiceToggle: {
-    flexDirection: "row",
-    justifyContent: "center",
+  pageCounter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pageCountText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // End Screen
+  endscreenContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  endscreenTitle: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  endscreenSubtitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.95)',
+    textAlign: 'center',
+  },
+  endscreenButtons: {
+    gap: 12,
+    marginTop: 40,
+  },
+  endscreenButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     gap: 8,
-    paddingBottom: 8,
+    minWidth: 240,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  voiceOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
+  endscreenButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
-  voiceOptionText: { fontSize: 13, fontWeight: "500" },
 });
