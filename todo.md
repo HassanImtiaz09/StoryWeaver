@@ -40,3 +40,12 @@
 - [x] Add server-side voice preview API route (ElevenLabs TTS short sample)
 - [x] Add voice picker UI in Settings with play/stop preview buttons
 - [x] Save selected voice preference to local settings store (selectedVoicePreset)
+- [x] Create subscription store (lib/subscription-store.ts) with plan types, gating checks, trial/purchase actions
+- [x] Build paywall screen (app/paywall.tsx) with weekly/monthly/annual plans, free trial, restore purchases
+- [x] Add subscription gating to new-story.tsx (pre-create check, free stories banner)
+- [x] Add subscription gating to story-reader.tsx (post-story paywall trigger for free users)
+- [x] Add upgrade banner to home screen for free users
+- [x] Add "Upgrade to Pro" / "Manage Subscription" button in settings
+- [x] Register paywall route in root layout
+- [x] Add lock.fill and crown.fill icon mappings
+- [x] Write 25 tests for subscription-store (all passing)

@@ -490,6 +490,17 @@ export default function SettingsScreen() {
             </Text>
             {" \u00B7 "}{settings.storiesRemaining >= 999 ? "Unlimited" : `${settings.storiesRemaining}/${settings.storiesPerMonth}`} stories
           </Text>
+          <Pressable
+            onPress={() => router.push({ pathname: "/paywall" as any, params: { source: "settings" } })}
+            style={({ pressed }) => [
+              styles.manageSubBtn,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+            ]}
+          >
+            <Text style={styles.manageSubBtnText}>
+              {settings.subscriptionTier === "free" ? "\u2728 Upgrade to Pro" : "Manage Subscription"}
+            </Text>
+          </Pressable>
           <View style={styles.tierGrid}>
             {SUBSCRIPTION_TIERS.map((tier) => (
               <Pressable
@@ -626,4 +637,16 @@ const styles = StyleSheet.create({
   featureText: { fontSize: 13 },
   currentBadge: { position: "absolute", top: 16, right: 16, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   currentBadgeText: { color: "#0A0E1A", fontSize: 11, fontWeight: "700" },
+  manageSubBtn: {
+    backgroundColor: "#FFD700",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center" as const,
+    marginBottom: 16,
+  },
+  manageSubBtnText: {
+    color: "#0A0E1A",
+    fontSize: 16,
+    fontWeight: "700" as const,
+  },
 });

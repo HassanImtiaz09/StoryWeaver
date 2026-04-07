@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { saveLocalStoryArc, type LocalStoryArc } from "@/lib/story-store";
 import { trpc } from "@/lib/trpc";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import {
+  canCreateStory,
+  incrementStoriesUsed,
+  getSubscriptionState,
+  getRemainingFreeStories,
+} from "@/lib/subscription-store";
 
 type GenerationStep = "idle" | "creating_arc" | "generating_episode" | "generating_images" | "done";
 
@@ -43,6 +49,10 @@ export default function NewStoryScreen() {
   const [episodeCount, setEpisodeCount] = useState(7);
   const [creating, setCreating] = useState(false);
   const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
+  const [freeStoriesInfo, setFreeStoriesInfo] = useState<{ remaining: number; isPremium: boolean }>({
+    remaining: 3,
+    isPremium: false,
+  });
 
   const themeData = STORY_THEMES.find((t) => t.id === params.theme);
 
@@ -50,8 +60,31 @@ export default function NewStoryScreen() {
   const createArcMutation = trpc.storyArcs.create.useMutation();
   const generateEpisodeMutation = trpc.episodes.generate.useMutation();
 
+  // Check subscription status on mount
+  useEffect(() => {
+    (async () => {
+      const state = await getSubscriptionState();
+      const remaining = getRemainingFreeStories(state);
+      setFreeStoriesInfo({
+        remaining: remaining === -1 ? 999 : remaining,
+        isPremium: state.plan !== "free" || state.trialActive,
+      });
+    })();
+  }, []);
+
   const handleCreate = async () => {
     if (!selectedValue || creating) return;
+
+    // Check subscription limit before creating
+    const storyCheck = await canCreateStory();
+    if (!storyCheck.allowed) {
+      router.push({
+        pathname: "/paywall" as any,
+        params: { source: "story_limit", childName: params.childName },
+      });
+      return;
+    }
+
     setCreating(true);
 
     const valueName = EDUCATIONAL_VALUES.find((v) => v.id === selectedValue)?.name || selectedValue;
@@ -87,6 +120,9 @@ export default function NewStoryScreen() {
         synopsis: arcResult.synopsis || undefined,
       };
       await saveLocalStoryArc(localArc);
+
+      // Increment local stories used counter
+      await incrementStoriesUsed();
 
       // Generate first episode
       setGenerationStep("generating_episode");
@@ -137,6 +173,10 @@ export default function NewStoryScreen() {
           updatedAt: new Date().toISOString(),
         };
         await saveLocalStoryArc(arc);
+
+        // Increment local stories used counter
+        await incrementStoriesUsed();
+
         Alert.alert(
           "Story Arc Created!",
           `"${arc.title}" is ready! AI generation will be available when connected. Go to the Library tab to start reading.`,
@@ -180,6 +220,35 @@ export default function NewStoryScreen() {
             <Text style={styles.themeChild}>for {params.childName}</Text>
           </LinearGradient>
         </Animated.View>
+
+        {/* Free Stories Banner */}
+        {!freeStoriesInfo.isPremium && !creating && (
+          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.freeBanner}>
+            <View style={styles.freeBannerContent}>
+              <Text style={styles.freeBannerEmoji}>{"\u{1F381}"}</Text>
+              <View style={styles.freeBannerText}>
+                <Text style={styles.freeBannerTitle}>
+                  {freeStoriesInfo.remaining > 0
+                    ? `${freeStoriesInfo.remaining} free ${freeStoriesInfo.remaining === 1 ? "story" : "stories"} remaining`
+                    : "No free stories left"}
+                </Text>
+                <Text style={styles.freeBannerSub}>
+                  {freeStoriesInfo.remaining > 0
+                    ? "Enjoy your free bedtime stories!"
+                    : "Subscribe for unlimited stories"}
+                </Text>
+              </View>
+            </View>
+            {freeStoriesInfo.remaining <= 0 && (
+              <Pressable
+                onPress={() => router.push({ pathname: "/paywall" as any, params: { source: "story_limit", childName: params.childName } })}
+                style={({ pressed }) => [styles.freeBannerBtn, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.freeBannerBtnText}>Upgrade</Text>
+              </Pressable>
+            )}
+          </Animated.View>
+        )}
 
         {/* Generation Progress Overlay */}
         {creating && (
@@ -348,4 +417,22 @@ const styles = StyleSheet.create({
   createButtonDisabled: { opacity: 0.4 },
   createButtonText: { color: "#0A0E1A", fontSize: 18, fontWeight: "700" },
   aiNote: { fontSize: 12, textAlign: "center", marginTop: 10, lineHeight: 18 },
+  // Free stories banner
+  freeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,215,0,0.08)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.2)",
+    padding: 14,
+    marginBottom: 20,
+  },
+  freeBannerContent: { flexDirection: "row", alignItems: "center", flex: 1 },
+  freeBannerEmoji: { fontSize: 24, marginRight: 10 },
+  freeBannerText: { flex: 1 },
+  freeBannerTitle: { fontSize: 14, fontWeight: "700", color: "#FFD700" },
+  freeBannerSub: { fontSize: 12, color: "#9BA1A6", marginTop: 1 },
+  freeBannerBtn: { backgroundColor: "#FFD700", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  freeBannerBtnText: { color: "#0A0E1A", fontSize: 13, fontWeight: "700" },
 });

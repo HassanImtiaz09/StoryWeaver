@@ -17,6 +17,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Speech from "expo-speech";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
+import {
+  getSubscriptionState,
+  getRemainingFreeStories,
+} from "@/lib/subscription-store";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -60,6 +64,7 @@ export default function StoryReaderScreen() {
     episodeId: string;
     arcId: string;
     title?: string;
+    childName?: string;
   }>();
 
   const flatListRef = useRef<FlatList>(null);
@@ -192,8 +197,55 @@ export default function StoryReaderScreen() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     Speech.stop();
+
+    // Check subscription status to decide post-story flow
+    const subState = await getSubscriptionState();
+    const remaining = getRemainingFreeStories(subState);
+
+    if (subState.plan === "free" && !subState.trialActive && remaining <= 0) {
+      // No free stories left - show paywall
+      router.push({
+        pathname: "/paywall" as any,
+        params: { source: "story_limit", childName: params.childName },
+      });
+      return;
+    }
+
+    if (subState.plan === "free" && !subState.trialActive && remaining === 1) {
+      // Last free story - show soft upsell
+      Alert.alert(
+        "\u{2728} Loved the Story?",
+        "You have 1 free story left. Subscribe to unlock unlimited bedtime adventures!",
+        [
+          {
+            text: "See Plans",
+            onPress: () =>
+              router.push({
+                pathname: "/paywall" as any,
+                params: { source: "story_limit", childName: params.childName },
+              }),
+          },
+          {
+            text: "Print Book",
+            onPress: () =>
+              router.push({
+                pathname: "/print-book",
+                params: { arcId: params.arcId, episodeId: params.episodeId },
+              }),
+          },
+          {
+            text: "Done",
+            style: "cancel",
+            onPress: () => router.replace("/"),
+          },
+        ]
+      );
+      return;
+    }
+
+    // Premium user or still has free stories - go to print book
     router.push({
       pathname: "/print-book",
       params: { arcId: params.arcId, episodeId: params.episodeId },

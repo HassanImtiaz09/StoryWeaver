@@ -42,6 +42,8 @@ const MAPPING = {
   "gift.fill": "card-giftcard",
   "arrow.right": "arrow-forward",
   "sparkles": "auto-awesome",
+  "lock.fill": "lock",
+  "crown.fill": "workspace-premium",
 } as IconMapping;
 
 /**

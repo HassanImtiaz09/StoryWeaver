@@ -19,6 +19,11 @@ import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
 import Animated, { FadeIn, FadeInDown, FadeInRight } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import {
+  getSubscriptionState,
+  getRemainingFreeStories,
+  type SubscriptionState,
+} from "@/lib/subscription-store";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THEME_CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
@@ -37,6 +42,7 @@ export default function TonightScreen() {
   const [activeArcs, setActiveArcs] = useState<LocalStoryArc[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [subState, setSubState] = useState<SubscriptionState | null>(null);
 
   const loadData = useCallback(async () => {
     const kids = await getLocalChildren();
@@ -53,6 +59,8 @@ export default function TonightScreen() {
       setSelectedChild(null);
       setActiveArcs([]);
     }
+    const sub = await getSubscriptionState();
+    setSubState(sub);
     setLoading(false);
   }, []);
 
@@ -148,6 +156,39 @@ export default function TonightScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
         }
       >
+        {/* Upgrade Banner */}
+        {subState && subState.plan === "free" && !subState.trialActive && (
+          <Animated.View entering={FadeInDown.duration(500)}>
+            <Pressable
+              onPress={() => router.push({ pathname: "/paywall" as any, params: { source: "home" } })}
+              style={({ pressed }) => [
+                styles.upgradeBanner,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+              ]}
+            >
+              <LinearGradient
+                colors={["#FFD700", "#FFA500"] as const}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.upgradeBannerGradient}
+              >
+                <View style={styles.upgradeBannerContent}>
+                  <Text style={styles.upgradeBannerEmoji}>{"\u{2728}"}</Text>
+                  <View style={styles.upgradeBannerText}>
+                    <Text style={styles.upgradeBannerTitle}>Unlock Unlimited Stories</Text>
+                    <Text style={styles.upgradeBannerSub}>
+                      {getRemainingFreeStories(subState) > 0
+                        ? `${getRemainingFreeStories(subState)} free ${getRemainingFreeStories(subState) === 1 ? "story" : "stories"} left`
+                        : "Subscribe for unlimited bedtime adventures"}
+                    </Text>
+                  </View>
+                  <IconSymbol name="chevron.right" size={20} color="#0A0E1A" />
+                </View>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        )}
+
         {/* Greeting */}
         <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
           <View style={styles.greetingRow}>
@@ -603,5 +644,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#FFFFFF",
+  },
+  // Upgrade banner
+  upgradeBanner: {
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  upgradeBannerGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  upgradeBannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  upgradeBannerEmoji: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  upgradeBannerText: {
+    flex: 1,
+  },
+  upgradeBannerTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0A0E1A",
+  },
+  upgradeBannerSub: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#0A0E1A",
+    opacity: 0.7,
+    marginTop: 2,
   },
 });
