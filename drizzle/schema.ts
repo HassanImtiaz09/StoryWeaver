@@ -1,6 +1,7 @@
 import { mysqlTable, int, varchar, text, json, timestamp, mysqlEnum, boolean, decimal } from "drizzle-orm/mysql-core";
 
 // ─── Users ─────────────────────────────────────────────────────
+
 export const users = mysqlTable("users", {
   id: int("id").primaryKey().autoincrement(),
   openId: varchar("open_id", { length: 255 }).unique().notNull(),
@@ -18,6 +19,7 @@ export const users = mysqlTable("users", {
 });
 
 // ─── Children ──────────────────────────────────────────────────
+
 export const children = mysqlTable("children", {
   id: int("id").primaryKey().autoincrement(),
   userId: int("user_id").notNull(),
@@ -54,6 +56,7 @@ export const children = mysqlTable("children", {
 });
 
 // ─── Story Arcs ────────────────────────────────────────────────
+
 export const storyArcs = mysqlTable("story_arcs", {
   id: int("id").primaryKey().autoincrement(),
   userId: int("user_id").notNull(),
@@ -71,6 +74,7 @@ export const storyArcs = mysqlTable("story_arcs", {
 });
 
 // ─── Episodes ──────────────────────────────────────────────────
+
 export const episodes = mysqlTable("episodes", {
   id: int("id").primaryKey().autoincrement(),
   storyArcId: int("story_arc_id").notNull(),
@@ -79,10 +83,24 @@ export const episodes = mysqlTable("episodes", {
   summary: text("summary"),
   coverImageUrl: varchar("cover_image_url", { length: 1024 }),
   isRead: boolean("is_read").default(false),
+  // Continuous episode-level audio (all pages narrated as one track)
+  fullAudioUrl: varchar("full_audio_url", { length: 1024 }),
+  fullAudioDurationMs: int("full_audio_duration_ms"),
+  // Page timing data for syncing page transitions with continuous audio
+  pageTimings: json("page_timings").$type<{
+    pageNumber: number;
+    startMs: number;
+    endMs: number;
+  }[]>(),
+  // Background music
+  musicUrl: varchar("music_url", { length: 1024 }),
+  musicDurationMs: int("music_duration_ms"),
+  musicMood: varchar("music_mood", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ─── Pages ─────────────────────────────────────────────────────
+
 export const pages = mysqlTable("pages", {
   id: int("id").primaryKey().autoincrement(),
   episodeId: int("episode_id").notNull(),
@@ -95,10 +113,15 @@ export const pages = mysqlTable("pages", {
   audioDurationMs: int("audio_duration_ms"),
   mood: varchar("mood", { length: 50 }),
   characters: json("characters").$type<{ name: string; traits: string[]; voiceRole?: string }[]>(),
+  // Scene metadata for image generation and sound effects
+  sceneDescription: text("scene_description"),
+  soundEffectHint: text("sound_effect_hint"),
+  soundEffectUrl: varchar("sound_effect_url", { length: 1024 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ─── Story Recommendations ─────────────────────────────────────
+
 export const storyRecommendations = mysqlTable("story_recommendations", {
   id: int("id").primaryKey().autoincrement(),
   userId: int("user_id").notNull(),
@@ -116,6 +139,7 @@ export const storyRecommendations = mysqlTable("story_recommendations", {
 });
 
 // ─── Print Orders (Printful) ───────────────────────────────────
+
 export const printOrders = mysqlTable("print_orders", {
   id: int("id").primaryKey().autoincrement(),
   userId: int("user_id").notNull(),
@@ -154,6 +178,7 @@ export const printOrders = mysqlTable("print_orders", {
 });
 
 // ─── Type Exports ──────────────────────────────────────────────
+
 export type User = typeof users.$inferSelect;
 export type Child = typeof children.$inferSelect;
 export type StoryArc = typeof storyArcs.$inferSelect;
