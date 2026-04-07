@@ -1,14 +1,5 @@
 import { useCallback, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  RefreshControl,
-  ActivityIndicator,
-  Dimensions,
-} from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl, ActivityIndicator, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -39,24 +30,13 @@ export default function TonightScreen() {
       setSelectedChild(child);
       const arcs = await getLocalStoryArcs();
       setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
-    } else {
-      setSelectedChild(null);
-      setActiveArcs([]);
-    }
+    } else { setSelectedChild(null); setActiveArcs([]); }
     setLoading(false);
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [loadData])
-  );
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  };
+  const onRefresh = async () => { setRefreshing(true); await loadData(); setRefreshing(false); };
 
   const selectChild = async (child: LocalChild) => {
     setSelectedChild(child);
@@ -65,505 +45,358 @@ export default function TonightScreen() {
   };
 
   if (loading) {
-    return (
-      <ScreenContainer className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="#FFD700" />
-      </ScreenContainer>
-    );
+    return (<ScreenContainer className="flex-1 items-center justify-center"><ActivityIndicator size="large" color="#FFD700" /></ScreenContainer>);
   }
 
-  // Empty state with rich background
   if (children.length === 0) {
     return (
       <View style={styles.emptyRoot}>
-        <Image
-          source={{ uri: ASSETS.bgOnboarding }}
-          style={StyleSheet.absoluteFillObject}
-          contentFit="cover"
-        />
-        <LinearGradient
-          colors={["rgba(10,14,26,0.3)", "rgba(10,14,26,0.85)", "rgba(10,14,26,0.98)"]}
-          locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <ScreenContainer
-          containerClassName="bg-transparent"
-          edges={["top", "bottom", "left", "right"]}
-          className="flex-1"
-        >
-          <View style={styles.emptyContainer}>
-            <Animated.View entering={FadeIn.duration(600)} style={styles.emptyContent}>
-              <Image
-                source={require("@/assets/images/icon.png")}
-                style={styles.emptyLogo}
-                contentFit="contain"
-              />
-              <Text style={styles.emptyTitle}>Welcome to StoryWeaver</Text>
-              <Text style={styles.emptySubtitle}>
-                Create your first child profile to start generating personalized bedtime stories
-              </Text>
-              <Pressable
-                onPress={() => router.push("/create-child")}
-                style={({ pressed }) => [
-                  styles.createButton,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-                ]}
-              >
-                <Text style={styles.createButtonText}>Create Child Profile</Text>
-              </Pressable>
-            </Animated.View>
-          </View>
-        </ScreenContainer>
+        <Image source={{ uri: ASSETS.bgOnboarding }} style={StyleSheet.absoluteFillObject} contentFit="cover" />
+        <LinearGradient colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0.8)"]} style={StyleSheet.absoluteFillObject} />
+        <Animated.View entering={FadeInDown.duration(800)} style={styles.emptyContent}>
+          <Text style={styles.emptyEmoji}>\u{2728}</Text>
+          <Text style={styles.emptyTitle}>Welcome to StoryWeaver</Text>
+          <Text style={styles.emptySubtitle}>Create your child's profile to start generating magical bedtime stories</Text>
+          <Pressable onPress={() => router.push("/create-child")} style={styles.emptyBtn}>
+            <Text style={styles.emptyBtnText}>Create First Profile</Text>
+          </Pressable>
+        </Animated.View>
       </View>
     );
   }
 
+  // AI-powered story recommendations
+  const RECOMMENDATIONS = [
+    { id: "r1", title: "The Moonlight Orchestra", theme: "music", emoji: "\u{1F3B5}", reason: "Combines music + imagination" },
+    { id: "r2", title: "Captain Starfish's Treasure", theme: "ocean", emoji: "\u{1F3F4}", reason: "Ocean adventure with pirate twist" },
+    { id: "r3", title: "The Kindness Robot", theme: "robot", emoji: "\u{1F916}", reason: "Tech meets empathy" },
+    { id: "r4", title: "Whispers in the Enchanted Garden", theme: "garden", emoji: "\u{1F33B}", reason: "Nature + mystery" },
+    { id: "r5", title: "Dino Detective Academy", theme: "dinosaur", emoji: "\u{1F995}", reason: "Dinosaurs + problem solving" },
+    { id: "r6", title: "The Fairy's Lost Melody", theme: "fairy", emoji: "\u{1F9DA}", reason: "Magical quest with music" },
+    { id: "r7", title: "Arctic Penguin Express", theme: "arctic", emoji: "\u{1F427}", reason: "Cold weather adventure" },
+    { id: "r8", title: "The Brave Little Knight", theme: "medieval", emoji: "\u{1F3F0}", reason: "Castle quest with courage" },
+    { id: "r9", title: "Jungle Code Breakers", theme: "jungle", emoji: "\u{1F412}", reason: "Jungle + puzzles" },
+    { id: "r10", title: "Candy Cloud Kingdom", theme: "candy", emoji: "\u{1F36D}", reason: "Sweet dreams adventure" },
+  ];
+
   return (
-    <ScreenContainer edges={["top", "left", "right"]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
-        }
-      >
-        {/* Header */}
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: colors.muted }]}>Good evening</Text>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-              Tonight's Story
-            </Text>
-          </View>
-          <Pressable
-            onPress={() => router.push("/create-child")}
-            style={({ pressed }) => [
-              styles.addChildButton,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Text style={{ color: "#FFD700", fontSize: 22 }}>+</Text>
-          </Pressable>
+    <ScreenContainer>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />}>
+
+        <Animated.View entering={FadeIn.duration(600)}>
+          <Text style={[styles.greeting, { color: colors.text }]}>Tonight's Story</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {selectedChild ? `What adventure awaits ${selectedChild.name}?` : "Select a child to begin"}
+          </Text>
         </Animated.View>
 
-        {/* Child Selector */}
         {children.length > 1 && (
-          <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childSelector}>
-              {children.map((child) => (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.childScroll}>
+            {children.map((child) => (
+              <Pressable key={child.id} onPress={() => selectChild(child)}
+                style={[styles.childChip, selectedChild?.id === child.id && { backgroundColor: colors.primary }]}>
+                <Text style={[styles.childChipText, selectedChild?.id === child.id && { color: "#fff" }]}>
+                  {child.name}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+
+        {selectedChild && (
+          <Animated.View entering={FadeInDown.delay(200).duration(500)} style={[styles.childCard, { backgroundColor: colors.card }]}>
+            <View style={styles.childAvatar}>
+              <Text style={styles.avatarEmoji}>\u{1F476}</Text>
+            </View>
+            <View style={styles.childInfo}>
+              <Text style={[styles.childName, { color: colors.text }]}>{selectedChild.name}</Text>
+              <Text style={[styles.childAge, { color: colors.textSecondary }]}>Age {selectedChild.age} \u{00B7} {selectedChild.interests.slice(0, 3).join(", ")}</Text>
+            </View>
+            <Pressable onPress={() => router.push("/create-child")} style={styles.addChildBtn}>
+              <Text style={styles.addChildBtnText}>+</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* Recommendations */}
+        {selectedChild && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>✨ Recommended for {selectedChild.name}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recScroll}>
+              {RECOMMENDATIONS.map((rec, idx) => (
                 <Pressable
-                  key={child.id}
-                  onPress={() => selectChild(child)}
-                  style={({ pressed }) => [
-                    styles.childChip,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                    selectedChild?.id === child.id && styles.childChipActive,
-                    pressed && { opacity: 0.7 },
-                  ]}
+                  key={idx}
+                  style={[styles.recCard, { backgroundColor: colors.card }]}
+                  onPress={() => router.push({ pathname: "/new-story", params: { childId: selectedChild.id, theme: rec.theme, educationalValue: rec.educationalValue } })}
                 >
-                  <View style={[styles.childAvatar, selectedChild?.id === child.id && styles.childAvatarActive]}>
-                    <Text style={[styles.childAvatarText, selectedChild?.id === child.id && { color: "#0A0E1A" }]}>{child.name[0]}</Text>
+                  <View style={[styles.recImagePlaceholder, { backgroundColor: rec.color }]}>
+                    <Text style={styles.recEmoji}>{rec.emoji}</Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.childChipName,
-                      { color: colors.foreground },
-                      selectedChild?.id === child.id && { color: "#0A0E1A" },
-                    ]}
-                  >
-                    {child.name}
-                  </Text>
+                  <Text style={[styles.recTitle, { color: colors.text }]} numberOfLines={2}>{rec.title}</Text>
+                  <Text style={[styles.recTheme, { color: colors.textSecondary }]}>{rec.theme}</Text>
                 </Pressable>
               ))}
             </ScrollView>
-          </Animated.View>
+          </View>
         )}
 
-        {/* Active Story - Continue Reading (large hero card) */}
-        {activeArcs.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Continue Reading
-            </Text>
-            {activeArcs.map((arc) => {
-              const themeData = STORY_THEMES.find((t) => t.id === arc.theme);
-              return (
-                <Pressable
-                  key={arc.id}
-                  onPress={() => {
-                    router.push({
-                      pathname: "/story-reader" as any,
-                      params: {
-                        episodeTitle: arc.title,
-                        childName: arc.childName,
-                        arcId: arc.id,
-                        theme: arc.theme,
-                      },
-                    });
-                  }}
-                  style={({ pressed }) => [
-                    styles.continueCard,
-                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-                  ]}
-                >
-                  <Image
-                    source={{ uri: themeData?.image }}
-                    style={StyleSheet.absoluteFillObject}
-                    contentFit="cover"
-                  />
-                  <LinearGradient
-                    colors={["transparent", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.92)"]}
-                    locations={[0, 0.45, 1]}
-                    style={styles.continueGradient}
-                  >
-                    <View style={styles.continueBadge}>
-                      <Text style={styles.continueBadgeText}>
-                        Episode {arc.currentEpisode + 1} of {arc.totalEpisodes}
-                      </Text>
-                    </View>
-                    <Text style={styles.continueTitle}>{arc.title}</Text>
-                    <Text style={styles.continueSubtitle}>
-                      Teaching {arc.educationalValueName}
-                    </Text>
-                    <View style={styles.readButton}>
-                      <Text style={styles.readButtonText}>Read Tonight's Episode</Text>
-                    </View>
-                  </LinearGradient>
-                </Pressable>
-              );
-            })}
-          </Animated.View>
-        )}
-
-        {/* Active Child Card */}
-        {selectedChild && (
-          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <View style={[styles.activeChildCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.activeChildInfo}>
-                <View style={styles.activeChildAvatar}>
-                  <Text style={styles.activeChildAvatarText}>{selectedChild.name[0]}</Text>
-                </View>
-                <View style={styles.activeChildDetails}>
-                  <Text style={[styles.activeChildName, { color: colors.foreground }]}>
-                    {selectedChild.name}'s Universe
-                  </Text>
-                  <Text style={[styles.activeChildAge, { color: colors.muted }]}>
-                    Age {selectedChild.age} | {selectedChild.interests.slice(0, 3).join(", ") || "No interests set"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </Animated.View>
-        )}
-
-        {/* Start a New Story Arc */}
-        <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Start a New Adventure
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
-            Choose a theme for {selectedChild?.name || "your child"}'s next story series
-          </Text>
-        </Animated.View>
-
-        {/* Theme Grid - Large immersive cards */}
-        <View style={styles.themeGrid}>
-          {STORY_THEMES.map((theme, index) => (
-            <Animated.View
-              key={theme.id}
-              entering={FadeInRight.delay(350 + index * 80).duration(400)}
-              style={styles.themeCardWrapper}
-            >
+        {/* Story Arcs */}
+        {storyArcs.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>📚 Continue Reading</Text>
+            {storyArcs.map((arc) => (
               <Pressable
+                key={arc.id}
+                style={[styles.arcCard, { backgroundColor: colors.card }]}
+                onPress={() => router.push({ pathname: "/story-arc", params: { id: arc.id } })}
+              >
+                {arc.coverImageUrl && (
+                  <Image source={{ uri: arc.coverImageUrl }} style={styles.arcImage} />
+                )}
+                <View style={styles.arcInfo}>
+                  <Text style={[styles.arcTitle, { color: colors.text }]}>{arc.title}</Text>
+                  <Text style={[styles.arcMeta, { color: colors.textSecondary }]}>
+                    Episode {arc.currentEpisode}/{arc.totalEpisodes} · {arc.theme}
+                  </Text>
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: `${(arc.currentEpisode / arc.totalEpisodes) * 100}%` }]} />
+                  </View>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* Browse Themes */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>🎨 Browse All Themes</Text>
+          <View style={styles.themeGrid}>
+            {STORY_THEMES.map((theme, idx) => (
+              <Pressable
+                key={idx}
+                style={[styles.themeCard, { backgroundColor: colors.card }]}
                 onPress={() => {
                   if (selectedChild) {
-                    router.push({
-                      pathname: "/new-story" as any,
-                      params: {
-                        childId: selectedChild.id,
-                        childName: selectedChild.name,
-                        theme: theme.id,
-                        themeName: theme.name,
-                      },
-                    });
+                    router.push({ pathname: "/new-story", params: { childId: selectedChild.id, theme: theme.label } });
                   }
                 }}
-                style={({ pressed }) => [
-                  styles.themeCard,
-                  pressed && { opacity: 0.9, transform: [{ scale: 0.97 }] },
-                ]}
               >
-                <Image
-                  source={{ uri: theme.image }}
-                  style={StyleSheet.absoluteFillObject}
-                  contentFit="cover"
-                  transition={300}
-                />
-                <LinearGradient
-                  colors={["transparent", "rgba(0,0,0,0.75)"]}
-                  locations={[0.35, 1]}
-                  style={styles.themeOverlay}
-                >
-                  <Text style={styles.themeEmoji}>{theme.emoji}</Text>
-                  <Text style={styles.themeName}>{theme.name}</Text>
-                </LinearGradient>
+                <Text style={styles.themeEmoji}>{theme.emoji}</Text>
+                <Text style={[styles.themeLabel, { color: colors.text }]}>{theme.label}</Text>
               </Pressable>
-            </Animated.View>
-          ))}
+            ))}
+          </View>
         </View>
 
-        {/* Bottom spacer */}
-        <View style={{ height: 24 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  greeting: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 2,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-  },
-  addChildButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  childSelector: {
-    marginBottom: 16,
-  },
-  childChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 24,
-    borderWidth: 1,
-    marginRight: 10,
-    gap: 8,
-  },
-  childChipActive: {
-    backgroundColor: "#FFD700",
-    borderColor: "#FFD700",
-  },
-  childAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(255, 215, 0, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  childAvatarActive: {
-    backgroundColor: "rgba(10, 14, 26, 0.15)",
-  },
-  childAvatarText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#FFD700",
-  },
-  childChipName: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  section: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  // Continue reading hero card
-  continueCard: {
-    borderRadius: 24,
-    overflow: "hidden",
-    height: 240,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  continueGradient: {
-    flex: 1,
-    justifyContent: "flex-end",
-    padding: 20,
-  },
-  continueBadge: {
-    backgroundColor: "rgba(255, 215, 0, 0.2)",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    alignSelf: "flex-start",
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255, 215, 0, 0.3)",
-  },
-  continueBadgeText: {
-    color: "#FFD700",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  continueTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    marginBottom: 4,
-  },
-  continueSubtitle: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 14,
-  },
-  readButton: {
-    backgroundColor: "#FFD700",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  readButtonText: {
-    color: "#0A0E1A",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  // Active child card
-  activeChildCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    marginBottom: 24,
-  },
-  activeChildInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-  },
-  activeChildAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(255, 215, 0, 0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFD700",
-  },
-  activeChildAvatarText: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#FFD700",
-  },
-  activeChildDetails: {
-    flex: 1,
-  },
-  activeChildName: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 4,
-  },
-  activeChildAge: {
-    fontSize: 13,
-  },
-  // Theme grid - tall immersive cards
-  themeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginTop: 12,
-  },
-  themeCardWrapper: {
-    width: THEME_CARD_WIDTH,
-  },
-  themeCard: {
-    borderRadius: 20,
-    overflow: "hidden",
-    height: 200,
-  },
-  themeOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    padding: 14,
-  },
-  themeEmoji: {
-    fontSize: 30,
-    marginBottom: 4,
-  },
-  themeName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  // Empty state
   emptyRoot: {
     flex: 1,
-    backgroundColor: "#0A0E1A",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "flex-end",
+    justifyContent: "center",
     alignItems: "center",
     padding: 32,
-    paddingBottom: 80,
   },
   emptyContent: {
     alignItems: "center",
     gap: 16,
   },
-  emptyLogo: {
-    width: 100,
-    height: 100,
-    borderRadius: 25,
-    marginBottom: 8,
+  emptyEmoji: {
+    fontSize: 64,
   },
   emptyTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    textAlign: "center",
-    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "700",
   },
   emptySubtitle: {
     fontSize: 16,
     textAlign: "center",
     lineHeight: 24,
-    paddingHorizontal: 16,
-    color: "rgba(255,255,255,0.7)",
+    opacity: 0.7,
   },
-  createButton: {
-    backgroundColor: "#FFD700",
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 40,
+  ctaButton: {
     marginTop: 8,
-    width: "100%",
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 25,
+  },
+  ctaText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+  },
+  greetingSection: {
+    marginBottom: 24,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: "700",
+  },
+  subGreeting: {
+    fontSize: 15,
+    marginTop: 4,
+    opacity: 0.7,
+  },
+  childScroll: {
+    marginBottom: 16,
+  },
+  childChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  childChipText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  childCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  childAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
     alignItems: "center",
   },
-  createButtonText: {
-    color: "#0A0E1A",
+  avatarEmoji: {
+    fontSize: 28,
+  },
+  childInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  childName: {
     fontSize: 18,
+    fontWeight: "600",
+  },
+  childAge: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  addChildBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  addChildBtnText: {
+    fontSize: 20,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  section: {
+    marginBottom: 28,
+  },
+  sectionTitle: {
+    fontSize: 20,
     fontWeight: "700",
+    marginBottom: 14,
+  },
+  recScroll: {
+    marginLeft: -4,
+  },
+  recCard: {
+    width: 150,
+    marginRight: 12,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginLeft: 4,
+  },
+  recImagePlaceholder: {
+    height: 100,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  recEmoji: {
+    fontSize: 36,
+  },
+  recTitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    padding: 10,
+    paddingBottom: 4,
+  },
+  recTheme: {
+    fontSize: 11,
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    opacity: 0.6,
+  },
+  arcCard: {
+    flexDirection: "row",
+    borderRadius: 14,
+    overflow: "hidden",
+    marginBottom: 12,
+  },
+  arcImage: {
+    width: 80,
+    height: 80,
+  },
+  arcInfo: {
+    flex: 1,
+    padding: 12,
+    justifyContent: "center",
+  },
+  arcTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  arcMeta: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 2,
+    marginTop: 8,
+  },
+  progressFill: {
+    height: 4,
+    backgroundColor: "#6C63FF",
+    borderRadius: 2,
+  },
+  themeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  themeCard: {
+    width: "31%",
+    aspectRatio: 1,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 8,
+  },
+  themeEmoji: {
+    fontSize: 28,
+    marginBottom: 6,
+  },
+  themeLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
   },
 });
