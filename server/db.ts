@@ -1,12 +1,21 @@
 import { eq, and, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
-  InsertUser, users,
-  InsertChild, children,
-  InsertStoryArc, storyArcs,
-  InsertEpisode, episodes,
-  InsertPage, pages,
+  users,
+  children,
+  storyArcs,
+  episodes,
+  pages,
+  storyRecommendations,
+  printOrders,
 } from "../drizzle/schema";
+
+// Infer insert types from the schema
+type InsertUser = typeof users.$inferInsert;
+type InsertChild = typeof children.$inferInsert;
+type InsertStoryArc = typeof storyArcs.$inferInsert;
+type InsertEpisode = typeof episodes.$inferInsert;
+type InsertPage = typeof pages.$inferInsert;
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -194,4 +203,55 @@ export async function createPages(data: InsertPage[]) {
   if (!db) throw new Error("Database not available");
   if (data.length === 0) return;
   await db.insert(pages).values(data);
+}
+
+// Re-export a Drizzle-compatible db proxy for routers that import { db }
+// This lazily initializes the connection and proxies all Drizzle methods
+function getDbSync() {
+  if (!_db && process.env.DATABASE_URL) {
+    try {
+      _db = drizzle(process.env.DATABASE_URL);
+    } catch (error) {
+      console.warn("[Database] Failed to connect:", error);
+    }
+  }
+  if (!_db) throw new Error("Database not available");
+  return _db;
+}
+
+export const db = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop, receiver) {
+    const realDb = getDbSync();
+    const val = (realDb as any)[prop];
+    if (typeof val === "function") return val.bind(realDb);
+    return val;
+  },
+});
+
+// ---- Story Recommendations helpers ----
+export async function getRecommendations(userId: number, childId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(storyRecommendations).where(and(eq(storyRecommendations.userId, userId), eq(storyRecommendations.childId, childId))).orderBy(desc(storyRecommendations.createdAt));
+}
+
+// ---- Print Order helpers ----
+export async function createPrintOrder(data: typeof printOrders.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(printOrders).values(data);
+  return result.insertId;
+}
+
+export async function getPrintOrder(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(printOrders).where(and(eq(printOrders.id, id), eq(printOrders.userId, userId))).limit(1);
+  return result[0];
+}
+
+export async function updatePrintOrder(id: number, data: Partial<typeof printOrders.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(printOrders).set(data).where(eq(printOrders.id, id));
 }

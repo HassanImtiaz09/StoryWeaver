@@ -36,3 +36,4 @@
 - [x] Connect all new screens to navigation (settings, print-book registered in _layout.tsx)
 - [x] Integrate ElevenLabs API key for HD voice narration (validated: auth + voices endpoint)
 - [x] Integrate Claude (Anthropic) API key for AI story generation (key valid, needs credits)
+- [x] Sync project with latest GitHub changes (second sync - 0 TS errors, 29 tests passing)

@@ -87,7 +87,7 @@ export default function TonightScreen() {
     return (
       <View style={styles.emptyRoot}>
         <Image
-          source={{ uri: ASSETS.bgOnboarding }}
+          source={{ uri: ASSETS.onboarding[0] }}
           style={StyleSheet.absoluteFillObject}
           contentFit="cover"
         />

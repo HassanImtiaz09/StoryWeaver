@@ -12,7 +12,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import {
   getLocalChildren,
-  removeLocalChild,
+  deleteLocalChild,
   type LocalChild,
 } from "@/lib/onboarding-store";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -43,7 +43,7 @@ export default function FamilyScreen() {
           text: "Remove",
           style: "destructive",
           onPress: async () => {
-            await removeLocalChild(child.id);
+            await deleteLocalChild(child.id);
             loadChildren();
           },
         },

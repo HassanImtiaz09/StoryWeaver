@@ -239,9 +239,10 @@ export const appRouter = router({
         // Generate cover image
         let coverImageUrl: string | undefined;
         try {
-          coverImageUrl = await generateImage(
-            `Children's book cover: ${arcData.title}. ${input.theme} theme. Features a ${child.age}-year-old child. Watercolor style, warm magical lighting.`
-          );
+          const coverResult = await generateImage({
+            prompt: `Children's book cover: ${arcData.title}. ${input.theme} theme. Features a ${child.age}-year-old child. Watercolor style, warm magical lighting.`,
+          });
+          coverImageUrl = coverResult.url;
         } catch {}
 
         const [result] = await db.insert(storyArcs).values({
@@ -389,7 +390,8 @@ export const appRouter = router({
 
         if (!prompt) prompt = "Warm watercolor children's book illustration, magical scene, soft lighting";
 
-        const imageUrl = await generateImage(prompt);
+        const imageResult = await generateImage({ prompt });
+        const imageUrl = imageResult.url ?? null;
 
         await db.update(pages).set({ imageUrl, imagePrompt: prompt }).where(eq(pages.id, input.pageId));
 
@@ -404,7 +406,8 @@ export const appRouter = router({
 
         const result = await generatePageAudio(
           page.storyText ?? "",
-          page.characters ?? []
+          (page.characters ?? []).map((c: any) => ({ name: c.name, traits: Array.isArray(c.traits) ? c.traits.join(", ") : c.traits })),
+          input.pageId
         );
 
         await db.update(pages).set({

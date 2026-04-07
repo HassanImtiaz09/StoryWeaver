@@ -107,7 +107,7 @@ export default function NewStoryScreen() {
               episodeTitle: episodeResult.title,
               childName: params.childName,
               arcId: arcResult.id.toString(),
-              episodeId: episodeResult.id.toString(),
+              episodeId: episodeResult.episodeId.toString(),
               serverMode: "true",
             },
           }),

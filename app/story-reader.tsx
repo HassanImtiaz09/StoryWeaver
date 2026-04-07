@@ -117,7 +117,7 @@ export default function StoryReaderScreen() {
         });
         setPages((prev) =>
           prev.map((p) =>
-            p.id === page.id ? { ...p, imageUrl: result.imageUrl } : p
+            p.id === page.id ? { ...p, imageUrl: result.imageUrl as string } : p
           )
         );
       } catch (err) {
@@ -209,7 +209,7 @@ export default function StoryReaderScreen() {
   // ─── Render Page ─────────────────────────────────────────────
   const renderPage = useCallback(
     ({ item, index }: { item: StoryPage; index: number }) => {
-      const moodColors = MOOD_COLORS[item.mood ?? "warm"] ?? MOOD_COLORS.warm;
+      const moodColors = (MOOD_COLORS[item.mood ?? "warm"] ?? MOOD_COLORS.warm) as [string, string];
       const moodLabel = MOOD_LABELS[item.mood ?? "warm"] ?? "";
       const displayText = getDisplayText(item.storyText);
       const isLastPage = index === pages.length - 1;
@@ -223,12 +223,12 @@ export default function StoryReaderScreen() {
             {item.imageUrl ? (
               <Image source={{ uri: item.imageUrl }} style={styles.illustration} resizeMode="cover" />
             ) : isGeneratingImage ? (
-              <LinearGradient colors={moodColors} style={styles.illustrationPlaceholder}>
+              <LinearGradient colors={moodColors as [string, string]} style={styles.illustrationPlaceholder}>
                 <ActivityIndicator color="#fff" size="large" />
                 <Text style={styles.genLabel}>Creating illustration...</Text>
               </LinearGradient>
             ) : (
-              <LinearGradient colors={moodColors} style={styles.illustrationPlaceholder}>
+              <LinearGradient colors={moodColors as [string, string]} style={styles.illustrationPlaceholder}>
                 <Text style={styles.placeholderEmoji}>{"\u{1F3A8}"}</Text>
                 <Pressable onPress={() => generateImageForPage(item)} style={styles.genBtn}>
                   <Text style={styles.genBtnText}>Generate Illustration</Text>
