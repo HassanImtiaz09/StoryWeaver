@@ -49,4 +49,4 @@
 - [x] Register paywall route in root layout
 - [x] Add lock.fill and crown.fill icon mappings
 - [x] Write 25 tests for subscription-store (all passing)
-- [x] Sync project with latest GitHub changes (third sync - 0 TS errors, 54 tests passing, fixed routers.ts MySQL/.returning() issues, story-reader.tsx type mismatches, settings.tsx voice preview, print-book.tsx order flow, new-story.tsx arc/episode params)
+- [x] Sync project with latest GitHub changes (third sync - 0 TS errors, 55 tests passing, fixed routers.ts MySQL/.returning() issues, story-reader.tsx type mismatches, settings.tsx voice preview, print-book.tsx order flow, new-story.tsx arc/episode params, auth.logout procedure with cookie clearing)

@@ -115,8 +115,19 @@ export const appRouter = router({
       const req = (ctx as any).req;
       const res = (ctx as any).res;
       if (req && res) {
-        const cookieOptions = getSessionCookieOptions(req);
-        res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+        try {
+          const cookieOptions = getSessionCookieOptions(req);
+          res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+        } catch {
+          // Fallback: clear cookie with safe defaults if hostname is unavailable
+          res.clearCookie(COOKIE_NAME, {
+            httpOnly: true,
+            path: "/",
+            sameSite: "none" as const,
+            secure: true,
+            maxAge: -1,
+          });
+        }
       }
       return { success: true };
     }),
