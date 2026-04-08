@@ -45,6 +45,12 @@ export interface AppSettings {
   // Character avatars
   characterAvatarEnabled: boolean;
   preferredCharacterArtStyle: "watercolor" | "cartoon" | "anime" | "storybook-classic" | "pixel-art";
+
+  // Collaborative storytelling (Family Mode)
+  collaborativeModeEnabled: boolean;
+  defaultMaxParticipants: number;
+  defaultTurnTimeLimit: number;
+  aiEnhancementLevel: "light" | "moderate" | "heavy";
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -73,6 +79,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   voiceResponseMode: "auto",
   characterAvatarEnabled: true,
   preferredCharacterArtStyle: "watercolor",
+  collaborativeModeEnabled: true,
+  defaultMaxParticipants: 4,
+  defaultTurnTimeLimit: 120,
+  aiEnhancementLevel: "moderate",
 };
 
 export async function getSettings(): Promise<AppSettings> {

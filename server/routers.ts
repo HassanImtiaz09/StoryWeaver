@@ -2870,6 +2870,237 @@ export const appRouter = router({
       }),
   }),
 
+  collaborative: router({
+    /**
+     * Create a new collaborative session (host initiates)
+     */
+    createSession: protectedProcedure
+      .input(
+        z.object({
+          arcId: z.number(),
+          maxParticipants: z.number().default(4).min(2).max(6),
+          turnTimeLimit: z.number().default(120).min(0),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const {
+          createSession: createCollaborativeSession,
+          startSession,
+        } = await import("./_core/collaborativeSession");
+
+        const session = await createCollaborativeSession(
+          ctx.userId,
+          input.arcId,
+          {
+            maxParticipants: input.maxParticipants,
+            turnTimeLimit: input.turnTimeLimit,
+          }
+        );
+
+        return session;
+      }),
+
+    /**
+     * Join an existing collaborative session using code
+     */
+    joinSession: protectedProcedure
+      .input(
+        z.object({
+          code: z.string().length(6),
+          displayName: z.string().min(1).max(100),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { joinSession: joinCollaborativeSession } = await import(
+          "./_core/collaborativeSession"
+        );
+
+        const session = await joinCollaborativeSession(
+          input.code,
+          ctx.userId,
+          input.displayName
+        );
+
+        return session;
+      }),
+
+    /**
+     * Get current session state (for polling)
+     */
+    getSessionState: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .query(async ({ input }) => {
+        const { getSessionState } = await import("./_core/collaborativeSession");
+        return await getSessionState(input.sessionId);
+      }),
+
+    /**
+     * Submit a turn contribution
+     */
+    submitTurn: protectedProcedure
+      .input(
+        z.object({
+          sessionId: z.number(),
+          input: z.string().min(5).max(500),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { submitTurn: submitCollaborativeTurn, getSessionState } = await import(
+          "./_core/collaborativeSession"
+        );
+        const { enhanceTurnInput, updateSegmentWithEnhancement } = await import(
+          "./_core/turnProcessor"
+        );
+
+        // Get session context
+        const session = await getSessionState(input.sessionId);
+
+        // Get child profile for age-appropriate enhancement
+        const childId = session.participants.find((p) => p.userId === ctx.userId)?.childId;
+        let childAge = 6; // default
+
+        if (childId) {
+          const [child] = await db.select().from(children).where(eq(children.id, childId));
+          if (child) childAge = child.age;
+        }
+
+        // Submit raw turn
+        await submitCollaborativeTurn(input.sessionId, ctx.userId, input.input);
+
+        // Get the segment we just created
+        const segments = await db
+          .select()
+          .from(storySegments)
+          .where(eq(storySegments.sessionId, input.sessionId));
+        const latestSegment = segments[segments.length - 1];
+
+        // Enhance the turn with AI
+        try {
+          const enhancement = await enhanceTurnInput(
+            input.input,
+            {
+              currentStory: session.storySegments.map((s) => s.text).join("\n\n"),
+              theme: "adventure", // TODO: get from arc
+              childAge,
+              previousSegments: session.storySegments,
+            },
+            "moderate"
+          );
+
+          await updateSegmentWithEnhancement(latestSegment.id, enhancement);
+        } catch (error) {
+          console.error("Turn enhancement error:", error);
+          // Continue even if enhancement fails
+        }
+
+        return await getSessionState(input.sessionId);
+      }),
+
+    /**
+     * Advance to next participant's turn
+     */
+    advanceTurn: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const { advanceTurn, getSessionState } = await import(
+          "./_core/collaborativeSession"
+        );
+
+        await advanceTurn(input.sessionId);
+        return await getSessionState(input.sessionId);
+      }),
+
+    /**
+     * Start the collaborative session (host only)
+     */
+    startSession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const { startSession, getSessionState } = await import(
+          "./_core/collaborativeSession"
+        );
+
+        await startSession(input.sessionId, ctx.userId);
+        return await getSessionState(input.sessionId);
+      }),
+
+    /**
+     * Skip current turn (host only)
+     */
+    skipTurn: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const { skipTurn, getSessionState } = await import(
+          "./_core/collaborativeSession"
+        );
+
+        await skipTurn(input.sessionId, ctx.userId);
+        return await getSessionState(input.sessionId);
+      }),
+
+    /**
+     * End the collaborative session
+     */
+    endSession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const { endSession, getSessionState } = await import(
+          "./_core/collaborativeSession"
+        );
+
+        await endSession(input.sessionId);
+        return await getSessionState(input.sessionId);
+      }),
+
+    /**
+     * Leave a collaborative session
+     */
+    leaveSession: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const { leaveSession } = await import("./_core/collaborativeSession");
+        await leaveSession(input.sessionId, ctx.userId);
+        return { success: true };
+      }),
+
+    /**
+     * Save completed collaborative story to library
+     */
+    saveStory: protectedProcedure
+      .input(z.object({ sessionId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const { getSessionState } = await import("./_core/collaborativeSession");
+        const { mergeSegmentsIntoStory } = await import("./_core/turnProcessor");
+
+        const session = await getSessionState(input.sessionId);
+
+        if (session.status !== "completed") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Can only save completed sessions",
+          });
+        }
+
+        // Create a new story arc from the collaborative story
+        const mergedText = mergeSegmentsIntoStory(session.storySegments);
+
+        // Insert as a new episode in the arc
+        const [result] = await db.insert(episodes).values({
+          storyArcId: session.arcId,
+          episodeNumber: 1,
+          title: "Our Collaborative Story",
+          summary: mergedText.substring(0, 500),
+          createdAt: new Date(),
+        });
+
+        return {
+          success: true,
+          episodeId: result.insertId,
+          title: "Our Collaborative Story",
+        };
+      }),
+  }),
+
   admin: router({
     /**
      * Get detailed health status (authenticated admin only)

@@ -400,6 +400,47 @@ export const characterAvatars = mysqlTable("character_avatars", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
 
+// ─── Collaborative Sessions ────────────────────────────────────
+// Family Mode: Multiple family members co-create stories together
+
+export const collaborativeSessions = mysqlTable("collaborative_sessions", {
+  id: int("id").primaryKey().autoincrement(),
+  arcId: int("arc_id").notNull(),
+  hostUserId: int("host_user_id").notNull(),
+  sessionCode: varchar("session_code", { length: 10 }).notNull().unique(),
+  status: mysqlEnum("status", ["waiting", "active", "paused", "completed"]).default("waiting"),
+  turnOrder: json("turn_order").$type<number[]>().default([]),
+  currentTurnIndex: int("current_turn_index").default(0),
+  turnTimeLimit: int("turn_time_limit").default(120), // seconds, 0 = unlimited
+  maxParticipants: int("max_participants").default(4),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const sessionParticipants = mysqlTable("session_participants", {
+  id: int("id").primaryKey().autoincrement(),
+  sessionId: int("session_id").notNull(),
+  userId: int("user_id").notNull(),
+  childId: int("child_id"),
+  displayName: varchar("display_name", { length: 100 }).notNull(),
+  role: mysqlEnum("role", ["host", "contributor"]).default("contributor"),
+  color: varchar("color", { length: 20 }).notNull(), // Hex color for avatar
+  turnsCompleted: int("turns_completed").default(0),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export const storySegments = mysqlTable("story_segments", {
+  id: int("id").primaryKey().autoincrement(),
+  sessionId: int("session_id").notNull(),
+  participantId: int("participant_id").notNull(),
+  pageNumber: int("page_number").notNull(),
+  rawInput: text("raw_input").notNull(),
+  enhancedText: text("enhanced_text").notNull(),
+  imagePrompt: text("image_prompt"),
+  imageUrl: varchar("image_url", { length: 1024 }),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -422,3 +463,6 @@ export type StoryApprovalQueueItem = typeof storyApprovalQueue.$inferSelect;
 export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type MediaQueueItem = typeof mediaQueue.$inferSelect;
 export type CharacterAvatar = typeof characterAvatars.$inferSelect;
+export type CollaborativeSession = typeof collaborativeSessions.$inferSelect;
+export type SessionParticipant = typeof sessionParticipants.$inferSelect;
+export type StorySegment = typeof storySegments.$inferSelect;
