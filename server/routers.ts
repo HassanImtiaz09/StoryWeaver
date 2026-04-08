@@ -34,6 +34,7 @@ import { educatorRouter } from "./_core/educatorRouter";
 import { grandparentRouter } from "./_core/grandparentRouter";
 import { selRouter } from "./_core/selRouter";
 import { smartHomeRouter } from "./_core/smartHomeRouter";
+import { diversityRouter } from "./_core/diversityRouter";
 import { checkParentalConsent, recordParentalConsent, requireConsent, getConsentStatus } from "./_core/coppaConsent";
 import { moderateEpisode, aiSafetyCheck, validateChildAge } from "./_core/contentModeration";
 import {
@@ -174,6 +175,8 @@ export const appRouter = router({
   sel: selRouter,
 
   smartHome: smartHomeRouter,
+
+  diversity: diversityRouter,
 
   analytics: router({
     /**

@@ -727,6 +727,25 @@ export const bedtimeRoutines = mysqlTable("bedtime_routines", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Diversity & Representation ────────────────────────────────────
+
+export const diversityProfiles = mysqlTable("diversity_profiles", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  ethnicities: json("ethnicities").$type<string[]>().default([]),
+  familyStructures: json("family_structures").$type<string[]>().default([]),
+  abilities: json("abilities").$type<string[]>().default([]),
+  culturalBackgrounds: json("cultural_backgrounds").$type<string[]>().default([]),
+  genderExpression: json("gender_expression").$type<string[]>().default([]),
+  bodyTypes: json("body_types").$type<string[]>().default([]),
+  languages: json("languages").$type<string[]>().default([]),
+  religiousSpiritual: json("religious_spiritual").$type<string[]>().default([]),
+  preferMirrorFamily: boolean("prefer_mirror_family").default(true),
+  diversityLevel: mysqlEnum("diversity_level", ["mirror_family", "balanced", "maximum_diversity"]).default("balanced"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -769,3 +788,4 @@ export type SelProgress = typeof selProgress.$inferSelect;
 export type SelResponse = typeof selResponses.$inferSelect;
 export type SmartHomeConfig = typeof smartHomeConfigs.$inferSelect;
 export type BedtimeRoutine = typeof bedtimeRoutines.$inferSelect;
+export type DiversityProfile = typeof diversityProfiles.$inferSelect;

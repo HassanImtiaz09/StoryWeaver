@@ -183,6 +183,15 @@ export default function RootLayout() {
             animationEnabled: true,
           }}
         />
+
+        <Stack.Screen
+          name="diversity-settings"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
       </Stack>
     </GestureHandlerRootView>
   );
