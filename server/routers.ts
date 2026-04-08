@@ -24,6 +24,9 @@ import {
   mediaAssets,
   mediaQueue,
   characterAvatars,
+  sharedStories,
+  storyLikes,
+  storyReports,
 } from "../drizzle/schema";
 import { characterRouter } from "./_core/characterRouter";
 import { languageRouter } from "./_core/language-router";
@@ -3288,6 +3291,133 @@ export const appRouter = router({
           console.error("Failed to report usage:", error);
           return { success: false };
         }
+      }),
+  }),
+
+  sharing: router({
+    /**
+     * Generate share card data for a story
+     */
+    generateShareCard: protectedProcedure
+      .input(z.object({ arcId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const { generateShareCard } = await import("./_core/sharingService");
+        return await generateShareCard(input.arcId);
+      }),
+
+    /**
+     * Create a unique shareable link for a story
+     */
+    createShareLink: protectedProcedure
+      .input(
+        z.object({
+          arcId: z.number(),
+          privacyLevel: z.enum(["private", "link_only", "public"]).optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { generateShareLink } = await import("./_core/sharingService");
+        return await generateShareLink(input.arcId, ctx.user.id, {
+          privacyLevel: input.privacyLevel as any,
+        });
+      }),
+
+    /**
+     * Publish a story to the public gallery
+     */
+    publishToGallery: protectedProcedure
+      .input(
+        z.object({
+          arcId: z.number(),
+          privacyLevel: z.enum(["link_only", "public"]),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { publishToGallery } = await import("./_core/sharingService");
+        return await publishToGallery(input.arcId, ctx.user.id);
+      }),
+
+    /**
+     * Remove a story from the public gallery
+     */
+    unpublishFromGallery: protectedProcedure
+      .input(z.object({ arcId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const { unpublishFromGallery } = await import("./_core/sharingService");
+        return await unpublishFromGallery(input.arcId, ctx.user.id);
+      }),
+
+    /**
+     * Get paginated gallery stories with filtering
+     */
+    getGalleryStories: publicProcedure
+      .input(
+        z.object({
+          theme: z.string().optional(),
+          ageGroup: z.string().optional(),
+          sortBy: z.enum(["popular", "recent", "liked"]).optional().default("recent"),
+          searchQuery: z.string().optional(),
+          limit: z.number().default(20),
+          offset: z.number().default(0),
+        })
+      )
+      .query(async ({ input }) => {
+        const { getGalleryStories } = await import("./_core/sharingService");
+        return await getGalleryStories(input);
+      }),
+
+    /**
+     * Like or unlike a story
+     */
+    likeStory: protectedProcedure
+      .input(z.object({ arcId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const { likeStory } = await import("./_core/sharingService");
+        return await likeStory(input.arcId, ctx.user.id);
+      }),
+
+    /**
+     * Report a story for moderation
+     */
+    reportStory: protectedProcedure
+      .input(
+        z.object({
+          arcId: z.number(),
+          reason: z.string(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const { reportStory } = await import("./_core/sharingService");
+        return await reportStory(input.arcId, ctx.user.id, input.reason);
+      }),
+
+    /**
+     * Get sharing analytics for a story
+     */
+    getShareAnalytics: protectedProcedure
+      .input(z.object({ arcId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const { getShareAnalytics } = await import("./_core/sharingService");
+        return await getShareAnalytics(input.arcId, ctx.user.id);
+      }),
+
+    /**
+     * Get user's shared stories
+     */
+    getMySharedStories: protectedProcedure
+      .query(async ({ ctx }) => {
+        const { getMySharedStories } = await import("./_core/sharingService");
+        return await getMySharedStories(ctx.user.id);
+      }),
+
+    /**
+     * Get a shared story by share code (public access, records view)
+     */
+    getSharedStoryByCode: publicProcedure
+      .input(z.object({ shareCode: z.string() }))
+      .query(async ({ input }) => {
+        const { getSharedStoryByCode } = await import("./_core/sharingService");
+        return await getSharedStoryByCode(input.shareCode);
       }),
   }),
 

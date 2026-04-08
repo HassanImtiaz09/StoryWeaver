@@ -68,6 +68,12 @@ export interface AppSettings {
   downloadQuality: "high" | "medium" | "low"; // Image download quality
   wifiOnlyDownload: boolean; // Only download over WiFi, not cellular
   autoPruneDays: number; // Auto-remove stories not accessed in X days
+
+  // Social Sharing & Gallery
+  sharingEnabled: boolean; // Enable social sharing features
+  defaultPrivacyLevel: "private" | "link_only" | "public"; // Default privacy setting
+  showInGallery: boolean; // Show stories in public gallery by default
+  allowLikes: boolean; // Allow others to like your shared stories
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -113,6 +119,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   downloadQuality: "medium",
   wifiOnlyDownload: true,
   autoPruneDays: 30,
+  sharingEnabled: true,
+  defaultPrivacyLevel: "private",
+  showInGallery: false,
+  allowLikes: true,
 };
 
 export async function getSettings(): Promise<AppSettings> {

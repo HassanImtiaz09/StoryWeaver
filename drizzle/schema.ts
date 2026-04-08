@@ -488,6 +488,41 @@ export const vocabularyBank = mysqlTable("vocabulary_bank", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
+// ─── Social Sharing & Gallery ──────────────────────────────────
+
+export const sharedStories = mysqlTable("shared_stories", {
+  id: int("id").primaryKey().autoincrement(),
+  arcId: int("arc_id").notNull(),
+  userId: int("user_id").notNull(),
+  shareCode: varchar("share_code", { length: 10 }).notNull().unique(), // unique shareable link identifier
+  privacyLevel: mysqlEnum("privacy_level", ["private", "link_only", "public"]).default("private").notNull(),
+  isPublished: boolean("is_published").default(false).notNull(),
+  publishedAt: timestamp("published_at"),
+  viewCount: int("view_count").default(0).notNull(),
+  likeCount: int("like_count").default(0).notNull(),
+  shareCount: int("share_count").default(0).notNull(),
+  reportCount: int("report_count").default(0).notNull(),
+  moderationStatus: mysqlEnum("moderation_status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const storyLikes = mysqlTable("story_likes", {
+  id: int("id").primaryKey().autoincrement(),
+  sharedStoryId: int("shared_story_id").notNull(),
+  userId: int("user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const storyReports = mysqlTable("story_reports", {
+  id: int("id").primaryKey().autoincrement(),
+  sharedStoryId: int("shared_story_id").notNull(),
+  userId: int("user_id").notNull(),
+  reason: varchar("reason", { length: 255 }).notNull(), // e.g., "inappropriate", "spam", "copyright"
+  reportStatus: mysqlEnum("report_status", ["pending", "reviewed", "dismissed"]).default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -512,4 +547,7 @@ export type MediaQueueItem = typeof mediaQueue.$inferSelect;
 export type CharacterAvatar = typeof characterAvatars.$inferSelect;
 export type CollaborativeSession = typeof collaborativeSessions.$inferSelect;
 export type SessionParticipant = typeof sessionParticipants.$inferSelect;
+export type SharedStory = typeof sharedStories.$inferSelect;
+export type StoryLike = typeof storyLikes.$inferSelect;
+export type StoryReport = typeof storyReports.$inferSelect;
 export type StorySegment = typeof storySegments.$inferSelect;
