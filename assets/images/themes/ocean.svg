@@ -1,0 +1,82 @@
+<svg viewBox="0 0 390 844" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="oceanBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a3d62;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1a6f8f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0d2e44;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="oceanVignette" cx="50%" cy="40%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.35" />
+    </radialGradient>
+    <path id="wavePath" d="M0,200 Q97.5,180 195,200 T390,200" stroke="#1abc9c" stroke-width="2" fill="none" opacity="0.4"/>
+  </defs>
+
+  <!-- Base background -->
+  <rect width="390" height="844" fill="url(#oceanBg)"/>
+
+  <!-- Wave layers -->
+  <use href="#wavePath" y="150" opacity="0.5"/>
+  <use href="#wavePath" y="250" opacity="0.4"/>
+  <use href="#wavePath" y="380" opacity="0.3"/>
+  <use href="#wavePath" y="520" opacity="0.35"/>
+  <use href="#wavePath" y="650" opacity="0.4"/>
+
+  <!-- Wavy water effect with circles -->
+  <circle cx="80" cy="300" r="15" fill="#1abc9c" opacity="0.2"/>
+  <circle cx="200" cy="350" r="18" fill="#1abc9c" opacity="0.15"/>
+  <circle cx="310" cy="280" r="12" fill="#1abc9c" opacity="0.18"/>
+  <circle cx="50" cy="500" r="20" fill="#1abc9c" opacity="0.15"/>
+  <circle cx="340" cy="450" r="16" fill="#1abc9c" opacity="0.17"/>
+
+  <!-- Bubble trails -->
+  <circle cx="100" cy="200" r="3" fill="#74b9ff" opacity="0.5"/>
+  <circle cx="105" cy="240" r="2.5" fill="#74b9ff" opacity="0.4"/>
+  <circle cx="102" cy="280" r="2" fill="#74b9ff" opacity="0.3"/>
+  <circle cx="280" cy="180" r="3.5" fill="#74b9ff" opacity="0.45"/>
+  <circle cx="285" cy="230" r="2.8" fill="#74b9ff" opacity="0.35"/>
+  <circle cx="282" cy="280" r="2.2" fill="#74b9ff" opacity="0.25"/>
+
+  <!-- Fish silhouettes -->
+  <g opacity="0.25">
+    <path d="M50,400 Q70,390 80,410 Q70,420 50,400" fill="#0a3d62"/>
+    <polygon points="80,410 95,405 95,415" fill="#0a3d62"/>
+  </g>
+  <g opacity="0.2">
+    <path d="M320,550 Q300,540 290,560 Q300,570 320,550" fill="#1a6f8f"/>
+    <polygon points="290,560 275,555 275,565" fill="#1a6f8f"/>
+  </g>
+  <g opacity="0.22">
+    <path d="M150,680 Q180,670 195,700 Q180,715 150,680" fill="#0a3d62"/>
+    <polygon points="195,700 220,690 220,710" fill="#0a3d62"/>
+  </g>
+
+  <!-- Coral at bottom -->
+  <g opacity="0.3">
+    <circle cx="80" cy="750" r="25" fill="#e74c3c"/>
+    <circle cx="95" cy="760" r="20" fill="#e74c3c"/>
+    <circle cx="65" cy="770" r="18" fill="#e74c3c"/>
+  </g>
+  <g opacity="0.25">
+    <circle cx="300" cy="760" r="30" fill="#f39c12"/>
+    <circle cx="320" cy="775" r="22" fill="#f39c12"/>
+    <circle cx="280" cy="775" r="20" fill="#f39c12"/>
+  </g>
+  <g opacity="0.28">
+    <circle cx="180" cy="800" r="28" fill="#e74c3c"/>
+    <circle cx="200" cy="815" r="24" fill="#e74c3c"/>
+    <circle cx="160" cy="810" r="20" fill="#e74c3c"/>
+  </g>
+
+  <!-- Light rays -->
+  <rect x="100" y="0" width="3" height="400" fill="#74b9ff" opacity="0.08"/>
+  <rect x="250" y="0" width="2.5" height="500" fill="#74b9ff" opacity="0.07"/>
+  <rect x="50" y="0" width="2" height="350" fill="#74b9ff" opacity="0.06"/>
+
+  <!-- Aqua accent circles -->
+  <circle cx="195" cy="450" r="80" fill="#1abc9c" opacity="0.08"/>
+  <circle cx="100" cy="650" r="60" fill="#1abc9c" opacity="0.07"/>
+
+  <!-- Vignette overlay -->
+  <rect width="390" height="844" fill="url(#oceanVignette)"/>
+</svg>

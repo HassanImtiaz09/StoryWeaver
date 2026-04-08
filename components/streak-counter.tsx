@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
+import { StreakCount } from "./styled-text";
 
 interface StreakCounterProps {
   currentStreak: number;
@@ -71,9 +72,9 @@ export function StreakCounter({
       <View className="absolute inset-0 rounded-full bg-gradient-to-br from-yellow-300 to-orange-400 opacity-30" />
       <View className="items-center justify-center">
         <Text className={`${config.emoji} font-bold`}>🔥</Text>
-        <Text className={`${config.text} font-bold text-white`}>
+        <StreakCount style={{ color: "white" }}>
           {currentStreak}
-        </Text>
+        </StreakCount>
       </View>
     </Animated.View>
   );

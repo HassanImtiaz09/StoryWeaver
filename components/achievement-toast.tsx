@@ -11,6 +11,7 @@ import Animated, {
   FadeOutDown,
 } from "react-native-reanimated";
 import { TIER_COLORS } from "../constants/gamification";
+import { StoryTitle, CelebrationText } from "./styled-text";
 
 interface AchievementToastProps {
   visible: boolean;
@@ -109,12 +110,12 @@ export function AchievementToast({
         {/* Content */}
         <View className="items-center gap-2 z-10">
           <Text className="text-5xl">{icon}</Text>
-          <Text className="text-xl font-bold text-white text-center">
+          <StoryTitle style={{ color: "white", fontSize: 20 }}>
             {name}
-          </Text>
-          <Text className="text-lg font-semibold text-white">
+          </StoryTitle>
+          <CelebrationText style={{ color: "white" }}>
             +{pointsReward} points
-          </Text>
+          </CelebrationText>
         </View>
       </View>
     </Animated.View>

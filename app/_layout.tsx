@@ -15,10 +15,20 @@ import {
   initialWindowMetrics,
 } from "react-native-safe-area-context";
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
+import * as SplashScreen from "expo-splash-screen";
+
+// Google Fonts imports
+import { useFonts as useBaloo, Baloo2_400Regular, Baloo2_500Medium, Baloo2_600SemiBold, Baloo2_700Bold, Baloo2_800ExtraBold } from '@expo-google-fonts/baloo-2';
+import { useFonts as useQuicksand, Quicksand_300Light, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
+import { useFonts as usePatrickHand, PatrickHand_400Regular } from '@expo-google-fonts/patrick-hand';
+import { useFonts as useBubblegum, BubblegumSans_400Regular } from '@expo-google-fonts/bubblegum-sans';
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { configureBedtimeNotifications } from "@/lib/bedtime-notifications";
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync();
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -33,6 +43,19 @@ export default function RootLayout() {
 
   const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
   const [frame, setFrame] = useState<Rect>(initialFrame);
+
+  // Load all Google Fonts
+  const [baloo] = useBaloo({ Baloo2_400Regular, Baloo2_500Medium, Baloo2_600SemiBold, Baloo2_700Bold, Baloo2_800ExtraBold });
+  const [quicksand] = useQuicksand({ Quicksand_300Light, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold });
+  const [patrickHand] = usePatrickHand({ PatrickHand_400Regular });
+  const [bubblegum] = useBubblegum({ BubblegumSans_400Regular });
+
+  // Hide splash screen once fonts are loaded
+  useEffect(() => {
+    if (baloo && quicksand && patrickHand && bubblegum) {
+      SplashScreen.hideAsync();
+    }
+  }, [baloo, quicksand, patrickHand, bubblegum]);
 
   // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {

@@ -33,6 +33,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { trpc } from '@/lib/trpc';
 import { useColors } from '@/hooks/use-colors';
+import { StoryNarrative, StoryTitle, CaptionText } from '@/components/styled-text';
 
 const MOOD_COLORS: Record<string, [string, string]> = {
   exciting: ['#FF6B6B', '#FF8E8E'],
@@ -469,11 +470,11 @@ export default function StoryReaderScreen() {
               data={pages}
               renderItem={({ item }) => (
                 <View style={styles.pageContent}>
-                  <Text style={[styles.pageText, { color: colors.foreground }]}>{item.storyText}</Text>
+                  <StoryNarrative>{item.storyText}</StoryNarrative>
                   {item.characters && (item.characters as any[]).length > 0 && (
-                    <Text style={[styles.characterLabel, { color: colors.primary }]}>
+                    <CaptionText style={{ marginTop: 12 }}>
                       Characters: {(item.characters as any[]).map((c: any) => typeof c === 'string' ? c : c.name).join(', ')}
-                    </Text>
+                    </CaptionText>
                   )}
                 </View>
               )}

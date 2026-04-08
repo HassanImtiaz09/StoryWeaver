@@ -5,6 +5,7 @@ import {
   getCurrentLevelThreshold,
   getNextLevelThreshold,
 } from "../constants/gamification";
+import { FunText, BodyText, BodyTextSmall } from "./styled-text";
 
 interface PointsDisplayProps {
   totalPoints: number;
@@ -44,13 +45,13 @@ export function PointsDisplay({
           className="w-8 h-8 rounded-full items-center justify-center"
           style={{ backgroundColor: levelColor }}
         >
-          <Text className="text-xs font-bold text-white">{level}</Text>
+          <FunText style={{ fontSize: 11, color: "white" }}>{level}</FunText>
         </View>
         <View>
-          <Text className="text-sm font-semibold text-gray-800">
+          <FunText style={{ fontSize: 14 }}>
             {totalPoints.toLocaleString()} pts
-          </Text>
-          <Text className="text-xs text-gray-500">Level {level}</Text>
+          </FunText>
+          <BodyTextSmall style={{ color: "#999" }}>Level {level}</BodyTextSmall>
         </View>
       </View>
     );
@@ -71,18 +72,18 @@ export function PointsDisplay({
           }}
         >
           <View className="items-center">
-            <Text className="text-2xl font-bold text-white">{level}</Text>
-            <Text className="text-xs text-white/80 font-semibold">LEVEL</Text>
+            <FunText style={{ fontSize: 24, color: "white" }}>{level}</FunText>
+            <BodyTextSmall style={{ color: "rgba(255,255,255,0.8)" }}>LEVEL</BodyTextSmall>
           </View>
         </View>
 
         <View className="flex-1 gap-1">
-          <Text className="text-lg font-bold text-gray-800">
+          <FunText style={{ fontSize: 18 }}>
             {totalPoints.toLocaleString()} Points
-          </Text>
-          <Text className="text-sm text-gray-600">
+          </FunText>
+          <BodyText style={{ color: "#666" }}>
             {nextThreshold - totalPoints} pts to next level
-          </Text>
+          </BodyText>
           <View className="h-2 bg-gray-200 rounded-full overflow-hidden mt-1">
             <View
               className="h-full rounded-full transition-all"

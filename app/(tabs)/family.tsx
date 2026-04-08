@@ -16,6 +16,7 @@ import {
   type LocalChild,
 } from "@/lib/onboarding-store";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { ScreenTitle, SectionHeader, BodyText, CaptionText } from "@/components/styled-text";
 
 export default function FamilyScreen() {
   const router = useRouter();
@@ -64,10 +65,10 @@ export default function FamilyScreen() {
             <Text style={styles.avatarText}>{item.name[0]}</Text>
           </View>
           <View style={styles.childInfo}>
-            <Text style={[styles.childName, { color: colors.foreground }]}>{item.name}</Text>
-            <Text style={[styles.childAge, { color: colors.muted }]}>
+            <SectionHeader>{item.name}</SectionHeader>
+            <BodyText style={{ color: colors.muted, marginTop: 2 }}>
               Age {item.age} {item.gender ? `| ${item.gender}` : ""}
-            </Text>
+            </BodyText>
           </View>
           <Pressable
             onPress={() => handleDelete(item)}
@@ -116,10 +117,10 @@ export default function FamilyScreen() {
       <View style={styles.container}>
         <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
           <View>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>Family</Text>
-            <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
+            <ScreenTitle>Family</ScreenTitle>
+            <BodyText style={{ color: colors.muted, marginTop: 4 }}>
               Manage your children's profiles
-            </Text>
+            </BodyText>
           </View>
           <Pressable
             onPress={() => router.push("/create-child")}

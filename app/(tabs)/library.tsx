@@ -15,6 +15,7 @@ import { STORY_THEMES } from "@/constants/assets";
 import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ScreenTitle, CardTitle, BodyText, CaptionText } from "@/components/styled-text";
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -70,15 +71,15 @@ export default function LibraryScreen() {
             contentFit="cover"
           />
           <View style={styles.arcInfo}>
-            <Text style={[styles.arcTitle, { color: colors.foreground }]} numberOfLines={2}>
+            <CardTitle numberOfLines={2}>
               {item.title}
-            </Text>
-            <Text style={[styles.arcMeta, { color: colors.muted }]}>
+            </CardTitle>
+            <CaptionText style={{ marginTop: 2 }}>
               {item.childName} | {item.educationalValueName}
-            </Text>
-            <Text style={[styles.arcEpisode, { color: colors.muted }]}>
+            </CaptionText>
+            <CaptionText>
               Episode {item.currentEpisode}/{item.totalEpisodes}
-            </Text>
+            </CaptionText>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${progress}%` }]} />
             </View>
@@ -126,10 +127,10 @@ export default function LibraryScreen() {
     <ScreenContainer edges={["top", "left", "right"]}>
       <View style={styles.container}>
         <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Story Library</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
+          <ScreenTitle>Story Library</ScreenTitle>
+          <BodyText style={{ color: colors.muted, marginTop: 4 }}>
             Your collection of adventures
-          </Text>
+          </BodyText>
         </Animated.View>
 
         {arcs.length === 0 ? (

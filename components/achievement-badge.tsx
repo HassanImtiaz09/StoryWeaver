@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, Pressable } from "react-native";
 import { TIER_COLORS } from "../constants/gamification";
+import { FunText, BodyTextSmall } from "./styled-text";
 
 interface AchievementBadgeProps {
   name: string;
@@ -63,15 +64,15 @@ export function AchievementBadge({
       </View>
 
       <View className="items-center gap-1 w-24">
-        <Text
-          className="text-sm font-semibold text-gray-800 text-center"
+        <FunText
+          style={{ fontSize: 12, color: "#1f2937", textAlign: "center" }}
           numberOfLines={2}
         >
           {name}
-        </Text>
-        <Text className="text-xs text-gray-500 text-center" numberOfLines={2}>
+        </FunText>
+        <BodyTextSmall style={{ color: "#999", textAlign: "center" }} numberOfLines={2}>
           +{pointsReward} pts
-        </Text>
+        </BodyTextSmall>
       </View>
     </Pressable>
   );

@@ -1,0 +1,133 @@
+<svg viewBox="0 0 390 844" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gardenBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#52b788;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#27ae60;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e5f3f;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="gardenVignette" cx="50%" cy="35%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.4" />
+    </radialGradient>
+  </defs>
+
+  <!-- Base background -->
+  <rect width="390" height="844" fill="url(#gardenBg)"/>
+
+  <!-- Light rays from above -->
+  <rect x="80" y="0" width="4" height="400" fill="#f1c40f" opacity="0.08"/>
+  <rect x="200" y="0" width="3.5" height="500" fill="#f1c40f" opacity="0.07"/>
+  <rect x="310" y="0" width="4" height="380" fill="#f1c40f" opacity="0.06"/>
+
+  <!-- Vine borders (left side) -->
+  <path d="M0,100 Q20,200 10,350 Q15,450 5,600" stroke="#27ae60" stroke-width="3" fill="none" opacity="0.35"/>
+  <path d="M5,120 Q18,180 8,280" stroke="#27ae60" stroke-width="2" fill="none" opacity="0.3"/>
+  <path d="M0,400 Q25,480 8,600" stroke="#27ae60" stroke-width="2.5" fill="none" opacity="0.32"/>
+
+  <!-- Vine borders (right side) -->
+  <path d="M390,150 Q370,250 380,400 Q375,520 385,750" stroke="#27ae60" stroke-width="3" fill="none" opacity="0.33"/>
+  <path d="M385,180 Q372,260 382,350" stroke="#27ae60" stroke-width="2" fill="none" opacity="0.28"/>
+  <path d="M390,500 Q365,580 382,720" stroke="#27ae60" stroke-width="2.5" fill="none" opacity="0.3"/>
+
+  <!-- Leaf accents on vines -->
+  <g opacity="0.25">
+    <ellipse cx="15" cy="200" rx="8" ry="12" fill="#27ae60" transform="rotate(-45 15 200)"/>
+    <ellipse cx="8" cy="300" rx="7" ry="11" fill="#27ae60" transform="rotate(30 8 300)"/>
+    <ellipse cx="12" cy="450" rx="8" ry="12" fill="#27ae60" transform="rotate(-30 12 450)"/>
+  </g>
+
+  <g opacity="0.23">
+    <ellipse cx="375" cy="250" rx="8" ry="12" fill="#27ae60" transform="rotate(45 375 250)"/>
+    <ellipse cx="382" cy="380" rx="7" ry="11" fill="#27ae60" transform="rotate(-30 382 380)"/>
+    <ellipse cx="378" cy="600" rx="8" ry="12" fill="#27ae60" transform="rotate(35 378 600)"/>
+  </g>
+
+  <!-- Rose blooms (red/pink) -->
+  <!-- Rose cluster 1 -->
+  <g opacity="0.35">
+    <circle cx="80" cy="250" r="14" fill="#e91e63"/>
+    <circle cx="70" cy="240" r="10" fill="#e91e63"/>
+    <circle cx="90" cy="240" r="10" fill="#e91e63"/>
+    <circle cx="75" cy="265" r="9" fill="#e91e63"/>
+    <circle cx="85" cy="265" r="9" fill="#e91e63"/>
+    <!-- Petals -->
+    <circle cx="80" cy="250" r="6" fill="#c2185b" opacity="0.7"/>
+  </g>
+
+  <!-- Rose cluster 2 -->
+  <g opacity="0.32">
+    <circle cx="310" cy="400" r="16" fill="#e91e63"/>
+    <circle cx="298" cy="388" r="11" fill="#e91e63"/>
+    <circle cx="322" cy="388" r="11" fill="#e91e63"/>
+    <circle cx="300" cy="420" r="10" fill="#e91e63"/>
+    <circle cx="320" cy="420" r="10" fill="#e91e63"/>
+    <!-- Petals -->
+    <circle cx="310" cy="400" r="7" fill="#c2185b" opacity="0.75"/>
+  </g>
+
+  <!-- Sunflower blooms (golden yellow) -->
+  <!-- Sunflower 1 -->
+  <g opacity="0.38">
+    <circle cx="150" cy="500" r="20" fill="#f1c40f"/>
+    <!-- Petals -->
+    <circle cx="135" cy="490" r="9" fill="#f1c40f"/>
+    <circle cx="150" cy="475" r="9" fill="#f1c40f"/>
+    <circle cx="165" cy="490" r="9" fill="#f1c40f"/>
+    <circle cx="155" cy="520" r="8" fill="#f1c40f"/>
+    <circle cx="145" cy="520" r="8" fill="#f1c40f"/>
+    <!-- Center -->
+    <circle cx="150" cy="500" r="8" fill="#e67e22" opacity="0.8"/>
+  </g>
+
+  <!-- Sunflower 2 -->
+  <g opacity="0.35">
+    <circle cx="260" cy="650" r="22" fill="#f1c40f"/>
+    <!-- Petals -->
+    <circle cx="240" cy="636" r="10" fill="#f1c40f"/>
+    <circle cx="260" cy="620" r="10" fill="#f1c40f"/>
+    <circle cx="280" cy="636" r="10" fill="#f1c40f"/>
+    <circle cx="270" cy="670" r="9" fill="#f1c40f"/>
+    <circle cx="250" cy="670" r="9" fill="#f1c40f"/>
+    <!-- Center -->
+    <circle cx="260" cy="650" r="9" fill="#e67e22" opacity="0.8"/>
+  </g>
+
+  <!-- Butterfly silhouettes -->
+  <!-- Butterfly 1 -->
+  <g opacity="0.3">
+    <circle cx="120" cy="350" r="7" fill="#e91e63"/>
+    <circle cx="108" cy="338" r="10" fill="#e91e63"/>
+    <circle cx="132" cy="338" r="10" fill="#e91e63"/>
+    <line x1="120" y1="342" x2="120" y2="370" stroke="#e91e63" stroke-width="1.5"/>
+  </g>
+
+  <!-- Butterfly 2 -->
+  <g opacity="0.26">
+    <circle cx="280" cy="200" r="6" fill="#f1c40f"/>
+    <circle cx="270" cy="190" r="9" fill="#f1c40f"/>
+    <circle cx="290" cy="190" r="9" fill="#f1c40f"/>
+    <line x1="280" y1="196" x2="280" y2="220" stroke="#f1c40f" stroke-width="1.5"/>
+  </g>
+
+  <!-- Butterfly 3 -->
+  <g opacity="0.28">
+    <circle cx="200" cy="600" r="6.5" fill="#e91e63"/>
+    <circle cx="189" cy="588" r="9.5" fill="#e91e63"/>
+    <circle cx="211" cy="588" r="9.5" fill="#e91e63"/>
+    <line x1="200" y1="594" x2="200" y2="625" stroke="#e91e63" stroke-width="1.5"/>
+  </g>
+
+  <!-- Flower petals scattered (light bokeh effect) -->
+  <circle cx="100" cy="180" r="3.5" fill="#e91e63" opacity="0.22"/>
+  <circle cx="200" cy="300" r="3" fill="#f1c40f" opacity="0.2"/>
+  <circle cx="320" cy="450" r="3.2" fill="#e91e63" opacity="0.21"/>
+  <circle cx="140" cy="650" r="2.8" fill="#f1c40f" opacity="0.19"/>
+  <circle cx="300" cy="750" r="3" fill="#e91e63" opacity="0.2"/>
+
+  <!-- Soft glow in center -->
+  <circle cx="195" cy="400" r="120" fill="#f1c40f" opacity="0.06"/>
+  <circle cx="150" cy="350" r="100" fill="#e91e63" opacity="0.05"/>
+
+  <!-- Vignette overlay -->
+  <rect width="390" height="844" fill="url(#gardenVignette)"/>
+</svg>

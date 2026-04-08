@@ -36,6 +36,7 @@ import { useGamificationStore } from "@/lib/gamification-store";
 import { StreakCounter } from "@/components/streak-counter";
 import { PointsDisplay } from "@/components/points-display";
 import { AchievementToast } from "@/components/achievement-toast";
+import { StoryTitle, SectionHeader, BodyText, FunText } from "@/components/styled-text";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THEME_CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
@@ -249,7 +250,7 @@ export default function TonightScreen() {
         {/* Greeting */}
         <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
           <View style={styles.greetingRow}>
-            <Text style={[styles.greeting, { color: colors.text }]}>Tonight's Story</Text>
+            <StoryTitle style={{ fontSize: 28 }}>Tonight's Story</StoryTitle>
             <View style={styles.headerButtons}>
               <Pressable
                 onPress={toggleBedtimeMode}
@@ -276,11 +277,11 @@ export default function TonightScreen() {
               </Pressable>
             </View>
           </View>
-          <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
+          <BodyText>
             {selectedChild
               ? `What adventure awaits ${selectedChild.name}?`
               : "Select a child to begin"}
-          </Text>
+          </BodyText>
         </Animated.View>
 
         {/* Gamification Stats Header */}
@@ -422,9 +423,9 @@ export default function TonightScreen() {
         {/* Recommendations */}
         {selectedChild && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            <SectionHeader>
               {"\u2728"} Recommended for {selectedChild.name}
-            </Text>
+            </SectionHeader>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -472,9 +473,9 @@ export default function TonightScreen() {
         {/* Continue Reading - Active Story Arcs */}
         {activeArcs.length > 0 && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            <SectionHeader>
               {"\u{1F4DA}"} Continue Reading
-            </Text>
+            </SectionHeader>
             {activeArcs.map((arc) => {
               const themeData = STORY_THEMES.find((t) => t.id === arc.theme);
               const progress =
@@ -527,9 +528,9 @@ export default function TonightScreen() {
 
         {/* Browse All Themes */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          <SectionHeader>
             {"\u{1F3A8}"} Browse All Themes
-          </Text>
+          </SectionHeader>
           <View style={styles.themeGrid}>
             {STORY_THEMES.map((theme, idx) => (
               <Pressable

@@ -22,6 +22,17 @@ module.exports = {
   theme: {
     extend: {
       colors: tailwindColors,
+      fontFamily: {
+        'heading': ['Baloo2_700Bold'],
+        'heading-medium': ['Baloo2_600SemiBold'],
+        'heading-light': ['Baloo2_500Medium'],
+        'body': ['Quicksand_400Regular'],
+        'body-medium': ['Quicksand_500Medium'],
+        'body-semibold': ['Quicksand_600SemiBold'],
+        'body-bold': ['Quicksand_700Bold'],
+        'story': ['PatrickHand_400Regular'],
+        'fun': ['BubblegumSans_400Regular'],
+      },
     },
   },
   plugins: [

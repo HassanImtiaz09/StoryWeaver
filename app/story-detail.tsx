@@ -22,6 +22,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { StoryTitle, SectionHeader, BodyText, CaptionText, CardTitle } from "@/components/styled-text";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HERO_HEIGHT = 260;
@@ -257,19 +258,16 @@ export default function StoryDetailScreen() {
 
           {/* Episode info */}
           <View style={styles.episodeInfo}>
-            <Text
-              style={[styles.episodeTitle, { color: colors.foreground }]}
-              numberOfLines={2}
-            >
+            <CardTitle numberOfLines={2}>
               {item.title || `Episode ${item.episodeNumber}`}
-            </Text>
+            </CardTitle>
             {item.summary && (
-              <Text
-                style={[styles.episodeSummary, { color: colors.muted }]}
+              <BodyText
+                style={{ color: colors.muted, marginTop: 4 }}
                 numberOfLines={2}
               >
                 {item.summary}
-              </Text>
+              </BodyText>
             )}
             <View style={styles.episodeBadges}>
               {hasAudio && (
@@ -335,13 +333,13 @@ export default function StoryDetailScreen() {
               {themeData?.emoji && (
                 <Text style={styles.heroEmoji}>{themeData.emoji}</Text>
               )}
-              <Text style={styles.heroTitle} numberOfLines={3}>
+              <StoryTitle style={{ lineHeight: 32 }} numberOfLines={3}>
                 {arcTitle}
-              </Text>
+              </StoryTitle>
               {childName ? (
-                <Text style={styles.heroChild}>
+                <BodyText style={{ color: "rgba(255,255,255,0.7)", marginTop: 2 }}>
                   A story for {childName}
-                </Text>
+                </BodyText>
               ) : null}
             </Animated.View>
           </View>
@@ -354,9 +352,9 @@ export default function StoryDetailScreen() {
           entering={FadeInDown.delay(200).duration(400)}
           style={styles.synopsisContainer}
         >
-          <Text style={[styles.synopsisText, { color: colors.muted }]}>
+          <BodyText style={{ color: colors.muted }}>
             {synopsis}
-          </Text>
+          </BodyText>
         </Animated.View>
       )}
 
@@ -366,12 +364,10 @@ export default function StoryDetailScreen() {
         style={styles.progressSection}
       >
         <View style={styles.progressHeader}>
-          <Text style={[styles.progressLabel, { color: colors.foreground }]}>
-            Progress
-          </Text>
-          <Text style={[styles.progressCount, { color: colors.muted }]}>
+          <SectionHeader>Progress</SectionHeader>
+          <CaptionText>
             {readCount}/{totalEpisodes} episodes
-          </Text>
+          </CaptionText>
         </View>
         <View style={[styles.progressBar, { backgroundColor: "rgba(255,215,0,0.12)" }]}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -383,9 +379,9 @@ export default function StoryDetailScreen() {
         entering={FadeInDown.delay(400).duration(400)}
         style={styles.episodesHeader}
       >
-        <Text style={[styles.episodesTitle, { color: colors.foreground }]}>
+        <SectionHeader>
           {"\u{1F4D6}"} Episodes
-        </Text>
+        </SectionHeader>
         {episodes.length === 0 && !episodesQuery.isLoading && (
           <Text style={[styles.noEpisodesText, { color: colors.muted }]}>
             No episodes generated yet. Tap the button below to generate your first episode!

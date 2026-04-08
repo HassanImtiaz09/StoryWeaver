@@ -24,6 +24,7 @@ import {
   getSubscriptionState,
   getRemainingFreeStories,
 } from "@/lib/subscription-store";
+import { ScreenTitle, SectionHeader, BodyText, ButtonText } from "@/components/styled-text";
 
 type GenerationStep = "idle" | "creating_arc" | "generating_episode" | "generating_images" | "done";
 
@@ -278,12 +279,12 @@ export default function NewStoryScreen() {
         {/* Educational Value */}
         {!creating && (
           <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            <SectionHeader>
               What should this story teach?
-            </Text>
-            <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+            </SectionHeader>
+            <BodyText style={{ color: colors.muted, marginBottom: 14 }}>
               Choose a value that will be woven into every episode
-            </Text>
+            </BodyText>
             <View style={styles.valueGrid}>
               {EDUCATIONAL_VALUES.map((val) => (
                 <Pressable
@@ -315,12 +316,12 @@ export default function NewStoryScreen() {
         {/* Episode Count */}
         {!creating && (
           <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            <SectionHeader>
               How many episodes?
-            </Text>
-            <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+            </SectionHeader>
+            <BodyText style={{ color: colors.muted, marginBottom: 14 }}>
               One episode per night - choose how long the adventure lasts
-            </Text>
+            </BodyText>
             <View style={styles.episodeRow}>
               {[5, 7, 10].map((count) => (
                 <Pressable
@@ -370,11 +371,11 @@ export default function NewStoryScreen() {
               ]}
             >
               <IconSymbol name="sparkles" size={20} color="#0A0E1A" />
-              <Text style={styles.createButtonText}>Generate with AI</Text>
+              <ButtonText style={{ color: "#0A0E1A" }}>Generate with AI</ButtonText>
             </Pressable>
-            <Text style={[styles.aiNote, { color: colors.muted }]}>
+            <BodyText style={[styles.aiNote, { color: colors.muted }]}>
               Our AI will craft a unique, personalized story based on {params.childName}'s profile
-            </Text>
+            </BodyText>
           </Animated.View>
         )}
       </ScrollView>

@@ -4,6 +4,7 @@ import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Platform } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import { TabLabel } from "@/components/styled-text";
 
 export default function TabLayout() {
   const colors = useColors();
@@ -35,6 +36,9 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="moon.stars.fill" color={color} />
           ),
+          tabBarLabel: ({ color, focused }) => (
+            <TabLabel style={{ color, fontSize: 11 }}>Tonight</TabLabel>
+          ),
         }}
       />
       <Tabs.Screen
@@ -44,6 +48,9 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="book.fill" color={color} />
           ),
+          tabBarLabel: ({ color, focused }) => (
+            <TabLabel style={{ color, fontSize: 11 }}>Library</TabLabel>
+          ),
         }}
       />
       <Tabs.Screen
@@ -52,6 +59,9 @@ export default function TabLayout() {
           title: "Family",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="person.2.fill" color={color} />
+          ),
+          tabBarLabel: ({ color, focused }) => (
+            <TabLabel style={{ color, fontSize: 11 }}>Family</TabLabel>
           ),
         }}
       />

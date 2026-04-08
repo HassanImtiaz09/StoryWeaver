@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { StoryTitle, BodyText, BodyTextSmall, CaptionText } from "@/components/styled-text";
 
 interface Recommendation {
   title: string;
@@ -76,18 +77,18 @@ export function TonightRecommendation({
 
             <View style={styles.continueInfo}>
               <View style={styles.continueHeader}>
-                <Text style={[styles.continueLabel, { color: colors.textSecondary }]}>
+                <BodyTextSmall style={{ color: colors.textSecondary, textTransform: "uppercase" }}>
                   Continue Your Story
-                </Text>
+                </BodyTextSmall>
                 <IconSymbol name="arrow.right" size={16} color={colors.primary} />
               </View>
 
-              <Text
-                style={[styles.continueTitle, { color: colors.text }]}
+              <StoryTitle
+                style={{ color: colors.text, fontSize: 16 }}
                 numberOfLines={2}
               >
                 {continueArc.title}
-              </Text>
+              </StoryTitle>
 
               <View style={styles.progressContainer}>
                 <View
@@ -109,11 +110,9 @@ export function TonightRecommendation({
                     ]}
                   />
                 </View>
-                <Text
-                  style={[styles.episodeText, { color: colors.textSecondary }]}
-                >
+                <CaptionText style={{ color: colors.textSecondary }}>
                   Episode {continueArc.episodeNumber}/{continueArc.totalEpisodes}
-                </Text>
+                </CaptionText>
               </View>
             </View>
           </View>
@@ -133,21 +132,21 @@ export function TonightRecommendation({
               <Text style={styles.suggestionEmoji}>✨</Text>
             </View>
             <View style={styles.suggestionInfo}>
-              <Text style={[styles.suggestionLabel, { color: colors.textSecondary }]}>
+              <BodyTextSmall style={{ color: colors.textSecondary, textTransform: "uppercase" }}>
                 Tonight's Suggestion
-              </Text>
-              <Text
-                style={[styles.suggestionTitle, { color: colors.text }]}
+              </BodyTextSmall>
+              <StoryTitle
+                style={{ color: colors.text, fontSize: 14 }}
                 numberOfLines={1}
               >
                 {recommendation.title}
-              </Text>
-              <Text
-                style={[styles.suggestionReason, { color: colors.textSecondary }]}
+              </StoryTitle>
+              <BodyTextSmall
+                style={{ color: colors.textSecondary }}
                 numberOfLines={1}
               >
                 {recommendation.reason}
-              </Text>
+              </BodyTextSmall>
             </View>
             <IconSymbol name="arrow.right" size={16} color={colors.primary} />
           </Pressable>
@@ -191,18 +190,18 @@ export function TonightRecommendation({
 
             <View style={styles.continueInfo}>
               <View style={styles.continueHeader}>
-                <Text style={[styles.continueLabel, { color: colors.textSecondary }]}>
+                <BodyTextSmall style={{ color: colors.textSecondary, textTransform: "uppercase" }}>
                   Continue Your Story
-                </Text>
+                </BodyTextSmall>
                 <IconSymbol name="arrow.right" size={16} color={colors.primary} />
               </View>
 
-              <Text
-                style={[styles.continueTitle, { color: colors.text }]}
+              <StoryTitle
+                style={{ color: colors.text, fontSize: 16 }}
                 numberOfLines={2}
               >
                 {continueArc.title}
-              </Text>
+              </StoryTitle>
 
               <View style={styles.progressContainer}>
                 <View
@@ -224,11 +223,9 @@ export function TonightRecommendation({
                     ]}
                   />
                 </View>
-                <Text
-                  style={[styles.episodeText, { color: colors.textSecondary }]}
-                >
+                <CaptionText style={{ color: colors.textSecondary }}>
                   Episode {continueArc.episodeNumber}/{continueArc.totalEpisodes}
-                </Text>
+                </CaptionText>
               </View>
             </View>
           </View>

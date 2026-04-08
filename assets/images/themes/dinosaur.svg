@@ -1,0 +1,100 @@
+<svg viewBox="0 0 390 844" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dinoSky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff8c00;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ff6b35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e67e22;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="dinoVignette" cx="50%" cy="40%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.4" />
+    </radialGradient>
+  </defs>
+
+  <!-- Base background -->
+  <rect width="390" height="844" fill="url(#dinoSky)"/>
+
+  <!-- Sun -->
+  <circle cx="300" cy="100" r="50" fill="#FFD700" opacity="0.6"/>
+  <circle cx="300" cy="100" r="48" fill="#ffa500" opacity="0.4"/>
+
+  <!-- Sun rays -->
+  <line x1="300" y1="20" x2="300" y2="0" stroke="#FFD700" stroke-width="3" opacity="0.3"/>
+  <line x1="380" y1="100" x2="400" y2="100" stroke="#FFD700" stroke-width="3" opacity="0.3"/>
+  <line x1="354" y1="46" x2="368" y2="32" stroke="#FFD700" stroke-width="3" opacity="0.3"/>
+  <line x1="354" y1="154" x2="368" y2="168" stroke="#FFD700" stroke-width="3" opacity="0.3"/>
+
+  <!-- Volcano silhouettes (background) -->
+  <polygon points="50,600 120,250 190,600" fill="#8B4513" opacity="0.35"/>
+  <polygon points="200,700 300,350 400,700" fill="#8B4513" opacity="0.3"/>
+
+  <!-- Volcano glow -->
+  <circle cx="125" cy="280" r="60" fill="#ff4500" opacity="0.15"/>
+  <circle cx="300" cy="380" r="80" fill="#ff4500" opacity="0.12"/>
+
+  <!-- Palm tree silhouettes -->
+  <g opacity="0.4">
+    <!-- Trunk -->
+    <rect x="75" y="500" width="8" height="150" fill="#654321"/>
+    <!-- Leaves -->
+    <circle cx="79" cy="485" r="35" fill="#27ae60"/>
+    <circle cx="55" cy="470" r="28" fill="#27ae60"/>
+    <circle cx="105" cy="475" r="30" fill="#27ae60"/>
+  </g>
+
+  <g opacity="0.38">
+    <!-- Trunk -->
+    <rect x="310" y="550" width="10" height="130" fill="#654321"/>
+    <!-- Leaves -->
+    <circle cx="315" cy="530" r="40" fill="#27ae60"/>
+    <circle cx="285" cy="510" r="32" fill="#27ae60"/>
+    <circle cx="345" cy="520" r="35" fill="#27ae60"/>
+  </g>
+
+  <!-- Dinosaur silhouettes -->
+  <g opacity="0.3">
+    <!-- Brachiosaurus-style -->
+    <circle cx="100" cy="550" r="20" fill="#5C4033"/>
+    <rect x="90" y="560" width="20" height="80" fill="#5C4033" opacity="0.8"/>
+    <ellipse cx="130" cy="560" rx="8" ry="40" fill="#5C4033" opacity="0.8"/>
+    <circle cx="60" cy="500" r="15" fill="#5C4033"/>
+    <polygon points="50,485 45,475 55,480" fill="#5C4033"/>
+  </g>
+
+  <g opacity="0.25">
+    <!-- Triceratops-style -->
+    <ellipse cx="280" cy="640" rx="35" ry="25" fill="#5C4033"/>
+    <circle cx="255" cy="625" r="18" fill="#5C4033"/>
+    <polygon points="240,615 230,600 245,605" fill="#5C4033"/>
+    <polygon points="245,615 235,600 250,605" fill="#5C4033"/>
+    <polygon points="250,615 240,600 255,605" fill="#5C4033"/>
+    <rect x="265" y="665" width="8" height="50" fill="#5C4033" opacity="0.8"/>
+    <rect x="290" y="665" width="8" height="50" fill="#5C4033" opacity="0.8"/>
+  </g>
+
+  <!-- Dinosaur footprints -->
+  <g opacity="0.25">
+    <ellipse cx="150" cy="720" rx="12" ry="15" fill="#654321"/>
+    <circle cx="145" cy="705" r="4" fill="#654321"/>
+    <circle cx="150" cy="703" r="4" fill="#654321"/>
+    <circle cx="155" cy="705" r="4" fill="#654321"/>
+    <circle cx="160" cy="707" r="3.5" fill="#654321"/>
+  </g>
+
+  <g opacity="0.2">
+    <ellipse cx="220" cy="760" rx="14" ry="17" fill="#654321"/>
+    <circle cx="213" cy="743" r="4.5" fill="#654321"/>
+    <circle cx="220" cy="740" r="4.5" fill="#654321"/>
+    <circle cx="227" cy="743" r="4.5" fill="#654321"/>
+    <circle cx="234" cy="745" r="4" fill="#654321"/>
+  </g>
+
+  <!-- Grass at bottom -->
+  <rect x="0" y="720" width="390" height="124" fill="#8B4513" opacity="0.2"/>
+
+  <!-- Amber/golden atmospheric glow -->
+  <circle cx="195" cy="400" r="150" fill="#ff8c00" opacity="0.08"/>
+
+  <!-- Vignette overlay -->
+  <rect width="390" height="844" fill="url(#dinoVignette)"/>
+</svg>

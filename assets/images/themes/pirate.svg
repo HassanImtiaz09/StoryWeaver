@@ -1,0 +1,103 @@
+<svg viewBox="0 0 390 844" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pirateSky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#16213e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f3460;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="pirateVignette" cx="50%" cy="40%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:0" />
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.42" />
+    </radialGradient>
+  </defs>
+
+  <!-- Base background -->
+  <rect width="390" height="844" fill="url(#pirateSky)"/>
+
+  <!-- Moon -->
+  <circle cx="100" cy="100" r="50" fill="#e8e8e8" opacity="0.7"/>
+  <circle cx="115" cy="85" r="50" fill="url(#pirateSky)"/>
+
+  <!-- Moon glow -->
+  <circle cx="100" cy="100" r="60" fill="#e8e8e8" opacity="0.1"/>
+
+  <!-- Ocean waves -->
+  <path d="M0,500 Q97.5,480 195,500 T390,500" stroke="#FFD700" stroke-width="2" fill="none" opacity="0.25"/>
+  <path d="M0,600 Q97.5,580 195,600 T390,600" stroke="#FFD700" stroke-width="2" fill="none" opacity="0.2"/>
+  <path d="M0,700 Q97.5,680 195,700 T390,700" stroke="#FFD700" stroke-width="2" fill="none" opacity="0.15"/>
+
+  <!-- Moonlit water shimmer -->
+  <circle cx="100" cy="400" r="80" fill="#FFD700" opacity="0.08"/>
+  <circle cx="300" cy="550" r="70" fill="#FFD700" opacity="0.06"/>
+
+  <!-- Ship wheel - decorative border element top left -->
+  <g opacity="0.22">
+    <circle cx="40" cy="60" r="25" fill="none" stroke="#8B4513" stroke-width="3"/>
+    <circle cx="40" cy="60" r="18" fill="none" stroke="#8B4513" stroke-width="1"/>
+    <line x1="40" y1="35" x2="40" y2="85" stroke="#8B4513" stroke-width="2"/>
+    <line x1="15" y1="60" x2="65" y2="60" stroke="#8B4513" stroke-width="2"/>
+    <line x1="22" y1="42" x2="58" y2="78" stroke="#8B4513" stroke-width="2"/>
+    <line x1="58" y1="42" x2="22" y2="78" stroke="#8B4513" stroke-width="2"/>
+  </g>
+
+  <!-- Ship wheel - decorative border element bottom right -->
+  <g opacity="0.2">
+    <circle cx="360" cy="790" r="28" fill="none" stroke="#8B4513" stroke-width="3"/>
+    <circle cx="360" cy="790" r="20" fill="none" stroke="#8B4513" stroke-width="1"/>
+    <line x1="360" y1="762" x2="360" y2="818" stroke="#8B4513" stroke-width="2"/>
+    <line x1="332" y1="790" x2="388" y2="790" stroke="#8B4513" stroke-width="2"/>
+    <line x1="340" y1="770" x2="380" y2="810" stroke="#8B4513" stroke-width="2"/>
+    <line x1="380" y1="770" x2="340" y2="810" stroke="#8B4513" stroke-width="2"/>
+  </g>
+
+  <!-- Compass rose (larger, center) -->
+  <g opacity="0.25">
+    <!-- Outer circle -->
+    <circle cx="195" cy="350" r="50" fill="none" stroke="#FFD700" stroke-width="2"/>
+    <!-- Star points -->
+    <polygon points="195,300 210,340 195,350 180,340" fill="#FFD700"/>
+    <polygon points="245,350 205,340 195,350 205,360" fill="#FFD700"/>
+    <polygon points="195,400 180,360 195,350 210,360" fill="#FFD700"/>
+    <polygon points="145,350 185,360 195,350 185,340" fill="#FFD700"/>
+    <!-- Inner diamonds -->
+    <polygon points="195,320 205,350 195,370 185,350" fill="#FFD700" opacity="0.6"/>
+  </g>
+
+  <!-- Treasure chest glow areas -->
+  <g opacity="0.3">
+    <!-- Chest body -->
+    <rect x="120" y="650" width="50" height="35" fill="#8B4513" rx="3"/>
+    <!-- Lid -->
+    <path d="M120,650 Q145,630 170,650" fill="#DAA520" opacity="0.8"/>
+    <!-- Glow -->
+    <circle cx="145" cy="660" r="45" fill="#FFD700" opacity="0.15"/>
+  </g>
+
+  <g opacity="0.25">
+    <!-- Second chest -->
+    <rect x="240" y="720" width="55" height="38" fill="#8B4513" rx="3"/>
+    <!-- Lid -->
+    <path d="M240,720 Q267.5,698 295,720" fill="#DAA520" opacity="0.7"/>
+    <!-- Glow -->
+    <circle cx="267" cy="730" r="50" fill="#FFD700" opacity="0.12"/>
+  </g>
+
+  <!-- Rope/rigging elements -->
+  <path d="M30,200 Q100,350 80,500" stroke="#8B4513" stroke-width="2" fill="none" opacity="0.15"/>
+  <path d="M360,150 Q300,350 320,550" stroke="#8B4513" stroke-width="2" fill="none" opacity="0.15"/>
+
+  <!-- Water splashes -->
+  <circle cx="280" cy="520" r="8" fill="#FFD700" opacity="0.12"/>
+  <circle cx="290" cy="535" r="6" fill="#FFD700" opacity="0.1"/>
+  <circle cx="100" cy="480" r="7" fill="#FFD700" opacity="0.11"/>
+  <circle cx="85" cy="510" r="5" fill="#FFD700" opacity="0.09"/>
+
+  <!-- Distant ship silhouette -->
+  <g opacity="0.15">
+    <polygon points="250,400 270,380 290,400" fill="#0f3460"/>
+    <rect x="268" y="400" width="4" height="60" fill="#0f3460"/>
+  </g>
+
+  <!-- Vignette overlay -->
+  <rect width="390" height="844" fill="url(#pirateVignette)"/>
+</svg>
