@@ -162,6 +162,215 @@ export const appRouter = router({
 
   language: languageRouter,
 
+  analytics: router({
+    /**
+     * Get reading summary statistics
+     */
+    getReadingSummary: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+          period: z.enum(["week", "month", "all"]).default("week"),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { getReadingSummary } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await getReadingSummary(input.childId, userId, input.period);
+      }),
+
+    /**
+     * Get reading trends data for charts
+     */
+    getReadingTrends: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+          days: z.number().default(30),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { getReadingTrends } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await getReadingTrends(input.childId, userId, input.days);
+      }),
+
+    /**
+     * Get theme breakdown for pie chart
+     */
+    getThemeBreakdown: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { getThemeBreakdown } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await getThemeBreakdown(input.childId, userId);
+      }),
+
+    /**
+     * Get vocabulary growth data
+     */
+    getVocabularyGrowth: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+          days: z.number().default(90),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { getVocabularyGrowth } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await getVocabularyGrowth(input.childId, userId, input.days);
+      }),
+
+    /**
+     * Get reading heatmap data
+     */
+    getReadingHeatmap: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+          weeks: z.number().default(12),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { getReadingHeatmap } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await getReadingHeatmap(input.childId, userId, input.weeks);
+      }),
+
+    /**
+     * Get milestone data
+     */
+    getMilestones: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { getMilestones } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await getMilestones(input.childId, userId);
+      }),
+
+    /**
+     * Get engagement score
+     */
+    getEngagementScore: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { getEngagementScore } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await getEngagementScore(input.childId, userId);
+      }),
+
+    /**
+     * Get weekly report
+     */
+    getWeeklyReport: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { getWeeklyReport } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await getWeeklyReport(input.childId, userId);
+      }),
+
+    /**
+     * Compare child's metrics with peers (anonymous)
+     */
+    compareWithPeers: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          userId: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { compareWithPeers } = await import("./_core/analyticsService");
+        const userId = input.userId || ctx.userId || 0;
+        return await compareWithPeers(input.childId, userId);
+      }),
+
+    /**
+     * Generate weekly digest
+     */
+    generateWeeklyDigest: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          childName: z.string(),
+          userId: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { generateWeeklyDigest } = await import("./_core/reportGenerator");
+        const userId = input.userId || ctx.userId || 0;
+        return await generateWeeklyDigest(input.childId, userId, input.childName);
+      }),
+
+    /**
+     * Generate monthly report
+     */
+    generateMonthlyReport: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          childName: z.string(),
+          userId: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { generateMonthlyReport } = await import("./_core/reportGenerator");
+        const userId = input.userId || ctx.userId || 0;
+        return await generateMonthlyReport(input.childId, userId, input.childName);
+      }),
+
+    /**
+     * Generate custom progress report
+     */
+    generateProgressReport: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          childName: z.string(),
+          startDate: z.string().datetime(),
+          endDate: z.string().datetime(),
+          userId: z.number().optional(),
+        })
+      )
+      .query(async ({ input, ctx }) => {
+        const { generateProgressReport } = await import("./_core/reportGenerator");
+        const userId = input.userId || ctx.userId || 0;
+        return await generateProgressReport(
+          input.childId,
+          userId,
+          input.childName,
+          new Date(input.startDate),
+          new Date(input.endDate)
+        );
+      }),
+  }),
+
   auth: router({
     signUp: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string() }))

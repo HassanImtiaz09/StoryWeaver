@@ -74,6 +74,14 @@ export interface AppSettings {
   defaultPrivacyLevel: "private" | "link_only" | "public"; // Default privacy setting
   showInGallery: boolean; // Show stories in public gallery by default
   allowLikes: boolean; // Allow others to like your shared stories
+
+  // Analytics Settings
+  analyticsEnabled: boolean; // Enable reading analytics dashboard
+  weeklyDigestNotification: boolean; // Send weekly digest notifications
+  shareAnalyticsWithFamily: boolean; // Allow family members to view analytics
+  analyticsDataRetention: number; // Days to keep analytics data (default 365)
+  trackVocabularyGrowth: boolean; // Track vocabulary learning progress
+  trackReadingPatterns: boolean; // Track reading time patterns
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -123,6 +131,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultPrivacyLevel: "private",
   showInGallery: false,
   allowLikes: true,
+  analyticsEnabled: true,
+  weeklyDigestNotification: true,
+  shareAnalyticsWithFamily: true,
+  analyticsDataRetention: 365,
+  trackVocabularyGrowth: true,
+  trackReadingPatterns: true,
 };
 
 export async function getSettings(): Promise<AppSettings> {
