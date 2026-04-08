@@ -25,6 +25,12 @@ export interface AppSettings {
   // Display
   fontSize: "small" | "medium" | "large";
   darkMode: "auto" | "light" | "dark";
+
+  // Bedtime mode
+  bedtimeModeEnabled: boolean;
+  sleepTimerDefault: number; // default timer in minutes (0 = disabled)
+  ambientSoundDefault: "rain" | "ocean" | "forest" | "white_noise" | "none";
+  autoActivateBedtimeMode: boolean; // auto-activate at bedtime hour
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -41,6 +47,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   storiesPerMonth: 3,
   fontSize: "medium",
   darkMode: "auto",
+  bedtimeModeEnabled: true,
+  sleepTimerDefault: 30,
+  ambientSoundDefault: "rain",
+  autoActivateBedtimeMode: true,
 };
 
 export async function getSettings(): Promise<AppSettings> {

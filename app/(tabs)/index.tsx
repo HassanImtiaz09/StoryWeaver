@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,18 @@ import {
   getRemainingFreeStories,
   type SubscriptionState,
 } from "@/lib/subscription-store";
+import { BedtimeModeWrapper } from "@/components/bedtime-mode-wrapper";
+import { TonightRecommendation } from "@/components/tonight-recommendation";
+import {
+  getBedtimeState,
+  activateBedtimeMode,
+  deactivateBedtimeMode,
+  type BedtimeState,
+} from "@/lib/bedtime-mode";
+import { useGamificationStore } from "@/lib/gamification-store";
+import { StreakCounter } from "@/components/streak-counter";
+import { PointsDisplay } from "@/components/points-display";
+import { AchievementToast } from "@/components/achievement-toast";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THEME_CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
@@ -43,6 +55,17 @@ export default function TonightScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [subState, setSubState] = useState<SubscriptionState | null>(null);
+  const [bedtimeState, setBedtimeState] = useState<BedtimeState | null>(null);
+
+  // Gamification state
+  const gamificationStore = useGamificationStore();
+  const [showAchievementToast, setShowAchievementToast] = useState(false);
+  const [currentAchievement, setCurrentAchievement] = useState<{
+    name: string;
+    icon: string;
+    pointsReward: number;
+    tier: "bronze" | "silver" | "gold" | "diamond";
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     const kids = await getLocalChildren();
@@ -55,14 +78,19 @@ export default function TonightScreen() {
       setSelectedChild(child);
       const arcs = await getLocalStoryArcs();
       setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
+
+      // Load gamification progress
+      await gamificationStore.fetchProgress(child.id);
     } else {
       setSelectedChild(null);
       setActiveArcs([]);
     }
     const sub = await getSubscriptionState();
     setSubState(sub);
+    const bedtime = await getBedtimeState();
+    setBedtimeState(bedtime);
     setLoading(false);
-  }, []);
+  }, [selectedChild, gamificationStore]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,6 +108,18 @@ export default function TonightScreen() {
     setSelectedChild(child);
     const arcs = await getLocalStoryArcs();
     setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
+    // Load gamification data for the selected child
+    await gamificationStore.fetchProgress(child.id);
+  };
+
+  const toggleBedtimeMode = async () => {
+    if (bedtimeState?.isActive) {
+      const newState = await deactivateBedtimeMode();
+      setBedtimeState(newState);
+    } else {
+      const newState = await activateBedtimeMode();
+      setBedtimeState(newState);
+    }
   };
 
   if (loading) {
@@ -147,15 +187,32 @@ export default function TonightScreen() {
     { id: "r10", title: "Candy Cloud Kingdom", theme: "candy", emoji: "\u{1F36D}", reason: "Sweet dreams adventure" },
   ];
 
+  const childProgress = selectedChild
+    ? gamificationStore.childProgress.get(selectedChild.id)
+    : null;
+
   return (
-    <ScreenContainer>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
-        }
-      >
+    <BedtimeModeWrapper isActive={bedtimeState?.isActive ?? false}>
+      <ScreenContainer>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
+          }
+        >
+        {/* Achievement Toast */}
+        {currentAchievement && (
+          <AchievementToast
+            visible={showAchievementToast}
+            name={currentAchievement.name}
+            icon={currentAchievement.icon}
+            pointsReward={currentAchievement.pointsReward}
+            tier={currentAchievement.tier}
+            onHide={() => setShowAchievementToast(false)}
+          />
+        )}
+
         {/* Upgrade Banner */}
         {subState && subState.plan === "free" && !subState.trialActive && (
           <Animated.View entering={FadeInDown.duration(500)}>
@@ -193,15 +250,31 @@ export default function TonightScreen() {
         <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
           <View style={styles.greetingRow}>
             <Text style={[styles.greeting, { color: colors.text }]}>Tonight's Story</Text>
-            <Pressable
-              onPress={() => router.push("/settings" as any)}
-              style={({ pressed }) => [
-                styles.settingsBtn,
-                pressed && { opacity: 0.6 },
-              ]}
-            >
-              <IconSymbol name="gearshape.fill" size={24} color={colors.muted} />
-            </Pressable>
+            <View style={styles.headerButtons}>
+              <Pressable
+                onPress={toggleBedtimeMode}
+                style={({ pressed }) => [
+                  styles.settingsBtn,
+                  bedtimeState?.isActive && { backgroundColor: "rgba(255, 215, 0, 0.15)" },
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <IconSymbol
+                  name="moon.fill"
+                  size={24}
+                  color={bedtimeState?.isActive ? "#FFD700" : colors.muted}
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/settings" as any)}
+                style={({ pressed }) => [
+                  styles.settingsBtn,
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <IconSymbol name="gearshape.fill" size={24} color={colors.muted} />
+              </Pressable>
+            </View>
           </View>
           <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
             {selectedChild
@@ -209,6 +282,35 @@ export default function TonightScreen() {
               : "Select a child to begin"}
           </Text>
         </Animated.View>
+
+        {/* Gamification Stats Header */}
+        {selectedChild && childProgress && (
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(500)}
+            className="flex-row items-center justify-between px-4 py-3 gap-3 mt-2"
+          >
+            <StreakCounter
+              currentStreak={childProgress.currentStreak}
+              isActive={childProgress.currentStreak > 0}
+              size="sm"
+            />
+            <View className="flex-row items-center gap-2 bg-gradient-to-r from-yellow-100 to-orange-100 px-3 py-2 rounded-lg flex-1">
+              <Text className="text-lg">⭐</Text>
+              <View className="flex-1">
+                <Text className="text-xs text-gray-600">Level {childProgress.level}</Text>
+                <Text className="text-sm font-semibold text-gray-800">
+                  {childProgress.totalPoints.toLocaleString()} pts
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => router.push("/achievements" as any)}
+                className="bg-orange-500 px-3 py-1 rounded"
+              >
+                <Text className="text-xs font-semibold text-white">View All</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Child selector */}
         {children.length > 1 && (
@@ -270,6 +372,51 @@ export default function TonightScreen() {
               <Text style={styles.addChildBtnText}>+</Text>
             </Pressable>
           </Animated.View>
+        )}
+
+        {/* Continue Your Story or Tonight's Recommendation */}
+        {selectedChild && (
+          <TonightRecommendation
+            childName={selectedChild.name}
+            recommendation={RECOMMENDATIONS[Math.floor(Math.random() * RECOMMENDATIONS.length)]}
+            onPress={() => {
+              const rec = RECOMMENDATIONS[Math.floor(Math.random() * RECOMMENDATIONS.length)];
+              router.push({
+                pathname: "/new-story" as any,
+                params: {
+                  childId: selectedChild.id,
+                  childName: selectedChild.name,
+                  theme: rec.theme,
+                  themeName: rec.title,
+                },
+              });
+            }}
+            continueArc={
+              activeArcs.length > 0
+                ? {
+                    title: activeArcs[0].title,
+                    episodeNumber: activeArcs[0].currentEpisode,
+                    totalEpisodes: activeArcs[0].totalEpisodes,
+                    coverImageUrl: activeArcs[0].coverImageUrl,
+                  }
+                : undefined
+            }
+            onContinuePress={
+              activeArcs.length > 0
+                ? () =>
+                    router.push({
+                      pathname: "/story-detail" as any,
+                      params: {
+                        arcId: activeArcs[0].id,
+                        title: activeArcs[0].title,
+                        childName: activeArcs[0].childName,
+                        theme: activeArcs[0].theme,
+                        serverArcId: activeArcs[0].serverArcId?.toString() || "",
+                      },
+                    })
+                : undefined
+            }
+          />
         )}
 
         {/* Recommendations */}
@@ -424,8 +571,9 @@ export default function TonightScreen() {
         </View>
 
         <View style={{ height: 100 }} />
-      </ScrollView>
-    </ScreenContainer>
+        </ScrollView>
+      </ScreenContainer>
+    </BedtimeModeWrapper>
   );
 }
 
@@ -478,6 +626,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   settingsBtn: {
     width: 40,

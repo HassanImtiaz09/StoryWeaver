@@ -6,6 +6,20 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { handleWebhookEvent } from "./stripe";
+import { logger } from "./logger";
+import { healthMonitor } from "./healthMonitor";
+import { gracefulShutdown } from "./gracefulShutdown";
+import { databasePool } from "./dbPool";
+import { cache } from "./cache";
+import {
+  requestIdMiddleware,
+  requestLoggerMiddleware,
+  securityHeadersMiddleware,
+  validationMiddleware,
+} from "./requestMiddleware";
+import { errorHandler, asyncHandler } from "./errorHandler";
+import { getDb } from "../db";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -30,6 +44,19 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
+  // Register graceful shutdown
+  const db = await getDb();
+  gracefulShutdown.register(server, db, cache);
+
+  // Start periodic health checks
+  healthMonitor.startPeriodicChecks(60000);
+
+  // Core middleware
+  app.use(requestIdMiddleware());
+  app.use(securityHeadersMiddleware());
+  app.use(requestLoggerMiddleware(logger));
+  app.use(validationMiddleware());
+
   // Enable CORS for all routes - reflect the request origin to support credentials
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -51,14 +78,41 @@ async function startServer() {
     next();
   });
 
+  // Stripe webhook - MUST be before express.json() middleware
+  app.post("/api/webhooks/stripe", express.raw({ type: "application/json" }), async (req, res) => {
+    try {
+      const sig = req.headers["stripe-signature"] as string;
+      await handleWebhookEvent(req.body as Buffer, sig);
+      res.json({ received: true });
+    } catch (err) {
+      console.error("[Stripe Webhook] Error:", err);
+      res.status(400).json({ error: "Webhook processing failed" });
+    }
+  });
+
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
   registerOAuthRoutes(app);
 
-  app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, timestamp: Date.now() });
-  });
+  // Enhanced health endpoint
+  app.get(
+    "/api/health",
+    asyncHandler(async (_req, res) => {
+      const health = await healthMonitor.getHealth();
+      const statusCode = health.status === "healthy" ? 200 : health.status === "degraded" ? 503 : 500;
+      res.status(statusCode).json(health);
+    })
+  );
+
+  // Database pool status endpoint
+  app.get(
+    "/api/admin/pool-status",
+    asyncHandler(async (_req, res) => {
+      const status = await databasePool.getStatus();
+      res.json(status);
+    })
+  );
 
   app.use(
     "/api/trpc",
@@ -68,16 +122,22 @@ async function startServer() {
     }),
   );
 
+  // Global error handler (must be last middleware)
+  app.use(errorHandler);
+
   const preferredPort = parseInt(process.env.PORT || "3000");
   const port = await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
-    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+    logger.warn(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
   server.listen(port, () => {
-    console.log(`[api] server listening on port ${port}`);
+    logger.info(`Server listening`, { port, nodeEnv: process.env.NODE_ENV });
   });
 }
 
-startServer().catch(console.error);
+startServer().catch((error) => {
+  logger.fatal("Failed to start server", error);
+  process.exit(1);
+});

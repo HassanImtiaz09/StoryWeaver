@@ -15,4 +15,12 @@ export const ENV = {
   printfulApiKey: process.env.PRINTFUL_API_KEY ?? "",
   // Suno API key for AI-generated background music and sound effects
   sunoApiKey: process.env.SUNO_API_KEY ?? "",
+  // Stripe API keys for payment processing
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+  stripePriceMonthly: process.env.STRIPE_PRICE_MONTHLY ?? "",
+  stripePriceAnnual: process.env.STRIPE_PRICE_ANNUAL ?? "",
+  stripePriceFamily: process.env.STRIPE_PRICE_FAMILY ?? "",
+  // Redis URL for caching (optional, falls back to in-memory cache)
+  redisUrl: process.env.REDIS_URL ?? "",
 };

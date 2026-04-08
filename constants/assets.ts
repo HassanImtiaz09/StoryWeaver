@@ -198,6 +198,14 @@ export const SUBSCRIPTION_TIERS = {
     neurodivergentModes: true,
     printDiscount: 20,
   },
+  family: {
+    maxStories: -1, // unlimited
+    maxChildren: -1, // unlimited
+    premiumVoices: true,
+    hdIllustrations: true,
+    neurodivergentModes: true,
+    printDiscount: 30, // highest discount for family plan
+  },
 };
 
 // ─── Story Hero Appearance (character avatar customization) ────

@@ -97,6 +97,36 @@ const DEFAULT_STATE: SubscriptionState = {
   lastPurchaseDate: null,
 };
 
+// ─── Server-Authoritative Fetch ────────────────────────────────
+/**
+ * Fetch subscription state from the server (authoritative source).
+ * Falls back to AsyncStorage if server is unavailable.
+ */
+export async function fetchServerSubscription(trpcClient: any): Promise<SubscriptionState> {
+  try {
+    const response = await trpcClient.subscription.getCurrentPlan.query();
+
+    // Map server response to SubscriptionState format
+    const serverState: SubscriptionState = {
+      plan: (response.plan as SubscriptionPlan) || "free",
+      storiesUsed: 0, // Server doesn't track this in the plan query
+      freeStoriesLimit: FREE_STORIES_LIMIT,
+      expiresAt: response.expiresAt ? new Date(response.expiresAt).toISOString() : null,
+      trialActive: response.status === "trialing",
+      trialEndsAt: null, // Would need additional field from server if needed
+      lastPurchaseDate: response.expiresAt ? new Date(response.expiresAt).toISOString() : null,
+    };
+
+    // Cache in AsyncStorage as fallback
+    await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(serverState));
+    return serverState;
+  } catch (err) {
+    console.warn("[Subscription] Failed to fetch from server, using local cache:", err);
+    // Fall back to AsyncStorage
+    return getSubscriptionState();
+  }
+}
+
 // ─── Core Functions ────────────────────────────────────────────
 export async function getSubscriptionState(): Promise<SubscriptionState> {
   try {

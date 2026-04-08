@@ -16,21 +16,29 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useColors } from "@/hooks/use-colors";
 import { PRINT_FORMATS } from "@/constants/assets";
 import { trpc } from "@/lib/trpc";
+import { usePrintStore } from "@/lib/print-store";
+import { BookFormatSelector } from "@/components/book-format-selector";
+import { BookPreviewCard } from "@/components/book-preview-card";
+import { OrderTracker } from "@/components/order-tracker";
+import { ShippingAddressForm } from "@/components/shipping-address-form";
 
 type PrintStep = "format" | "preview" | "shipping" | "payment" | "confirmation";
 
 export default function PrintBookScreen() {
   const router = useRouter();
   const colors = useColors();
-  const params = useLocalSearchParams<{ arcId: string; episodeId?: string }>();
+  const params = useLocalSearchParams<{ arcId: string; childId: string; episodeId?: string }>();
+  const printStore = usePrintStore();
 
   const [step, setStep] = useState<PrintStep>("format");
   const [selectedFormat, setSelectedFormat] = useState("");
+  const [selectedSize, setSelectedSize] = useState("8x10");
   const [dedication, setDedication] = useState("");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [pricing, setPricing] = useState<{ subtotal: number; discount: number; total: number } | null>(null);
+  const [bookProductId, setBookProductId] = useState<number | null>(null);
+  const [currentOrder, setCurrentOrder] = useState<any>(null);
 
-  // Shipping
+  // Shipping form state
   const [shippingName, setShippingName] = useState("");
   const [address1, setAddress1] = useState("");
   const [address2, setAddress2] = useState("");
@@ -40,14 +48,12 @@ export default function PrintBookScreen() {
   const [country, setCountry] = useState("US");
   const [email, setEmail] = useState("");
 
-  // Order result
-  const [orderId, setOrderId] = useState("");
-  const [orderStatus, setOrderStatus] = useState("");
-
-  // tRPC mutations
-  const createOrderMutation = trpc.printOrders.create.useMutation();
-  const getShippingMutation = trpc.printOrders.shippingRates.useMutation();
-  const confirmOrderMutation = trpc.printOrders.confirm.useMutation();
+  // Load formats on mount
+  useEffect(() => {
+    printStore.loadFormats().catch((err) => {
+      console.error("Failed to load formats:", err);
+    });
+  }, []);
 
   const handleSelectFormat = useCallback((formatId: string) => {
     setSelectedFormat(formatId);
@@ -58,12 +64,35 @@ export default function PrintBookScreen() {
       Alert.alert("Select a format", "Please choose a book format to continue.");
       return;
     }
-    setStep("preview");
-  }, [selectedFormat]);
 
-  const handleProceedToShipping = useCallback(() => {
+    setIsGeneratingPdf(true);
+    try {
+      // Extract format and size from selected format ID
+      const [format, size] = selectedFormat.split("_").slice(0, 2);
+      const product = await printStore.createBookProduct({
+        storyArcId: parseInt(params.arcId ?? "0", 10),
+        childId: parseInt(params.childId ?? "0", 10),
+        format,
+        size: size ? `${size.charAt(0)}x${size.slice(1)}` : "8x10",
+        dedication,
+      });
+
+      setBookProductId(product.id);
+      setStep("preview");
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Failed to prepare book. Please try again.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [selectedFormat, dedication, params.arcId, params.childId, printStore]);
+
+  const handleProceedToShipping = useCallback(async () => {
+    if (!bookProductId) {
+      Alert.alert("Error", "Book product not found");
+      return;
+    }
     setStep("shipping");
-  }, []);
+  }, [bookProductId]);
 
   const handleProceedToPayment = useCallback(async () => {
     if (!shippingName || !address1 || !city || !stateCode || !zip) {
@@ -71,32 +100,15 @@ export default function PrintBookScreen() {
       return;
     }
 
+    if (!bookProductId) {
+      Alert.alert("Error", "Book product not found");
+      return;
+    }
+
     setIsGeneratingPdf(true);
     try {
-      const result = await createOrderMutation.mutateAsync({
-        childId: 0, // TODO: pass childId from params
-        arcId: parseInt(params.arcId ?? "0", 10),
-        format: selectedFormat as "hardcover" | "paperback" | "ebook",
-      });
-
-      setOrderId(String(result.id));
-      setStep("payment");
-    } catch (err: any) {
-      Alert.alert("Error", err.message ?? "Failed to prepare your order. Please try again.");
-    } finally {
-      setIsGeneratingPdf(false);
-    }
-  }, [
-    params.arcId, params.episodeId, selectedFormat, dedication,
-    shippingName, address1, address2, city, stateCode, zip, country, email,
-    createOrderMutation,
-  ]);
-
-  const handleConfirmOrder = useCallback(async () => {
-    try {
-      const result = await confirmOrderMutation.mutateAsync({
-        orderId: parseInt(orderId, 10),
-        shippingRateId: "standard",
+      const result = await printStore.estimateShipping({
+        bookProductId,
         address: {
           name: shippingName,
           address1,
@@ -108,12 +120,49 @@ export default function PrintBookScreen() {
           email: email || undefined,
         },
       });
-      setOrderStatus("submitted");
+
+      setStep("payment");
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Failed to estimate shipping. Please try again.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [
+    bookProductId, shippingName, address1, address2, city, stateCode, zip, country, email,
+    printStore,
+  ]);
+
+  const handleConfirmOrder = useCallback(async () => {
+    if (!bookProductId) {
+      Alert.alert("Error", "Book product not found");
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const order = await printStore.placeOrder({
+        bookProductId,
+        shippingAddress: {
+          name: shippingName,
+          address1,
+          address2: address2 || undefined,
+          city,
+          stateCode,
+          zip,
+          countryCode: country,
+          email: email || undefined,
+        },
+        shippingRateId: "standard",
+      });
+
+      setCurrentOrder(order);
       setStep("confirmation");
     } catch (err: any) {
-      Alert.alert("Error", err.message ?? "Failed to confirm order.");
+      Alert.alert("Error", err.message ?? "Failed to place order.");
+    } finally {
+      setIsGeneratingPdf(false);
     }
-  }, [orderId, confirmOrderMutation]);
+  }, [bookProductId, shippingName, address1, address2, city, stateCode, zip, country, email, printStore]);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]}>
@@ -143,10 +192,21 @@ export default function PrintBookScreen() {
               Every story page includes its AI-generated illustration
             </Text>
 
+            {printStore.availableFormats.length > 0 && (
+              <BookFormatSelector
+                formats={printStore.availableFormats}
+                selectedId={selectedFormat}
+                onSelect={handleSelectFormat}
+              />
+            )}
+
             {PRINT_FORMATS.map((fmt) => (
               <Pressable
                 key={fmt.id}
-                onPress={() => handleSelectFormat(fmt.id)}
+                onPress={() => {
+                  handleSelectFormat(fmt.id);
+                  setSelectedSize(fmt.id.split("_")[1] || "8x10");
+                }}
                 style={[
                   styles.formatCard,
                   {
@@ -240,146 +300,80 @@ export default function PrintBookScreen() {
         {step === "shipping" && (
           <Animated.View entering={FadeInDown.duration(400)}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Shipping Address</Text>
+            <Text style={[styles.sectionDesc, { color: colors.textSecondary }]}>
+              Where should we send your personalized storybook?
+            </Text>
 
-            <Text style={[styles.label, { color: colors.text }]}>Full Name *</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-              value={shippingName}
-              onChangeText={setShippingName}
-              placeholder="John Smith"
-              placeholderTextColor={colors.textSecondary}
+            <ShippingAddressForm
+              initialData={{
+                name: shippingName,
+                address1,
+                address2,
+                city,
+                stateCode,
+                countryCode: country,
+                zip,
+                phone: email,
+              }}
+              onSubmit={(data) => {
+                setShippingName(data.name);
+                setAddress1(data.address1);
+                setAddress2(data.address2 || "");
+                setCity(data.city);
+                setStateCode(data.stateCode);
+                setCountry(data.countryCode);
+                setZip(data.zip);
+                setEmail(data.phone || "");
+                handleProceedToPayment();
+              }}
+              isLoading={isGeneratingPdf}
+              submitLabel="Continue to Payment"
             />
-
-            <Text style={[styles.label, { color: colors.text }]}>Address Line 1 *</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-              value={address1}
-              onChangeText={setAddress1}
-              placeholder="123 Story Lane"
-              placeholderTextColor={colors.textSecondary}
-            />
-
-            <Text style={[styles.label, { color: colors.text }]}>Address Line 2</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-              value={address2}
-              onChangeText={setAddress2}
-              placeholder="Apt 4B"
-              placeholderTextColor={colors.textSecondary}
-            />
-
-            <View style={styles.row}>
-              <View style={{ flex: 2 }}>
-                <Text style={[styles.label, { color: colors.text }]}>City *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="New York"
-                  placeholderTextColor={colors.textSecondary}
-                />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[styles.label, { color: colors.text }]}>State *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                  value={stateCode}
-                  onChangeText={setStateCode}
-                  placeholder="NY"
-                  placeholderTextColor={colors.textSecondary}
-                  maxLength={2}
-                />
-              </View>
-            </View>
-
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: colors.text }]}>ZIP Code *</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                  value={zip}
-                  onChangeText={setZip}
-                  placeholder="10001"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[styles.label, { color: colors.text }]}>Country</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                  value={country}
-                  onChangeText={setCountry}
-                  placeholder="US"
-                  placeholderTextColor={colors.textSecondary}
-                  maxLength={2}
-                />
-              </View>
-            </View>
-
-            <Text style={[styles.label, { color: colors.text }]}>Email (for tracking)</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="parent@email.com"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="email-address"
-            />
-
-            <Pressable
-              onPress={handleProceedToPayment}
-              disabled={isGeneratingPdf}
-              style={[styles.ctaButton, { backgroundColor: colors.primary }]}
-            >
-              {isGeneratingPdf ? (
-                <View style={styles.loadingRow}>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <Text style={[styles.ctaText, { marginLeft: 8 }]}>Preparing book...</Text>
-                </View>
-              ) : (
-                <Text style={styles.ctaText}>Review Order {"\u{2192}"}</Text>
-              )}
-            </Pressable>
           </Animated.View>
         )}
 
         {/* ─── Step: Payment ───────────────── */}
-        {step === "payment" && pricing && (
+        {step === "payment" && printStore.currentPricing && (
           <Animated.View entering={FadeInDown.duration(400)}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Order Summary</Text>
 
             <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
               <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Book</Text>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Book Format</Text>
                 <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {PRINT_FORMATS.find((f) => f.id === selectedFormat)?.label}
+                  {PRINT_FORMATS.find((f) => f.id === selectedFormat)?.label || selectedFormat}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Subtotal</Text>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Base Cost</Text>
                 <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  ${pricing.subtotal.toFixed(2)}
+                  ${printStore.currentPricing.baseCost.toFixed(2)}
                 </Text>
               </View>
-              {pricing.discount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Markup</Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
+                  +${printStore.currentPricing.markup.toFixed(2)}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Shipping</Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
+                  ${printStore.currentPricing.shippingEstimate.toFixed(2)}
+                </Text>
+              </View>
+              {printStore.currentPricing.tax > 0 && (
                 <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: "#4ECDC4" }]}>
-                    Subscriber Discount
-                  </Text>
-                  <Text style={[styles.summaryValue, { color: "#4ECDC4" }]}>
-                    -${pricing.discount.toFixed(2)}
+                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Tax</Text>
+                  <Text style={[styles.summaryValue, { color: colors.text }]}>
+                    ${printStore.currentPricing.tax.toFixed(2)}
                   </Text>
                 </View>
               )}
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Shipping</Text>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>Calculated at checkout</Text>
-              </View>
               <View style={[styles.summaryRow, styles.totalRow]}>
-                <Text style={[styles.totalLabel, { color: colors.text }]}>Estimated Total</Text>
+                <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
                 <Text style={[styles.totalValue, { color: colors.primary }]}>
-                  ${pricing.total.toFixed(2)}
+                  ${printStore.currentPricing.total.toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -397,14 +391,25 @@ export default function PrintBookScreen() {
               </Text>
             </View>
 
-            <Pressable onPress={handleConfirmOrder} style={[styles.ctaButton, { backgroundColor: "#4ECDC4" }]}>
-              <Text style={styles.ctaText}>{"\u{2713}"} Place Order</Text>
+            <Pressable
+              onPress={handleConfirmOrder}
+              disabled={isGeneratingPdf}
+              style={[styles.ctaButton, { backgroundColor: colors.primary }]}
+            >
+              {isGeneratingPdf ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={[styles.ctaText, { marginLeft: 8 }]}>Processing...</Text>
+                </View>
+              ) : (
+                <Text style={styles.ctaText}>{"\u{2713}"} Place Order</Text>
+              )}
             </Pressable>
           </Animated.View>
         )}
 
         {/* ─── Step: Confirmation ──────────── */}
-        {step === "confirmation" && (
+        {step === "confirmation" && currentOrder && (
           <Animated.View entering={FadeInDown.duration(400)} style={styles.confirmationView}>
             <Text style={styles.confirmEmoji}>{"\u{1F389}"}</Text>
             <Text style={[styles.confirmTitle, { color: colors.text }]}>Order Placed!</Text>
@@ -415,8 +420,10 @@ export default function PrintBookScreen() {
 
             <View style={[styles.orderIdBox, { backgroundColor: colors.card }]}>
               <Text style={[styles.orderIdLabel, { color: colors.textSecondary }]}>Order ID</Text>
-              <Text style={[styles.orderIdValue, { color: colors.text }]}>{orderId}</Text>
+              <Text style={[styles.orderIdValue, { color: colors.text }]}>{currentOrder.id}</Text>
             </View>
+
+            <OrderTracker currentStatus={currentOrder.status} />
 
             <Pressable onPress={() => router.replace("/(tabs)")} style={[styles.ctaButton, { backgroundColor: colors.primary }]}>
               <Text style={styles.ctaText}>Back to Stories</Text>

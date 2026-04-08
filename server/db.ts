@@ -8,6 +8,9 @@ import {
   pages,
   storyRecommendations,
   printOrders,
+  readingStreaks,
+  achievements,
+  readingActivity,
 } from "../drizzle/schema";
 
 // Infer insert types from the schema
