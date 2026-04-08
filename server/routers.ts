@@ -30,6 +30,7 @@ import {
 } from "../drizzle/schema";
 import { characterRouter } from "./_core/characterRouter";
 import { languageRouter } from "./_core/language-router";
+import { educatorRouter } from "./_core/educatorRouter";
 import { checkParentalConsent, recordParentalConsent, requireConsent, getConsentStatus } from "./_core/coppaConsent";
 import { moderateEpisode, aiSafetyCheck, validateChildAge } from "./_core/contentModeration";
 import {
@@ -162,6 +163,8 @@ export const appRouter = router({
   character: characterRouter,
 
   language: languageRouter,
+
+  educator: educatorRouter,
 
   analytics: router({
     /**

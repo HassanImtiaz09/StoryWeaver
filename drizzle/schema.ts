@@ -523,6 +523,68 @@ export const storyReports = mysqlTable("story_reports", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Educator Mode: Classrooms ────────────────────────────────
+// Teacher-facing classroom management system
+
+export const classrooms = mysqlTable("classrooms", {
+  id: int("id").primaryKey().autoincrement(),
+  teacherId: int("teacher_id").notNull(), // User ID of teacher
+  name: varchar("name", { length: 255 }).notNull(),
+  gradeLevel: varchar("grade_level", { length: 50 }).notNull(), // e.g., "K", "1st", "2nd", "3rd-4th", "5th-6th"
+  joinCode: varchar("join_code", { length: 10 }).notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
+export const classroomStudents = mysqlTable("classroom_students", {
+  id: int("id").primaryKey().autoincrement(),
+  classroomId: int("classroom_id").notNull(),
+  childId: int("child_id").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export const storyAssignments = mysqlTable("story_assignments", {
+  id: int("id").primaryKey().autoincrement(),
+  classroomId: int("classroom_id").notNull(),
+  arcId: int("arc_id").notNull(), // Story arc ID
+  instructions: text("instructions"), // Custom assignment instructions
+  dueDate: timestamp("due_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const studentAssignmentProgress = mysqlTable("student_assignment_progress", {
+  id: int("id").primaryKey().autoincrement(),
+  assignmentId: int("assignment_id").notNull(),
+  studentId: int("student_id").notNull(), // Child ID
+  status: mysqlEnum("status", ["not_started", "in_progress", "completed"]).default("not_started"),
+  completedAt: timestamp("completed_at"),
+  completedPages: int("completed_pages").default(0),
+  totalPages: int("total_pages").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const assessments = mysqlTable("assessments", {
+  id: int("id").primaryKey().autoincrement(),
+  assignmentId: int("assignment_id"),
+  studentId: int("student_id").notNull(), // Child ID
+  episodeId: int("episode_id").notNull(),
+  gradeLevel: varchar("grade_level", { length: 50 }).notNull(),
+  questions: json("questions").$type<{
+    id: string;
+    type: "multiple_choice" | "true_false" | "short_answer" | "vocabulary" | "sequencing";
+    question: string;
+    options?: string[]; // for multiple choice
+    correctAnswer?: string;
+    vocabulary?: string; // for vocabulary questions
+    definition?: string;
+  }[]>().notNull(),
+  answers: json("answers").$type<Record<string, string>>().default({}),
+  score: int("score"),
+  gradedAt: timestamp("graded_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -551,3 +613,8 @@ export type SharedStory = typeof sharedStories.$inferSelect;
 export type StoryLike = typeof storyLikes.$inferSelect;
 export type StoryReport = typeof storyReports.$inferSelect;
 export type StorySegment = typeof storySegments.$inferSelect;
+export type Classroom = typeof classrooms.$inferSelect;
+export type ClassroomStudent = typeof classroomStudents.$inferSelect;
+export type StoryAssignment = typeof storyAssignments.$inferSelect;
+export type StudentAssignmentProgress = typeof studentAssignmentProgress.$inferSelect;
+export type Assessment = typeof assessments.$inferSelect;

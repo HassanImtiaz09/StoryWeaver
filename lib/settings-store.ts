@@ -85,6 +85,10 @@ export interface AppSettings {
 
   // Accessibility
   accessibilityEnabled: boolean; // Show accessibility button in story reader
+
+  // Educator Mode
+  educatorModeEnabled: boolean; // Enable teacher dashboard and classroom features
+  defaultGradeLevel: string; // Default grade level for new classrooms
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -141,6 +145,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   trackVocabularyGrowth: true,
   trackReadingPatterns: true,
   accessibilityEnabled: false,
+  educatorModeEnabled: false,
+  defaultGradeLevel: "K",
 };
 
 export async function getSettings(): Promise<AppSettings> {
