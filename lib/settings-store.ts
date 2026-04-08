@@ -31,6 +31,11 @@ export interface AppSettings {
   sleepTimerDefault: number; // default timer in minutes (0 = disabled)
   ambientSoundDefault: "rain" | "ocean" | "forest" | "white_noise" | "none";
   autoActivateBedtimeMode: boolean; // auto-activate at bedtime hour
+
+  // Voice assistant
+  voiceAssistantEnabled: boolean;
+  voiceCommandHints: boolean;
+  voiceLanguage: string; // e.g., "en-US", "es-ES"
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -51,6 +56,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   sleepTimerDefault: 30,
   ambientSoundDefault: "rain",
   autoActivateBedtimeMode: true,
+  voiceAssistantEnabled: true,
+  voiceCommandHints: true,
+  voiceLanguage: "en-US",
 };
 
 export async function getSettings(): Promise<AppSettings> {

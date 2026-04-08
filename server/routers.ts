@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "./_core/trpc";
 import { db } from "./db";
-import { eq, and, desc, isNull, asc, inArray } from "drizzle-orm";
+import { eq, and, desc, isNull, asc } from "drizzle-orm";
 import {
   users,
   children,
@@ -609,7 +609,7 @@ export const appRouter = router({
             age: child.age,
             interests: child.interests ?? [],
             personality: child.personalityTraits?.join(", "),
-            fears: child.fears ?? undefined,
+            fears: child.fears,
           },
           theme: arc.theme,
           storyArc: {
@@ -619,7 +619,7 @@ export const appRouter = router({
           },
           previousEpisodes: episodeContext.previousEpisodes,
           preferences: {
-            readingLevel: child.readingLevel ?? undefined,
+            readingLevel: child.readingLevel,
             tone: "bedtime-friendly",
           },
         };
@@ -1822,7 +1822,7 @@ export const appRouter = router({
         .select()
         .from(shippingAddresses)
         .where(eq(shippingAddresses.userId, ctx.user.id))
-        .orderBy(desc(shippingAddresses.isDefault));
+        .orderBy(shippingAddresses.isDefault ? desc(shippingAddresses.isDefault) : undefined);
     }),
   }),
 
@@ -2427,7 +2427,7 @@ export const appRouter = router({
           queueId: z.number(),
           status: z.enum(["approved", "rejected", "edited"]),
           parentNotes: z.string().optional(),
-          editedContent: z.record(z.string(), z.unknown()).optional(),
+          editedContent: z.record(z.unknown()).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -2676,7 +2676,9 @@ export const appRouter = router({
           await db
             .update(mediaQueue)
             .set({ status: "queued", errorMessage: null })
-            .where(inArray(mediaQueue.id, retried));
+            .where((table) =>
+              table.id.inArray(retried)
+            );
         }
 
         // Start processing
@@ -2812,6 +2814,55 @@ export const appRouter = router({
 
       return mediaPipeline.getStats();
     }),
+  }),
+
+  voice: router({
+    /**
+     * Process a voice command from a child
+     */
+    processCommand: protectedProcedure
+      .input(
+        z.object({
+          episodeId: z.number(),
+          pageNumber: z.number(),
+          command: z.string(),
+          childId: z.number(),
+          storyContext: z.object({
+            title: z.string(),
+            currentPageText: z.string(),
+            previousPages: z.array(z.string()).optional(),
+            characters: z.array(z.string()),
+            setting: z.string(),
+          }),
+          childProfile: z.object({
+            name: z.string(),
+            age: z.number(),
+            interests: z.array(z.string()).optional(),
+            fears: z.array(z.string()).optional(),
+          }),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { processVoiceCommand } = await import("./_core/voiceCommands");
+        try {
+          const result = await processVoiceCommand({
+            command: input.command,
+            episodeId: input.episodeId,
+            pageNumber: input.pageNumber,
+            childId: input.childId,
+            storyContext: input.storyContext,
+            childProfile: input.childProfile,
+          });
+          return result;
+        } catch (error) {
+          console.error("Voice command processing error:", error);
+          return {
+            type: "error" as const,
+            content: "Sorry, I couldn't process that. Try again!",
+            approved: false,
+          };
+        }
+      }),
   }),
 
   admin: router({
