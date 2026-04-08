@@ -699,6 +699,34 @@ export const selResponses = mysqlTable("sel_responses", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Smart Home Integration ────────────────────────────────────
+
+export const smartHomeConfigs = mysqlTable("smart_home_configs", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  platform: mysqlEnum("platform", ["philips_hue", "alexa", "google_home", "other"]).notNull(),
+  deviceName: varchar("device_name", { length: 255 }).notNull(),
+  deviceId: varchar("device_id", { length: 255 }).notNull(),
+  accessToken: varchar("access_token", { length: 500 }),
+  refreshToken: varchar("refresh_token", { length: 500 }),
+  isEnabled: boolean("is_enabled").default(true),
+  settings: json("settings").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const bedtimeRoutines = mysqlTable("bedtime_routines", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  childId: int("child_id"),
+  name: varchar("name", { length: 255 }).notNull(),
+  scheduledTime: varchar("scheduled_time", { length: 10 }),
+  steps: json("steps").$type<{ type: string; duration: number; config: Record<string, any> }[]>().notNull(),
+  isActive: boolean("is_active").default(true),
+  daysOfWeek: json("days_of_week").$type<number[]>().default([0,1,2,3,4,5,6]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -739,3 +767,5 @@ export type MemoryPrompt = typeof memoryPrompts.$inferSelect;
 export type SelTemplate = typeof selTemplates.$inferSelect;
 export type SelProgress = typeof selProgress.$inferSelect;
 export type SelResponse = typeof selResponses.$inferSelect;
+export type SmartHomeConfig = typeof smartHomeConfigs.$inferSelect;
+export type BedtimeRoutine = typeof bedtimeRoutines.$inferSelect;

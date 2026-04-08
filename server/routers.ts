@@ -33,6 +33,7 @@ import { languageRouter } from "./_core/language-router";
 import { educatorRouter } from "./_core/educatorRouter";
 import { grandparentRouter } from "./_core/grandparentRouter";
 import { selRouter } from "./_core/selRouter";
+import { smartHomeRouter } from "./_core/smartHomeRouter";
 import { checkParentalConsent, recordParentalConsent, requireConsent, getConsentStatus } from "./_core/coppaConsent";
 import { moderateEpisode, aiSafetyCheck, validateChildAge } from "./_core/contentModeration";
 import {
@@ -171,6 +172,8 @@ export const appRouter = router({
   grandparent: grandparentRouter,
 
   sel: selRouter,
+
+  smartHome: smartHomeRouter,
 
   analytics: router({
     /**

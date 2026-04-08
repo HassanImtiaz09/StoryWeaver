@@ -174,6 +174,15 @@ export default function RootLayout() {
             animationEnabled: true,
           }}
         />
+
+        <Stack.Screen
+          name="smart-home-settings"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
       </Stack>
     </GestureHandlerRootView>
   );

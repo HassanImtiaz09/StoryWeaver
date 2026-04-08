@@ -1,0 +1,210 @@
+SMART HOME INTEGRATION FOR STORYWEAVER
+=======================================
+
+IMPLEMENTATION COMPLETE
+
+Files Created:
+==============
+
+1. Backend Services:
+   - /tmp/sw-voice-push/server/_core/smartHomeService.ts (550+ lines)
+     * Device configuration management
+     * Lighting scene control (Philips Hue integration)
+     * Story mood to lighting color mapping
+     * Ambient sound selection and playback
+     * Bedtime routine management and execution
+     * Device status monitoring
+
+   - /tmp/sw-voice-push/server/_core/smartHomeRouter.ts (200+ lines)
+     * tRPC API endpoints for all smart home operations
+     * Device management (add, enable, disable, disconnect)
+     * Lighting control and mood lighting presets
+     * Bedtime routine CRUD operations
+     * Ambient sound retrieval
+
+2. Client-Side Storage:
+   - /tmp/sw-voice-push/lib/smart-home-store.ts (220+ lines)
+     * Zustand store for smart home state management
+     * AsyncStorage persistence for offline support
+     * Device management state
+     * Bedtime routine state
+     * Mood lighting and ambient sound preferences
+
+3. React Native Components:
+   - /tmp/sw-voice-push/components/smart-home-device-card.tsx (170 lines)
+     * Device display with icon, name, and platform badge
+     * Connection status indicator
+     * Enable/disable toggle
+     * Configure button for device management
+
+   - /tmp/sw-voice-push/components/mood-lighting-preview.tsx (200 lines)
+     * Visual color preview circle
+     * Animated color display based on story mood
+     * Brightness slider (0-100%)
+     * Mood selector with 7 story moods
+     * Test lights button for preview
+
+   - /tmp/sw-voice-push/components/bedtime-routine-builder.tsx (250 lines)
+     * Step-by-step routine builder interface
+     * Drag-to-reorder functionality for steps
+     * Duration per step configuration
+     * Time picker for routine scheduling
+     * Total duration calculation
+     * 5 predefined step types
+
+   - /tmp/sw-voice-push/components/ambient-sound-picker.tsx (180 lines)
+     * 8 ambient sound options (rain, ocean, forest, campfire, wind, stars, birds, thunderstorm)
+     * Volume control slider
+     * Sound preview button
+     * Auto-play toggle for story reading
+     * Sound selection grid with descriptions
+
+   - /tmp/sw-voice-push/components/smart-home-status-bar.tsx (120 lines)
+     * Compact status indicator for reading screens
+     * Active scene display
+     * Device count
+     * Quick enable/disable toggle
+
+4. Settings Screen:
+   - /tmp/sw-voice-push/app/smart-home-settings.tsx (400+ lines)
+     * Main smart home settings interface
+     * Tabbed navigation (Devices, Mood Lighting, Sounds, Bedtime)
+     * Device connection management
+     * Mood lighting customization
+     * Ambient sound preferences
+     * Bedtime routine creation and management
+     * Master smart home toggle
+
+Files Modified:
+===============
+
+1. /tmp/sw-voice-push/drizzle/schema.ts
+   - Added smartHomeConfigs table
+   - Added bedtimeRoutines table
+   - Added type exports for both tables
+
+2. /tmp/sw-voice-push/server/routers.ts
+   - Added import for smartHomeRouter
+   - Merged smartHomeRouter into appRouter
+
+3. /tmp/sw-voice-push/app/_layout.tsx
+   - Added Stack.Screen route for smart-home-settings
+
+FEATURE OVERVIEW
+================
+
+Smart Home Platform Support:
+- Amazon Alexa (voice commands, ambient sounds)
+- Google Home (Cast audio, routine triggers)
+- Philips Hue (color temperature, brightness, RGB)
+- Generic smart home (extensible architecture)
+
+Story Mood to Lighting Mapping:
+- Adventure: Warm golden (HSL 40, 100%, 60%) @ 80% brightness
+- Mystery: Deep purple (HSL 270, 80%, 40%) @ 50% brightness
+- Happy: Bright yellow (HSL 50, 100%, 70%) @ 90% brightness
+- Scary: Blue-green (HSL 180, 70%, 30%) @ 40% brightness
+- Calm/Bedtime: Soft blue (HSL 220, 60%, 50%) @ 30% brightness
+- Magical: Pink-purple (HSL 300, 80%, 60%) @ 70% brightness
+- Sad: Soft blue (HSL 210, 50%, 45%) @ 45% brightness
+
+Ambient Sounds:
+- Rain (relaxation)
+- Ocean Waves (calming)
+- Forest (nature ambience)
+- Campfire (cozy)
+- Wind (soothing)
+- Starry Night (peaceful)
+- Birds (morning/awakening)
+- Thunderstorm (dramatic)
+
+Bedtime Routine Steps:
+- Dim lights (fade to bedtime brightness)
+- Play music (lullaby selection)
+- Ambient sound (background sounds)
+- Read story (start story playback)
+- Lights off (complete darkness)
+- Voice command (Alexa/Google actions)
+
+DATABASE SCHEMA
+===============
+
+smart_home_configs:
+- id, userId, platform, deviceName, deviceId
+- accessToken, refreshToken, isEnabled
+- settings (JSON), createdAt, updatedAt
+
+bedtimeRoutines:
+- id, userId, childId, name
+- scheduledTime, steps (JSON), isActive
+- daysOfWeek (JSON), createdAt
+
+API ENDPOINTS (tRPC)
+====================
+
+smartHome.getConfig - Get user's connected devices
+smartHome.updateConfig - Add/update device config
+smartHome.getMoodLighting - Get lighting for story mood
+smartHome.triggerLighting - Activate lights for scene
+smartHome.triggerBedtimeRoutine - Start bedtime sequence
+smartHome.getBedtimeRoutines - List user's routines
+smartHome.createBedtimeRoutine - Create new routine
+smartHome.getDeviceStatus - Check device connection status
+smartHome.disconnectDevice - Disable/remove device
+smartHome.enableDevice - Re-enable device
+smartHome.getAmbientSound - Get audio URL for mood
+smartHome.getAllMoodLightingPresets - Get all mood colors
+
+DESIGN PATTERNS
+===============
+
+1. Graceful Degradation
+   - API calls fail silently with fallback UX
+   - No connected devices shows helpful setup prompts
+   - Missing features don't break app experience
+
+2. Modular Architecture
+   - Service layer (smartHomeService) handles business logic
+   - Router layer (smartHomeRouter) provides API
+   - Store layer (smart-home-store) manages client state
+   - Component layer provides UI
+
+3. Type Safety
+   - Full TypeScript interfaces for all entities
+   - Zod validation schemas for API inputs
+   - Type exports from database schema
+
+4. Offline Support
+   - Zustand store with AsyncStorage persistence
+   - Local state cached for offline access
+   - Synced when connection restored
+
+5. NativeWind/Tailwind Integration
+   - All components use utility classes
+   - Consistent spacing and sizing
+   - useColors() hook for theme consistency
+
+USAGE EXAMPLE
+=============
+
+1. User navigates to Smart Home Settings
+2. Adds Philips Hue light from "Add Device" modal
+3. Selects story mood (e.g., "Adventure")
+4. Sees real-time lighting preview
+5. Creates bedtime routine:
+   - Dim lights (300s)
+   - Play music (900s)
+   - Read story (1200s)
+   - Lights off (60s)
+6. Schedules for 9:00 PM daily
+7. During story reading, app:
+   - Changes lights to mood color
+   - Plays ambient sounds
+   - On bedtime, triggers full routine sequence
+
+All files are production-quality with:
+- Proper error handling
+- User-friendly UI/UX
+- Complete type safety
+- Comprehensive comments
+- Extensible architecture
