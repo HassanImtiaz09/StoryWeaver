@@ -36,7 +36,6 @@ import { useGamificationStore } from "@/lib/gamification-store";
 import { StreakCounter } from "@/components/streak-counter";
 import { PointsDisplay } from "@/components/points-display";
 import { AchievementToast } from "@/components/achievement-toast";
-import { StoryTitle, SectionHeader, BodyText, FunText } from "@/components/styled-text";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THEME_CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
@@ -81,7 +80,7 @@ export default function TonightScreen() {
       setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
 
       // Load gamification progress
-      await gamificationStore.fetchProgress(Number(child.id));
+      await gamificationStore.fetchProgress(child.id);
     } else {
       setSelectedChild(null);
       setActiveArcs([]);
@@ -110,7 +109,7 @@ export default function TonightScreen() {
     const arcs = await getLocalStoryArcs();
     setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
     // Load gamification data for the selected child
-    await gamificationStore.fetchProgress(Number(child.id));
+    await gamificationStore.fetchProgress(child.id);
   };
 
   const toggleBedtimeMode = async () => {
@@ -189,7 +188,7 @@ export default function TonightScreen() {
   ];
 
   const childProgress = selectedChild
-    ? gamificationStore.childProgress.get(Number(selectedChild.id))
+    ? gamificationStore.childProgress.get(selectedChild.id)
     : null;
 
   return (
@@ -250,7 +249,7 @@ export default function TonightScreen() {
         {/* Greeting */}
         <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
           <View style={styles.greetingRow}>
-            <StoryTitle style={{ fontSize: 28 }}>Tonight's Story</StoryTitle>
+            <Text style={[styles.greeting, { color: colors.text }]}>Tonight's Story</Text>
             <View style={styles.headerButtons}>
               <Pressable
                 onPress={toggleBedtimeMode}
@@ -277,11 +276,11 @@ export default function TonightScreen() {
               </Pressable>
             </View>
           </View>
-          <BodyText>
+          <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
             {selectedChild
               ? `What adventure awaits ${selectedChild.name}?`
               : "Select a child to begin"}
-          </BodyText>
+          </Text>
         </Animated.View>
 
         {/* Gamification Stats Header */}
@@ -423,9 +422,9 @@ export default function TonightScreen() {
         {/* Recommendations */}
         {selectedChild && (
           <View style={styles.section}>
-            <SectionHeader>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               {"\u2728"} Recommended for {selectedChild.name}
-            </SectionHeader>
+            </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -473,9 +472,9 @@ export default function TonightScreen() {
         {/* Continue Reading - Active Story Arcs */}
         {activeArcs.length > 0 && (
           <View style={styles.section}>
-            <SectionHeader>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
               {"\u{1F4DA}"} Continue Reading
-            </SectionHeader>
+            </Text>
             {activeArcs.map((arc) => {
               const themeData = STORY_THEMES.find((t) => t.id === arc.theme);
               const progress =
@@ -528,9 +527,9 @@ export default function TonightScreen() {
 
         {/* Browse All Themes */}
         <View style={styles.section}>
-          <SectionHeader>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
             {"\u{1F3A8}"} Browse All Themes
-          </SectionHeader>
+          </Text>
           <View style={styles.themeGrid}>
             {STORY_THEMES.map((theme, idx) => (
               <Pressable

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,33 +8,23 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { Image } from "expo-image";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { EDUCATIONAL_VALUES, STORY_THEMES } from "@/constants/assets";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { LinearGradient } from "expo-linear-gradient";
-import { saveLocalStoryArc, type LocalStoryArc } from "@/lib/story-store";
 import { trpc } from "@/lib/trpc";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import {
-  canCreateStory,
-  incrementStoriesUsed,
-  getSubscriptionState,
-  getRemainingFreeStories,
-} from "@/lib/subscription-store";
-import { ScreenTitle, SectionHeader, BodyText, ButtonText } from "@/components/styled-text";
 
-type GenerationStep = "idle" | "creating_arc" | "generating_episode" | "generating_images" | "done";
+interface StoryPreference {
+  id: string;
+  title: string;
+  icon: string;
+  options: string[];
+}
 
-const STEP_MESSAGES: Record<GenerationStep, string> = {
-  idle: "",
-  creating_arc: "Crafting your story universe...",
-  generating_episode: "Writing tonight's episode...",
-  generating_images: "Painting the illustrations...",
-  done: "Your story is ready!",
-};
+const STORY_LENGTH_OPTIONS = ["Short (5-10 min)", "Medium (15-20 min)", "Long (25-30 min)"];
+const STORY_TONE_OPTIONS = ["Adventurous", "Calm", "Funny", "Magical"];
+const STORY_MORAL_OPTIONS = ["Courage", "Kindness", "Creativity", "Friendship"];
 
 export default function NewStoryScreen() {
   const router = useRouter();
@@ -42,394 +32,341 @@ export default function NewStoryScreen() {
   const params = useLocalSearchParams<{
     childId: string;
     childName: string;
-    theme: string;
-    themeName: string;
+    theme?: string;
+    themeName?: string;
   }>();
 
-  const [selectedValue, setSelectedValue] = useState<string | null>(null);
-  const [episodeCount, setEpisodeCount] = useState(7);
-  const [creating, setCreating] = useState(false);
-  const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
-  const [freeStoriesInfo, setFreeStoriesInfo] = useState<{ remaining: number; isPremium: boolean }>({
-    remaining: 3,
-    isPremium: false,
-  });
+  const [storyLength, setStoryLength] = useState<string | null>(null);
+  const [storyTone, setStoryTone] = useState<string | null>(null);
+  const [storyMoral, setStoryMoral] = useState<string | null>(null);
+  const [customElements, setCustomElements] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const themeData = STORY_THEMES.find((t) => t.id === params.theme);
+  // Use tRPC mutation for story generation
+  const generateMutation = trpc.stories.generateStory.useMutation();
 
-  // Server-side story generation via tRPC
-  const createArcMutation = trpc.storyArcs.create.useMutation();
-  const generateEpisodeMutation = trpc.episodes.generate.useMutation();
-
-  // Check subscription status on mount
-  useEffect(() => {
-    (async () => {
-      const state = await getSubscriptionState();
-      const remaining = getRemainingFreeStories(state);
-      setFreeStoriesInfo({
-        remaining: remaining === -1 ? 999 : remaining,
-        isPremium: state.plan !== "free" || state.trialActive,
-      });
-    })();
-  }, []);
-
-  const handleCreate = async () => {
-    if (!selectedValue || creating) return;
-
-    // Check subscription limit before creating
-    const storyCheck = await canCreateStory();
-    if (!storyCheck.allowed) {
-      router.push({
-        pathname: "/paywall" as any,
-        params: { source: "story_limit", childName: params.childName },
-      });
+  const handleGenerateStory = async () => {
+    if (!storyLength || !storyTone || !storyMoral) {
+      Alert.alert("Missing Options", "Please select story length, tone, and moral lesson");
       return;
     }
 
-    setCreating(true);
+    const childId = params?.childId ? parseInt(params.childId, 10) : 0;
+    if (!childId) {
+      Alert.alert("Error", "No child selected");
+      return;
+    }
 
-    const valueName = EDUCATIONAL_VALUES.find((v) => v.id === selectedValue)?.name || selectedValue;
-
-    // Try server-side AI generation first, fall back to local
     try {
-      setGenerationStep("creating_arc");
-
-      const arcResult = await createArcMutation.mutateAsync({
-        childId: parseInt(params.childId, 10),
-        theme: params.theme,
-        educationalValue: selectedValue,
-        totalEpisodes: episodeCount,
+      setIsGenerating(true);
+      const result = await generateMutation.mutateAsync({
+        childId,
+        theme: params?.theme || "fantasy",
+        storyLength,
+        tone: storyTone,
+        moralLesson: storyMoral,
+        customElements: customElements || undefined,
       });
 
-      // Also save locally for offline access
-      const localArc: LocalStoryArc = {
-        id: arcResult.id.toString(),
-        childId: params.childId,
-        childName: params.childName,
-        title: arcResult.title || `${params.childName}'s ${params.themeName} Adventure`,
-        theme: params.theme,
-        themeName: params.themeName,
-        educationalValue: selectedValue,
-        educationalValueName: valueName,
-        totalEpisodes: episodeCount,
-        currentEpisode: 0,
-        status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        serverArcId: arcResult.id,
-        coverImageUrl: arcResult.coverImageUrl || undefined,
-        synopsis: arcResult.synopsis || undefined,
-      };
-      await saveLocalStoryArc(localArc);
-
-      // Increment local stories used counter
-      await incrementStoriesUsed();
-
-      // Generate first episode
-      setGenerationStep("generating_episode");
-      const episodeResult = await generateEpisodeMutation.mutateAsync({
-        arcId: arcResult.id,
-        episodeNumber: 1,
-      });
-
-      setGenerationStep("done");
-
-      // Navigate directly to story detail page
-      router.replace({
-        pathname: "/story-detail" as any,
-        params: {
-          arcId: localArc.id,
-          title: arcResult.title || localArc.title,
-          childName: params.childName,
-          theme: params.theme,
-          serverArcId: arcResult.id.toString(),
-        },
-      });
-    } catch (serverError) {
-      // Fallback to local-only story arc
-      console.log("Server generation failed, falling back to local:", serverError);
-      try {
-        const arc: LocalStoryArc = {
-          id: Date.now().toString(),
-          childId: params.childId,
-          childName: params.childName,
-          title: `${params.childName}'s ${params.themeName} Adventure`,
-          theme: params.theme,
-          themeName: params.themeName,
-          educationalValue: selectedValue,
-          educationalValueName: valueName,
-          totalEpisodes: episodeCount,
-          currentEpisode: 0,
-          status: "active",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        await saveLocalStoryArc(arc);
-
-        // Increment local stories used counter
-        await incrementStoriesUsed();
-
-        // Navigate directly to story detail page
-        router.replace({
+      if (result.arcId) {
+        // Navigate to story detail
+        router.push({
           pathname: "/story-detail" as any,
           params: {
-            arcId: arc.id,
-            title: arc.title,
-            childName: params.childName,
-            theme: params.theme,
+            arcId: result.arcId,
+            title: result.title,
+            childName: params?.childName,
+            theme: params?.theme || "fantasy",
+            serverArcId: result.serverArcId?.toString() || "",
           },
         });
-      } catch (e) {
-        Alert.alert("Error", "Failed to create story. Please try again.");
       }
+    } catch (error) {
+      Alert.alert(
+        "Generation Error",
+        error instanceof Error ? error.message : "Failed to generate story"
+      );
     } finally {
-      setCreating(false);
-      setGenerationStep("idle");
+      setIsGenerating(false);
     }
   };
 
   return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Back button */}
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
+    <ScreenContainer>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <Animated.View
+          entering={FadeInDown.duration(400)}
+          style={styles.header}
         >
-          <IconSymbol name="arrow.left" size={24} color={colors.foreground} />
-        </Pressable>
-
-        {/* Theme Preview */}
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.themePreview}>
-          <Image
-            source={{ uri: themeData?.image }}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="cover"
-            transition={300}
-          />
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.7)"]}
-            locations={[0.3, 1]}
-            style={styles.themeGradient}
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && { opacity: 0.6 },
+            ]}
           >
-            <Text style={styles.themeEmoji}>{themeData?.emoji}</Text>
-            <Text style={styles.themeName}>{params.themeName}</Text>
-            <Text style={styles.themeChild}>for {params.childName}</Text>
-          </LinearGradient>
+            <Ionicons name="close-outline" size={28} color={colors.text} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, { color: colors.text }]}>New Story</Text>
+            {params?.themeName && (
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                Theme: {params.themeName}
+              </Text>
+            )}
+            {params?.childName && (
+              <Text style={[styles.childName, { color: colors.textSecondary }]}>
+                For {params.childName}
+              </Text>
+            )}
+          </View>
         </Animated.View>
 
-        {/* Free Stories Banner */}
-        {!freeStoriesInfo.isPremium && !creating && (
-          <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.freeBanner}>
-            <View style={styles.freeBannerContent}>
-              <Text style={styles.freeBannerEmoji}>{"\u{1F381}"}</Text>
-              <View style={styles.freeBannerText}>
-                <Text style={styles.freeBannerTitle}>
-                  {freeStoriesInfo.remaining > 0
-                    ? `${freeStoriesInfo.remaining} free ${freeStoriesInfo.remaining === 1 ? "story" : "stories"} remaining`
-                    : "No free stories left"}
-                </Text>
-                <Text style={styles.freeBannerSub}>
-                  {freeStoriesInfo.remaining > 0
-                    ? "Enjoy your free bedtime stories!"
-                    : "Subscribe for unlimited stories"}
-                </Text>
-              </View>
-            </View>
-            {freeStoriesInfo.remaining <= 0 && (
+        {/* Story Length Selection */}
+        <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            How long should the story be?
+          </Text>
+          <View style={styles.optionsGrid}>
+            {STORY_LENGTH_OPTIONS.map((option, index) => (
               <Pressable
-                onPress={() => router.push({ pathname: "/paywall" as any, params: { source: "story_limit", childName: params.childName } })}
-                style={({ pressed }) => [styles.freeBannerBtn, pressed && { opacity: 0.8 }]}
+                key={option}
+                onPress={() => setStoryLength(option)}
+                style={[
+                  styles.optionButton,
+                  {
+                    backgroundColor:
+                      storyLength === option
+                        ? colors.primary
+                        : "rgba(255,255,255,0.08)",
+                  },
+                ]}
               >
-                <Text style={styles.freeBannerBtnText}>Upgrade</Text>
-              </Pressable>
-            )}
-          </Animated.View>
-        )}
-
-        {/* Generation Progress Overlay */}
-        {creating && (
-          <Animated.View entering={FadeInDown.duration(300)} style={[styles.progressCard, { backgroundColor: colors.surface }]}>
-            <ActivityIndicator size="large" color="#FFD700" />
-            <Text style={[styles.progressTitle, { color: colors.foreground }]}>
-              {STEP_MESSAGES[generationStep]}
-            </Text>
-            <Text style={[styles.progressSubtitle, { color: colors.muted }]}>
-              Our AI is personalizing this story for {params.childName}. This may take 15-30 seconds.
-            </Text>
-            <View style={styles.progressDots}>
-              {(["creating_arc", "generating_episode", "generating_images", "done"] as GenerationStep[]).map((step, idx) => (
-                <View
-                  key={step}
+                <Text
                   style={[
-                    styles.progressDot,
+                    styles.optionButtonText,
                     {
-                      backgroundColor:
-                        generationStep === step ? "#FFD700" :
-                        (["creating_arc", "generating_episode", "generating_images", "done"].indexOf(generationStep) > idx) ? "#4ADE80" :
-                        colors.border,
+                      color: storyLength === option ? "#0A0E1A" : colors.text,
                     },
                   ]}
-                />
-              ))}
-            </View>
-          </Animated.View>
-        )}
+                >
+                  {option}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
 
-        {/* Educational Value */}
-        {!creating && (
-          <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.section}>
-            <SectionHeader>
-              What should this story teach?
-            </SectionHeader>
-            <BodyText style={{ color: colors.muted, marginBottom: 14 }}>
-              Choose a value that will be woven into every episode
-            </BodyText>
-            <View style={styles.valueGrid}>
-              {EDUCATIONAL_VALUES.map((val) => (
-                <Pressable
-                  key={val.id}
-                  onPress={() => setSelectedValue(val.id)}
-                  style={({ pressed }) => [
-                    styles.valueCard,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                    selectedValue === val.id && styles.valueCardActive,
-                    pressed && { opacity: 0.7 },
+        {/* Story Tone Selection */}
+        <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            What tone should it have?
+          </Text>
+          <View style={styles.optionsGrid}>
+            {STORY_TONE_OPTIONS.map((option) => (
+              <Pressable
+                key={option}
+                onPress={() => setStoryTone(option)}
+                style={[
+                  styles.optionButton,
+                  {
+                    backgroundColor:
+                      storyTone === option
+                        ? colors.primary
+                        : "rgba(255,255,255,0.08)",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    {
+                      color: storyTone === option ? "#0A0E1A" : colors.text,
+                    },
                   ]}
                 >
-                  <Text style={styles.valueEmoji}>{val.emoji}</Text>
-                  <Text
-                    style={[
-                      styles.valueName,
-                      { color: colors.foreground },
-                      selectedValue === val.id && { color: "#0A0E1A" },
-                    ]}
-                  >
-                    {val.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </Animated.View>
-        )}
+                  {option}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
 
-        {/* Episode Count */}
-        {!creating && (
-          <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.section}>
-            <SectionHeader>
-              How many episodes?
-            </SectionHeader>
-            <BodyText style={{ color: colors.muted, marginBottom: 14 }}>
-              One episode per night - choose how long the adventure lasts
-            </BodyText>
-            <View style={styles.episodeRow}>
-              {[5, 7, 10].map((count) => (
-                <Pressable
-                  key={count}
-                  onPress={() => setEpisodeCount(count)}
-                  style={({ pressed }) => [
-                    styles.episodeChip,
-                    { borderColor: colors.border, backgroundColor: colors.surface },
-                    episodeCount === count && styles.episodeChipActive,
-                    pressed && { opacity: 0.7 },
+        {/* Moral Lesson Selection */}
+        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            What should it teach?
+          </Text>
+          <View style={styles.optionsGrid}>
+            {STORY_MORAL_OPTIONS.map((option) => (
+              <Pressable
+                key={option}
+                onPress={() => setStoryMoral(option)}
+                style={[
+                  styles.optionButton,
+                  {
+                    backgroundColor:
+                      storyMoral === option
+                        ? colors.primary
+                        : "rgba(255,255,255,0.08)",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    {
+                      color: storyMoral === option ? "#0A0E1A" : colors.text,
+                    },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.episodeCount,
-                      { color: colors.foreground },
-                      episodeCount === count && { color: "#0A0E1A" },
-                    ]}
-                  >
-                    {count}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.episodeLabel,
-                      { color: colors.muted },
-                      episodeCount === count && { color: "#0A0E1A" },
-                    ]}
-                  >
-                    nights
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </Animated.View>
-        )}
+                  {option}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
 
-        {/* Create Button */}
-        {!creating && (
-          <Animated.View entering={FadeInDown.delay(350).duration(400)} style={styles.buttonArea}>
-            <Pressable
-              onPress={handleCreate}
-              disabled={!selectedValue || creating}
-              style={({ pressed }) => [
-                styles.createButton,
-                (!selectedValue || creating) && styles.createButtonDisabled,
-                pressed && selectedValue && !creating && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-              ]}
-            >
-              <IconSymbol name="sparkles" size={20} color="#0A0E1A" />
-              <ButtonText style={{ color: "#0A0E1A" }}>Generate with AI</ButtonText>
-            </Pressable>
-            <BodyText style={[styles.aiNote, { color: colors.muted }]}>
-              Our AI will craft a unique, personalized story based on {params.childName}'s profile
-            </BodyText>
-          </Animated.View>
-        )}
+        {/* Custom Elements (Optional) */}
+        <Animated.View entering={FadeInDown.delay(250).duration(400)}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Add Custom Elements (Optional)
+          </Text>
+          <Text style={[styles.hint, { color: colors.textSecondary }]}>
+            E.g., "dinosaurs", "space adventure", "best friend Sarah"
+          </Text>
+          <View
+            style={[
+              styles.inputContainer,
+              { borderColor: colors.border, backgroundColor: colors.card },
+            ]}
+          >
+            <Text style={[styles.inputText, { color: colors.text }]}>
+              {customElements || "Enter custom elements..."}
+            </Text>
+          </View>
+        </Animated.View>
+
+        {/* Generate Button */}
+        <Animated.View
+          entering={FadeInDown.delay(300).duration(400)}
+          style={styles.buttonContainer}
+        >
+          <Pressable
+            onPress={handleGenerateStory}
+            disabled={isGenerating}
+            style={({ pressed }) => [
+              styles.generateButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
+              isGenerating && { opacity: 0.6 },
+            ]}
+          >
+            {isGenerating ? (
+              <ActivityIndicator size="small" color="#0A0E1A" />
+            ) : (
+              <>
+                <Ionicons name="sparkles" size={20} color="#0A0E1A" />
+                <Text style={styles.generateButtonText}>Generate Story</Text>
+              </>
+            )}
+          </Pressable>
+        </Animated.View>
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { padding: 20, paddingBottom: 40 },
-  backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginBottom: 8 },
-  themePreview: { borderRadius: 24, overflow: "hidden", height: 240, marginBottom: 28 },
-  themeGradient: { flex: 1, justifyContent: "flex-end", padding: 22 },
-  themeEmoji: { fontSize: 40, marginBottom: 6 },
-  themeName: { fontSize: 26, fontWeight: "800", color: "#FFFFFF", textShadowColor: "rgba(0,0,0,0.4)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
-  themeChild: { fontSize: 16, color: "rgba(255,255,255,0.85)", marginTop: 4 },
-  progressCard: { borderRadius: 20, padding: 28, alignItems: "center", marginBottom: 28, gap: 12 },
-  progressTitle: { fontSize: 18, fontWeight: "700", textAlign: "center" },
-  progressSubtitle: { fontSize: 14, lineHeight: 20, textAlign: "center" },
-  progressDots: { flexDirection: "row", gap: 8, marginTop: 4 },
-  progressDot: { width: 10, height: 10, borderRadius: 5 },
-  section: { marginBottom: 28 },
-  sectionTitle: { fontSize: 20, fontWeight: "700", marginBottom: 4 },
-  sectionSubtitle: { fontSize: 14, lineHeight: 20, marginBottom: 14 },
-  valueGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  valueCard: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderWidth: 1, gap: 8 },
-  valueCardActive: { backgroundColor: "#FFD700", borderColor: "#FFD700" },
-  valueEmoji: { fontSize: 20 },
-  valueName: { fontSize: 15, fontWeight: "600" },
-  episodeRow: { flexDirection: "row", gap: 12 },
-  episodeChip: { flex: 1, alignItems: "center", paddingVertical: 16, borderRadius: 16, borderWidth: 1, gap: 4 },
-  episodeChipActive: { backgroundColor: "#FFD700", borderColor: "#FFD700" },
-  episodeCount: { fontSize: 28, fontWeight: "800" },
-  episodeLabel: { fontSize: 13, fontWeight: "500" },
-  buttonArea: { marginTop: 4, alignItems: "center" },
-  createButton: { backgroundColor: "#FFD700", borderRadius: 16, paddingVertical: 18, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, width: "100%" },
-  createButtonDisabled: { opacity: 0.4 },
-  createButtonText: { color: "#0A0E1A", fontSize: 18, fontWeight: "700" },
-  aiNote: { fontSize: 12, textAlign: "center", marginTop: 10, lineHeight: 18 },
-  // Free stories banner
-  freeBanner: {
+  container: {
+    padding: 16,
+  },
+  header: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 28,
+    gap: 12,
+  },
+  backButton: {
+    width: 28,
+    height: 28,
+    justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255,215,0,0.08)",
-    borderRadius: 14,
+    marginTop: 2,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  subtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  childName: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 12,
+    marginTop: 20,
+  },
+  hint: {
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  optionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 8,
+  },
+  optionButton: {
+    flexBasis: "48%",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  optionButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  inputContainer: {
+    minHeight: 80,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,215,0,0.2)",
-    padding: 14,
+    padding: 12,
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  inputText: {
+    fontSize: 14,
+  },
+  buttonContainer: {
+    marginTop: 32,
     marginBottom: 20,
   },
-  freeBannerContent: { flexDirection: "row", alignItems: "center", flex: 1 },
-  freeBannerEmoji: { fontSize: 24, marginRight: 10 },
-  freeBannerText: { flex: 1 },
-  freeBannerTitle: { fontSize: 14, fontWeight: "700", color: "#FFD700" },
-  freeBannerSub: { fontSize: 12, color: "#9BA1A6", marginTop: 1 },
-  freeBannerBtn: { backgroundColor: "#FFD700", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  freeBannerBtnText: { color: "#0A0E1A", fontSize: 13, fontWeight: "700" },
+  generateButton: {
+    backgroundColor: "#FFD700",
+    borderRadius: 14,
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  generateButtonText: {
+    color: "#0A0E1A",
+    fontSize: 16,
+    fontWeight: "700",
+  },
 });

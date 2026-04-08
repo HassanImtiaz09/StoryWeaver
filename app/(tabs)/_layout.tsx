@@ -1,70 +1,100 @@
+import React from "react";
 import { Tabs } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { View, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { Platform } from "react-native";
-import { useColors } from "@/hooks/use-colors";
-import { TabLabel } from "@/components/styled-text";
 
-export default function TabLayout() {
-  const colors = useColors();
+export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
-  const tabBarHeight = 56 + bottomPadding;
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: "#FFD700",
-        tabBarInactiveTintColor: colors.muted,
-        headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarInactiveTintColor: "#9CA3AF",
         tabBarStyle: {
-          paddingTop: 8,
-          paddingBottom: bottomPadding,
-          height: tabBarHeight,
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: 0.5,
+          backgroundColor: "#0A0E1A",
+          borderTopColor: "#1F2937",
+          borderTopWidth: 1,
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom + 4,
+          paddingTop: 4,
         },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+          marginTop: 4,
+        },
+        headerShown: false,
+        tabBarShowLabel: true,
       }}
     >
+      {/* Home Tab */}
       <Tabs.Screen
         name="index"
         options={{
-          title: "Tonight",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="moon.stars.fill" color={color} />
+          title: "Home",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" color={color} size={size} />
           ),
-          tabBarLabel: ({ color, focused }) => (
-            <TabLabel style={{ color, fontSize: 11 }}>Tonight</TabLabel>
-          ),
+          tabBarLabel: "Home",
         }}
       />
+
+      {/* Library Tab */}
       <Tabs.Screen
         name="library"
         options={{
           title: "Library",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="book.fill" color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book-outline" color={color} size={size} />
           ),
-          tabBarLabel: ({ color, focused }) => (
-            <TabLabel style={{ color, fontSize: 11 }}>Library</TabLabel>
-          ),
+          tabBarLabel: "Library",
         }}
       />
+
+      {/* Create Tab */}
+      <Tabs.Screen
+        name="create"
+        options={{
+          title: "Create",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="add-circle-outline" color={color} size={size} />
+          ),
+          tabBarLabel: "Create",
+        }}
+      />
+
+      {/* Gallery Tab */}
+      <Tabs.Screen
+        name="gallery"
+        options={{
+          title: "Gallery",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="images-outline" color={color} size={size} />
+          ),
+          tabBarLabel: "Gallery",
+        }}
+      />
+
+      {/* Family Tab */}
       <Tabs.Screen
         name="family"
         options={{
           title: "Family",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="person.2.fill" color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" color={color} size={size} />
           ),
-          tabBarLabel: ({ color, focused }) => (
-            <TabLabel style={{ color, fontSize: 11 }}>Family</TabLabel>
-          ),
+          tabBarLabel: "Family",
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+});

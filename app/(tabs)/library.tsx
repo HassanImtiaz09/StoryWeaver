@@ -1,302 +1,473 @@
-import { useState, useCallback } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   Pressable,
   StyleSheet,
   RefreshControl,
+  ActivityIndicator,
+  FlatList,
 } from "react-native";
-import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { STORY_THEMES } from "@/constants/assets";
+import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
+import { Image } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { ScreenTitle, CardTitle, BodyText, CaptionText } from "@/components/styled-text";
 
 export default function LibraryScreen() {
   const router = useRouter();
   const colors = useColors();
-  const [arcs, setArcs] = useState<LocalStoryArc[]>([]);
+  const [children, setChildren] = useState<LocalChild[]>([]);
+  const [selectedChild, setSelectedChild] = useState<LocalChild | null>(null);
+  const [storyArcs, setStoryArcs] = useState<LocalStoryArc[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [filterOffline, setFilterOffline] = useState(false);
 
-  const loadArcs = useCallback(async () => {
-    const loaded = await getLocalStoryArcs();
-    setArcs(loaded);
-  }, []);
+  const loadData = useCallback(async () => {
+    const kids = await getLocalChildren();
+    setChildren(kids);
+
+    if (kids.length > 0) {
+      const child =
+        selectedChild && kids.find((k) => k.id === selectedChild.id)
+          ? selectedChild
+          : kids[0];
+      setSelectedChild(child);
+
+      const arcs = await getLocalStoryArcs();
+      const filteredArcs = filterOffline
+        ? arcs.filter((a) => a.childId === child.id && a.isOfflineAvailable)
+        : arcs.filter((a) => a.childId === child.id);
+
+      setStoryArcs(filteredArcs);
+    } else {
+      setSelectedChild(null);
+      setStoryArcs([]);
+    }
+
+    setLoading(false);
+  }, [selectedChild, filterOffline]);
 
   useFocusEffect(
     useCallback(() => {
-      loadArcs();
-    }, [loadArcs])
+      loadData();
+    }, [loadData])
   );
 
-  const onRefresh = useCallback(async () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    await loadArcs();
+    await loadData();
     setRefreshing(false);
-  }, [loadArcs]);
+  };
 
-  const renderArc = ({ item, index }: { item: LocalStoryArc; index: number }) => {
-    const themeData = STORY_THEMES.find((t) => t.id === item.theme);
-    const progress = item.totalEpisodes > 0 ? (item.currentEpisode / item.totalEpisodes) * 100 : 0;
+  const selectChild = async (child: LocalChild) => {
+    setSelectedChild(child);
+  };
 
+  if (loading) {
     return (
-      <Animated.View entering={FadeInDown.delay(index * 100).duration(400)}>
-        <Pressable
-          onPress={() => {
-            router.push({
-              pathname: "/story-detail" as any,
-              params: {
-                arcId: item.id,
-                title: item.title,
-                childName: item.childName,
-                theme: item.theme,
-                serverArcId: item.serverArcId?.toString() || "",
-              },
-            });
-          }}
-          style={({ pressed }) => [
-            styles.arcCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-          ]}
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#FFD700" />
+      </ScreenContainer>
+    );
+  }
+
+  if (children.length === 0) {
+    return (
+      <ScreenContainer>
+        <ScrollView
+          contentContainerStyle={styles.emptyContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
+          }
         >
-          <Image
-            source={{ uri: themeData?.image }}
-            style={styles.arcImage}
-            contentFit="cover"
-          />
-          <View style={styles.arcInfo}>
-            <CardTitle numberOfLines={2}>
-              {item.title}
-            </CardTitle>
-            <CaptionText style={{ marginTop: 2 }}>
-              {item.childName} | {item.educationalValueName}
-            </CaptionText>
-            <CaptionText>
-              Episode {item.currentEpisode}/{item.totalEpisodes}
-            </CaptionText>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${progress}%` }]} />
-            </View>
-            <View style={styles.statusRow}>
-              <View
-                style={[
-                  styles.statusBadge,
-                  item.status === "active" && { backgroundColor: "rgba(255, 215, 0, 0.15)" },
-                  item.status === "completed" && { backgroundColor: "rgba(34, 197, 94, 0.15)" },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusText,
-                    item.status === "active" && { color: "#FFD700" },
-                    item.status === "completed" && { color: "#22C55E" },
-                  ]}
-                >
-                  {item.status === "active" ? "In Progress" : item.status === "completed" ? "Complete" : "Paused"}
-                </Text>
-              </View>
-              {item.status === "completed" && (
+          <Ionicons name="book-outline" size={64} color={colors.muted} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            No Stories Yet
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Create your first child profile to start building your story library
+          </Text>
+          <Pressable
+            onPress={() => router.push("/create-child")}
+            style={({ pressed }) => [
+              styles.emptyButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
+            ]}
+          >
+            <Text style={styles.emptyButtonText}>Create Child Profile</Text>
+          </Pressable>
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
+        }
+      >
+        {/* Header */}
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>Your Library</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            All your child's stories in one place
+          </Text>
+        </Animated.View>
+
+        {/* Child Selector */}
+        {children.length > 1 && (
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400)}
+            style={styles.childSelector}
+          >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {children.map((child) => (
                 <Pressable
-                  onPress={() => router.push({
-                    pathname: "/print-book" as any,
-                    params: { arcId: item.id, title: item.title },
-                  })}
-                  style={({ pressed }) => [
-                    styles.printBtn,
-                    pressed && { opacity: 0.7 },
+                  key={child.id}
+                  onPress={() => selectChild(child)}
+                  style={[
+                    styles.childChip,
+                    {
+                      backgroundColor:
+                        selectedChild?.id === child.id
+                          ? colors.primary
+                          : "rgba(255,255,255,0.08)",
+                    },
                   ]}
                 >
-                  <IconSymbol name="printer.fill" size={14} color="#FFD700" />
-                  <Text style={styles.printBtnText}>Print Book</Text>
+                  <Text
+                    style={[
+                      styles.childChipText,
+                      {
+                        color:
+                          selectedChild?.id === child.id ? "#0A0E1A" : colors.text,
+                      },
+                    ]}
+                  >
+                    {child.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* Filter Buttons */}
+        <Animated.View
+          entering={FadeInDown.delay(150).duration(400)}
+          style={styles.filterContainer}
+        >
+          <Pressable
+            onPress={() => setFilterOffline(false)}
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor:
+                  !filterOffline
+                    ? colors.primary
+                    : "rgba(255,255,255,0.08)",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                { color: !filterOffline ? "#0A0E1A" : colors.text },
+              ]}
+            >
+              All Stories
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setFilterOffline(true)}
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor:
+                  filterOffline
+                    ? colors.primary
+                    : "rgba(255,255,255,0.08)",
+              },
+            ]}
+          >
+            <Ionicons
+              name="cloud-download-outline"
+              size={16}
+              color={filterOffline ? "#0A0E1A" : colors.text}
+              style={styles.filterIcon}
+            />
+            <Text
+              style={[
+                styles.filterButtonText,
+                { color: filterOffline ? "#0A0E1A" : colors.text },
+              ]}
+            >
+              Offline Available
+            </Text>
+          </Pressable>
+        </Animated.View>
+
+        {/* Story List */}
+        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+          {storyArcs.length === 0 ? (
+            <View style={styles.noStoriesContainer}>
+              <Ionicons name="layers-outline" size={48} color={colors.muted} />
+              <Text style={[styles.noStoriesText, { color: colors.textSecondary }]}>
+                {filterOffline
+                  ? "No offline stories available"
+                  : "No stories created yet"}
+              </Text>
+              {!filterOffline && (
+                <Pressable
+                  onPress={() => router.push("/(tabs)/create")}
+                  style={styles.createButton}
+                >
+                  <Ionicons name="add-circle" size={20} color="#FFFFFF" />
+                  <Text style={styles.createButtonText}>Create Your First Story</Text>
                 </Pressable>
               )}
             </View>
-          </View>
-        </Pressable>
-      </Animated.View>
-    );
-  };
+          ) : (
+            <View style={styles.storyGrid}>
+              {storyArcs.map((arc) => (
+                <Pressable
+                  key={arc.id}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/story-detail" as any,
+                      params: {
+                        arcId: arc.id,
+                        title: arc.title,
+                        childName: arc.childName,
+                        theme: arc.theme,
+                        serverArcId: arc.serverArcId?.toString() || "",
+                      },
+                    })
+                  }
+                  style={[styles.storyCard, { backgroundColor: colors.card }]}
+                >
+                  {arc.coverImageUrl && (
+                    <Image
+                      source={{ uri: arc.coverImageUrl }}
+                      style={styles.storyImage}
+                      contentFit="cover"
+                    />
+                  )}
+                  <View style={styles.storyInfo}>
+                    <Text
+                      style={[styles.storyTitle, { color: colors.text }]}
+                      numberOfLines={2}
+                    >
+                      {arc.title}
+                    </Text>
+                    <Text
+                      style={[styles.storyMeta, { color: colors.textSecondary }]}
+                    >
+                      {arc.currentEpisode}/{arc.totalEpisodes} episodes
+                    </Text>
 
-  return (
-    <ScreenContainer edges={["top", "left", "right"]}>
-      <View style={styles.container}>
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-          <ScreenTitle>Story Library</ScreenTitle>
-          <BodyText style={{ color: colors.muted, marginTop: 4 }}>
-            Your collection of adventures
-          </BodyText>
+                    {/* Progress Bar */}
+                    <View
+                      style={[
+                        styles.progressBar,
+                        { backgroundColor: "rgba(255,215,0,0.15)" },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: `${
+                              arc.totalEpisodes > 0
+                                ? (arc.currentEpisode / arc.totalEpisodes) * 100
+                                : 0
+                            }%`,
+                          },
+                        ]}
+                      />
+                    </View>
+
+                    {/* Offline Badge */}
+                    {arc.isOfflineAvailable && (
+                      <View style={styles.offlineBadge}>
+                        <Ionicons name="cloud-done" size={12} color="#10B981" />
+                        <Text style={styles.offlineBadgeText}>Offline</Text>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </Animated.View>
 
-        {arcs.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>{"\u{1F4DA}"}</Text>
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              No Stories Yet
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-              Go to the Tonight tab and choose a theme to start your first story adventure!
-            </Text>
-            <Pressable
-              onPress={() => router.push("/")}
-              style={({ pressed }) => [
-                styles.startButton,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-              ]}
-            >
-              <Text style={styles.startButtonText}>Start First Story</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <FlatList
-            data={arcs}
-            renderItem={renderArc}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor="#FFD700"
-                colors={["#FFD700"]}
-                progressBackgroundColor="rgba(10,14,26,0.9)"
-              />
-            }
-          />
-        )}
-      </View>
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    padding: 16,
   },
   header: {
-    padding: 20,
-    paddingBottom: 12,
+    marginBottom: 20,
   },
-  headerTitle: {
+  title: {
     fontSize: 28,
     fontWeight: "800",
+    marginBottom: 4,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 14,
-    marginTop: 4,
   },
-  listContent: {
-    padding: 20,
-    paddingTop: 0,
-    gap: 14,
-    paddingBottom: 100,
+  childSelector: {
+    marginBottom: 16,
   },
-  arcCard: {
-    flexDirection: "row",
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
+  childChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    marginRight: 8,
   },
-  arcImage: {
-    width: 110,
-    height: 140,
-  },
-  arcInfo: {
-    flex: 1,
-    padding: 14,
-    justifyContent: "center",
-    gap: 4,
-  },
-  arcTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    lineHeight: 22,
-  },
-  arcMeta: {
+  childChipText: {
     fontSize: 13,
-    marginTop: 2,
+    fontWeight: "600",
   },
-  arcEpisode: {
+  filterContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 20,
+  },
+  filterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
+  },
+  filterIcon: {
+    marginRight: 2,
+  },
+  filterButtonText: {
     fontSize: 12,
-    marginTop: 2,
+    fontWeight: "600",
+  },
+  storyGrid: {
+    gap: 12,
+  },
+  storyCard: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  storyImage: {
+    width: "100%",
+    height: 120,
+  },
+  storyInfo: {
+    padding: 12,
+  },
+  storyTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  storyMeta: {
+    fontSize: 12,
+    marginBottom: 8,
   },
   progressBar: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(255, 215, 0, 0.15)",
-    marginTop: 6,
+    marginBottom: 8,
+    overflow: "hidden",
   },
   progressFill: {
-    height: 4,
-    borderRadius: 2,
+    height: "100%",
     backgroundColor: "#FFD700",
   },
-  statusRow: {
+  offlineBadge: {
     flexDirection: "row",
-    marginTop: 6,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  printBtn: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
+    alignItems: "center",
     gap: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 215, 0, 0.15)",
-    marginLeft: 8,
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    borderRadius: 6,
+    alignSelf: "flex-start",
   },
-  printBtnText: {
-    fontSize: 11,
-    fontWeight: "600" as const,
-    color: "#FFD700",
+  offlineBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#10B981",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    padding: 32,
-    gap: 12,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 8,
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
-    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: "center",
-    lineHeight: 22,
-    paddingHorizontal: 16,
+    lineHeight: 20,
+    marginBottom: 24,
   },
-  startButton: {
+  emptyButton: {
     backgroundColor: "#FFD700",
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  emptyButtonText: {
+    color: "#0A0E1A",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  noStoriesContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 12,
+  },
+  noStoriesText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  createButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFD700",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 8,
     marginTop: 8,
   },
-  startButtonText: {
+  createButtonText: {
     color: "#0A0E1A",
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "700",
   },
 });

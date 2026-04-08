@@ -1,68 +1,37 @@
-import { View, type ViewProps } from "react-native";
-import { SafeAreaView, type Edge } from "react-native-safe-area-context";
+import React from "react";
+import { SafeAreaView, View, ViewProps } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { cn } from "@/lib/utils";
-
-export interface ScreenContainerProps extends ViewProps {
-  /**
-   * SafeArea edges to apply. Defaults to ["top", "left", "right"].
-   * Bottom is typically handled by Tab Bar.
-   */
-  edges?: Edge[];
-  /**
-   * Tailwind className for the content area.
-   */
-  className?: string;
-  /**
-   * Additional className for the outer container (background layer).
-   */
+interface ScreenContainerProps extends ViewProps {
   containerClassName?: string;
-  /**
-   * Additional className for the SafeAreaView (content layer).
-   */
-  safeAreaClassName?: string;
+  edges?: ("top" | "bottom" | "left" | "right")[];
+  children: React.ReactNode;
 }
 
-/**
- * A container component that properly handles SafeArea and background colors.
- *
- * The outer View extends to full screen (including status bar area) with the background color,
- * while the inner SafeAreaView ensures content is within safe bounds.
- *
- * Usage:
- * ```tsx
- * <ScreenContainer className="p-4">
- *   <Text className="text-2xl font-bold text-foreground">
- *     Welcome
- *   </Text>
- * </ScreenContainer>
- * ```
- */
 export function ScreenContainer({
+  containerClassName = "bg-white dark:bg-slate-950",
+  edges = ["top", "bottom", "left", "right"],
+  className = "",
   children,
-  edges = ["top", "left", "right"],
-  className,
-  containerClassName,
-  safeAreaClassName,
-  style,
   ...props
 }: ScreenContainerProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View
-      className={cn(
-        "flex-1",
-        "bg-background",
-        containerClassName
-      )}
-      {...props}
+    <SafeAreaView
+      edges={edges}
+      className={containerClassName}
+      style={{
+        flex: 1,
+        paddingTop: edges.includes("top") ? 0 : insets.top,
+        paddingBottom: edges.includes("bottom") ? 0 : insets.bottom,
+        paddingLeft: edges.includes("left") ? 0 : insets.left,
+        paddingRight: edges.includes("right") ? 0 : insets.right,
+      }}
     >
-      <SafeAreaView
-        edges={edges}
-        className={cn("flex-1", safeAreaClassName)}
-        style={style}
-      >
-        <View className={cn("flex-1", className)}>{children}</View>
-      </SafeAreaView>
-    </View>
+      <View className={`flex-1 ${className}`} {...props}>
+        {children}
+      </View>
+    </SafeAreaView>
   );
 }

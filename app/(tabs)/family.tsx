@@ -1,301 +1,435 @@
-import { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   Pressable,
   StyleSheet,
-  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import {
-  getLocalChildren,
-  deleteLocalChild,
-  type LocalChild,
-} from "@/lib/onboarding-store";
+import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
+import { useGamificationStore } from "@/lib/gamification-store";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { ScreenTitle, SectionHeader, BodyText, CaptionText } from "@/components/styled-text";
+import { LinearGradient } from "expo-linear-gradient";
+
+interface FamilyOption {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  route: string;
+  badge?: string;
+}
+
+const FAMILY_OPTIONS: FamilyOption[] = [
+  {
+    id: "analytics",
+    title: "Reading Analytics",
+    description: "View detailed reading insights and progress",
+    icon: "bar-chart-outline",
+    color: "#3498DB",
+    route: "/analytics",
+  },
+  {
+    id: "parent-tools",
+    title: "Parent Tools",
+    description: "Create custom stories and manage approvals",
+    icon: "settings-outline",
+    color: "#E74C3C",
+    route: "/parent-tools",
+  },
+  {
+    id: "print",
+    title: "Print a Book",
+    description: "Order beautiful printed versions of stories",
+    icon: "print-outline",
+    color: "#9B59B6",
+    route: "/print-book",
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    description: "Customize app preferences and family settings",
+    icon: "cog-outline",
+    color: "#34495E",
+    route: "/settings",
+  },
+];
 
 export default function FamilyScreen() {
   const router = useRouter();
   const colors = useColors();
   const [children, setChildren] = useState<LocalChild[]>([]);
+  const [selectedChild, setSelectedChild] = useState<LocalChild | null>(null);
+  const [loading, setLoading] = useState(true);
+  const gamificationStore = useGamificationStore();
 
-  const loadChildren = useCallback(async () => {
+  const loadData = useCallback(async () => {
     const kids = await getLocalChildren();
     setChildren(kids);
-  }, []);
+    if (kids.length > 0) {
+      const child = kids[0];
+      setSelectedChild(child);
+      await gamificationStore.fetchProgress(child.id);
+    }
+    setLoading(false);
+  }, [gamificationStore]);
 
   useFocusEffect(
     useCallback(() => {
-      loadChildren();
-    }, [loadChildren])
+      loadData();
+    }, [loadData])
   );
 
-  const handleDelete = (child: LocalChild) => {
-    Alert.alert(
-      "Remove Profile",
-      `Are you sure you want to remove ${child.name}'s profile? This will also remove their story history.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: async () => {
-            await deleteLocalChild(child.id);
-            loadChildren();
-          },
-        },
-      ]
-    );
+  const selectChild = async (child: LocalChild) => {
+    setSelectedChild(child);
+    await gamificationStore.fetchProgress(child.id);
   };
 
-  const renderChild = ({ item, index }: { item: LocalChild; index: number }) => (
-    <Animated.View entering={FadeInDown.delay(index * 100).duration(400)}>
-      <View
-        style={[
-          styles.childCard,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <View style={styles.childCardTop}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{item.name[0]}</Text>
-          </View>
-          <View style={styles.childInfo}>
-            <SectionHeader>{item.name}</SectionHeader>
-            <BodyText style={{ color: colors.muted, marginTop: 2 }}>
-              Age {item.age} {item.gender ? `| ${item.gender}` : ""}
-            </BodyText>
-          </View>
-          <Pressable
-            onPress={() => handleDelete(item)}
-            style={({ pressed }) => [
-              styles.deleteButton,
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <Text style={{ color: colors.error, fontSize: 14, fontWeight: "600" }}>Remove</Text>
-          </Pressable>
-        </View>
+  const handleOptionPress = (option: FamilyOption) => {
+    router.push({
+      pathname: option.route as any,
+      params: selectedChild
+        ? {
+            childId: selectedChild.id,
+            childName: selectedChild.name,
+          }
+        : undefined,
+    });
+  };
 
-        {item.interests.length > 0 && (
-          <View style={styles.interestRow}>
-            {item.interests.map((interest) => (
-              <View
-                key={interest}
-                style={[styles.interestBadge, { backgroundColor: "rgba(255, 215, 0, 0.1)" }]}
-              >
-                <Text style={styles.interestText}>{interest}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+  if (loading) {
+    return (
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#FFD700" />
+      </ScreenContainer>
+    );
+  }
 
-        {item.hairColor || item.skinTone ? (
-          <View style={styles.detailRow}>
-            {item.hairColor && (
-              <Text style={[styles.detailText, { color: colors.muted }]}>
-                Hair: {item.hairColor}
-              </Text>
-            )}
-            {item.skinTone && (
-              <Text style={[styles.detailText, { color: colors.muted }]}>
-                Skin: {item.skinTone}
-              </Text>
-            )}
-          </View>
-        ) : null}
-      </View>
-    </Animated.View>
-  );
+  const childProgress = selectedChild
+    ? gamificationStore.childProgress.get(selectedChild.id)
+    : null;
 
-  return (
-    <ScreenContainer edges={["top", "left", "right"]}>
-      <View style={styles.container}>
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-          <View>
-            <ScreenTitle>Family</ScreenTitle>
-            <BodyText style={{ color: colors.muted, marginTop: 4 }}>
-              Manage your children's profiles
-            </BodyText>
-          </View>
+  if (children.length === 0) {
+    return (
+      <ScreenContainer>
+        <ScrollView contentContainerStyle={styles.emptyContainer}>
+          <Ionicons name="people-outline" size={64} color={colors.muted} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            No Child Profile
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Create a child profile first to access family tools
+          </Text>
           <Pressable
             onPress={() => router.push("/create-child")}
             style={({ pressed }) => [
-              styles.addButton,
-              pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              styles.emptyButton,
+              pressed && { opacity: 0.8 },
             ]}
           >
-            <Text style={styles.addButtonText}>+ Add Child</Text>
+            <Text style={styles.emptyButtonText}>Create Profile</Text>
           </Pressable>
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>Family</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Tools and insights for your family
+          </Text>
         </Animated.View>
 
-        {children.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>👨‍👩‍👧‍👦</Text>
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              No Profiles Yet
-            </Text>
-            <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-              Add your children's profiles to personalize their bedtime stories
-            </Text>
-            <Pressable
-              onPress={() => router.push("/create-child")}
-              style={({ pressed }) => [
-                styles.createButton,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-              ]}
-            >
-              <Text style={styles.createButtonText}>Create First Profile</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <FlatList
-            data={children}
-            renderItem={renderChild}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
+        {/* Child Selector */}
+        {children.length > 1 && (
+          <Animated.View
+            entering={FadeInDown.delay(100).duration(400)}
+            style={styles.childSelector}
+          >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {children.map((child) => (
+                <Pressable
+                  key={child.id}
+                  onPress={() => selectChild(child)}
+                  style={[
+                    styles.childChip,
+                    {
+                      backgroundColor:
+                        selectedChild?.id === child.id
+                          ? colors.primary
+                          : "rgba(255,255,255,0.08)",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.childChipText,
+                      {
+                        color:
+                          selectedChild?.id === child.id ? "#0A0E1A" : colors.text,
+                      },
+                    ]}
+                  >
+                    {child.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Animated.View>
         )}
-      </View>
+
+        {/* Quick Stats */}
+        {selectedChild && childProgress && (
+          <Animated.View
+            entering={FadeInDown.delay(150).duration(400)}
+            style={styles.statsContainer}
+          >
+            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+              <View style={styles.statContent}>
+                <Ionicons name="flame" size={24} color="#FF6B6B" />
+                <View>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                    Reading Streak
+                  </Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    {childProgress.currentStreak} days
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+              <View style={styles.statContent}>
+                <Ionicons name="star" size={24} color="#FFD700" />
+                <View>
+                  <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+                    Total Points
+                  </Text>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    {childProgress.totalPoints.toLocaleString()} pts
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Family Options Grid */}
+        <View style={styles.optionsGrid}>
+          {FAMILY_OPTIONS.map((option, index) => (
+            <Animated.View
+              key={option.id}
+              entering={FadeInDown.delay(200 + index * 75).duration(400)}
+            >
+              <Pressable
+                onPress={() => handleOptionPress(option)}
+                style={({ pressed }) => [
+                  styles.optionCard,
+                  { backgroundColor: colors.card },
+                  pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
+                ]}
+              >
+                <View style={styles.optionIconContainer}>
+                  <LinearGradient
+                    colors={[option.color, option.color + "CC"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.optionIconGradient}
+                  >
+                    <Ionicons name={option.icon as any} size={28} color="#FFFFFF" />
+                  </LinearGradient>
+                </View>
+
+                <View style={styles.optionContent}>
+                  <Text style={[styles.optionTitle, { color: colors.text }]}>
+                    {option.title}
+                  </Text>
+                  <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
+                    {option.description}
+                  </Text>
+                </View>
+
+                <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+              </Pressable>
+            </Animated.View>
+          ))}
+        </View>
+
+        {/* Info Section */}
+        <Animated.View
+          entering={FadeInDown.delay(500).duration(400)}
+          style={styles.infoSection}
+        >
+          <View style={[styles.infoCard, { backgroundColor: "rgba(72, 201, 176, 0.1)" }]}>
+            <Ionicons name="information-circle-outline" size={20} color="#48C9B0" />
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoTitle, { color: colors.text }]}>
+                Parental Controls
+              </Text>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                Use Settings to enable parental controls, manage content filters, and
+                customize bedtime preferences for {selectedChild?.name}.
+              </Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    padding: 16,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    paddingBottom: 12,
+    marginBottom: 20,
   },
-  headerTitle: {
+  title: {
     fontSize: 28,
     fontWeight: "800",
+    marginBottom: 4,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 14,
-    marginTop: 4,
   },
-  addButton: {
-    backgroundColor: "#FFD700",
+  childSelector: {
+    marginBottom: 20,
+  },
+  childChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    marginRight: 8,
+  },
+  childChipText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  statsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
     borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    padding: 12,
   },
-  addButtonText: {
-    color: "#0A0E1A",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  listContent: {
-    padding: 20,
-    paddingTop: 0,
-    gap: 14,
-  },
-  childCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
+  statContent: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
-  childCardTop: {
+  statLabel: {
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  optionsGrid: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  optionCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
   },
-  avatar: {
+  optionIconContainer: {
     width: 52,
     height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(255, 215, 0, 0.15)",
-    alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFD700",
+    alignItems: "center",
   },
-  avatarText: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#FFD700",
+  optionIconGradient: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  childInfo: {
+  optionContent: {
     flex: 1,
   },
-  childName: {
-    fontSize: 18,
+  optionTitle: {
+    fontSize: 15,
     fontWeight: "700",
+    marginBottom: 2,
   },
-  childAge: {
-    fontSize: 14,
-    marginTop: 2,
+  optionDescription: {
+    fontSize: 12,
+    lineHeight: 16,
   },
-  deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  infoSection: {
+    marginBottom: 20,
   },
-  interestRow: {
+  infoCard: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  interestBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    padding: 14,
     borderRadius: 12,
+    gap: 12,
   },
-  interestText: {
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
     fontSize: 13,
-    fontWeight: "500",
-    color: "#FFD700",
+    fontWeight: "700",
+    marginBottom: 4,
   },
-  detailRow: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  detailText: {
-    fontSize: 13,
+  infoText: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    padding: 32,
-    gap: 12,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 8,
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
-    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 8,
   },
   emptySubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: "center",
-    lineHeight: 22,
-    paddingHorizontal: 16,
+    lineHeight: 20,
+    marginBottom: 24,
   },
-  createButton: {
+  emptyButton: {
     backgroundColor: "#FFD700",
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
   },
-  createButtonText: {
+  emptyButtonText: {
     color: "#0A0E1A",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
   },
 });

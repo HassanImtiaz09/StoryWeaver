@@ -1,158 +1,162 @@
-import "@/global.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import "react-native-reanimated";
-import { Platform } from "react-native";
-import "@/lib/_core/nativewind-pressable";
-import { ThemeProvider } from "@/lib/theme-provider";
-import {
-  SafeAreaFrameContext,
-  SafeAreaInsetsContext,
-  SafeAreaProvider,
-  initialWindowMetrics,
-} from "react-native-safe-area-context";
-import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
+import React, { useEffect } from "react";
+import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
-
-// Google Fonts imports
-import { useFonts as useBaloo, Baloo2_400Regular, Baloo2_500Medium, Baloo2_600SemiBold, Baloo2_700Bold, Baloo2_800ExtraBold } from '@expo-google-fonts/baloo-2';
-import { useFonts as useQuicksand, Quicksand_300Light, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold } from '@expo-google-fonts/quicksand';
-import { useFonts as usePatrickHand, PatrickHand_400Regular } from '@expo-google-fonts/patrick-hand';
-import { useFonts as useBubblegum, BubblegumSans_400Regular } from '@expo-google-fonts/bubblegum-sans';
-
-import { trpc, createTRPCClient } from "@/lib/trpc";
-import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
-import { configureBedtimeNotifications } from "@/lib/bedtime-notifications";
+import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
-const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
-
-export const unstable_settings = {
-  anchor: "(tabs)",
-};
-
 export default function RootLayout() {
-  const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
-  const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
+  // Load custom fonts - these are optional and can fail gracefully
+  let fontsLoaded = true;
+  try {
+    const result = useFonts({
+      "Baloo2-Regular": require("@/assets/fonts/Baloo2-Regular.ttf"),
+      "Baloo2-Bold": require("@/assets/fonts/Baloo2-Bold.ttf"),
+      "Baloo2-SemiBold": require("@/assets/fonts/Baloo2-SemiBold.ttf"),
+      "Quicksand-Regular": require("@/assets/fonts/Quicksand-Regular.ttf"),
+      "Quicksand-Bold": require("@/assets/fonts/Quicksand-Bold.ttf"),
+      "PatrickHand-Regular": require("@/assets/fonts/PatrickHand-Regular.ttf"),
+      "BubblegumSans-Regular": require("@/assets/fonts/BubblegumSans-Regular.ttf"),
+    });
+    fontsLoaded = result[0];
+  } catch (error) {
+    // Fonts not available - use system fonts instead
+    fontsLoaded = true;
+    console.warn("Custom fonts not available, using system fonts");
+  }
 
-  const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
-  const [frame, setFrame] = useState<Rect>(initialFrame);
-
-  // Load all Google Fonts
-  const [baloo] = useBaloo({ Baloo2_400Regular, Baloo2_500Medium, Baloo2_600SemiBold, Baloo2_700Bold, Baloo2_800ExtraBold });
-  const [quicksand] = useQuicksand({ Quicksand_300Light, Quicksand_400Regular, Quicksand_500Medium, Quicksand_600SemiBold, Quicksand_700Bold });
-  const [patrickHand] = usePatrickHand({ PatrickHand_400Regular });
-  const [bubblegum] = useBubblegum({ BubblegumSans_400Regular });
-
-  // Hide splash screen once fonts are loaded
   useEffect(() => {
-    if (baloo && quicksand && patrickHand && bubblegum) {
+    if (fontsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [baloo, quicksand, patrickHand, bubblegum]);
+  }, [fontsLoaded]);
 
-  // Initialize Manus runtime for cookie injection from parent container
-  useEffect(() => {
-    initManusRuntime();
-  }, []);
-
-  // Configure bedtime notification handler on app start
-  useEffect(() => {
-    if (Platform.OS !== "web") {
-      configureBedtimeNotifications();
-    }
-  }, []);
-
-  const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
-    setInsets(metrics.insets);
-    setFrame(metrics.frame);
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    const unsubscribe = subscribeSafeAreaInsets(handleSafeAreaUpdate);
-    return () => unsubscribe();
-  }, [handleSafeAreaUpdate]);
-
-  // Create clients once and reuse them
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            // Disable automatic refetching on window focus for mobile
-            refetchOnWindowFocus: false,
-            // Retry failed requests once
-            retry: 1,
-          },
-        },
-      }),
-  );
-  const [trpcClient] = useState(() => createTRPCClient());
-
-  // Ensure minimum 8px padding for top and bottom on mobile
-  const providerInitialMetrics = useMemo(() => {
-    const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
-    return {
-      ...metrics,
-      insets: {
-        ...metrics.insets,
-        top: Math.max(metrics.insets.top, 16),
-        bottom: Math.max(metrics.insets.bottom, 12),
-      },
-    };
-  }, [initialInsets, initialFrame]);
-
-  const content = (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
-          {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
-          {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="create-child" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="new-story" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="story-detail" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="story-reader" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="settings" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="print-book" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="paywall" options={{ presentation: "fullScreenModal" }} />
-            <Stack.Screen name="oauth/callback" />
-          </Stack>
-          <StatusBar style="auto" />
-        </QueryClientProvider>
-      </trpc.Provider>
-    </GestureHandlerRootView>
-  );
-
-  const shouldOverrideSafeArea = Platform.OS === "web";
-
-  if (shouldOverrideSafeArea) {
-    return (
-      <ThemeProvider>
-        <SafeAreaProvider initialMetrics={providerInitialMetrics}>
-          <SafeAreaFrameContext.Provider value={frame}>
-            <SafeAreaInsetsContext.Provider value={insets}>
-              {content}
-            </SafeAreaInsetsContext.Provider>
-          </SafeAreaFrameContext.Provider>
-        </SafeAreaProvider>
-      </ThemeProvider>
-    );
+  if (!fontsLoaded) {
+    return null;
   }
 
   return (
-    <ThemeProvider>
-      <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animationEnabled: true,
+        }}
+      >
+        {/* Tabs layout */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+        {/* Modal screens */}
+        <Stack.Screen
+          name="story-detail"
+          options={{
+            presentation: "fullScreenModal",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="new-story"
+          options={{
+            presentation: "fullScreenModal",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="settings"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="achievements"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="language-settings"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="offline-settings"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="analytics"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="parent-tools"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="print-book"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="create-character"
+          options={{
+            presentation: "fullScreenModal",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="collaborative-story"
+          options={{
+            presentation: "fullScreenModal",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+
+        <Stack.Screen
+          name="story-share"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
+      </Stack>
+    </GestureHandlerRootView>
   );
 }

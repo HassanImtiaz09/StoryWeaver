@@ -1,67 +1,18 @@
-// Fallback for using MaterialIcons on Android and web.
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
 
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { SymbolWeight, SymbolViewProps } from "expo-symbols";
-import { ComponentProps } from "react";
-import { OpaqueColorValue, type StyleProp, type TextStyle } from "react-native";
+type IconSymbolProps = {
+  name: React.ComponentProps<typeof Ionicons>["name"];
+  size?: number;
+  color?: string;
+  style?: any;
+};
 
-type IconMapping = Record<SymbolViewProps["name"], ComponentProps<typeof MaterialIcons>["name"]>;
-type IconSymbolName = keyof typeof MAPPING;
-
-/**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
- * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
- */
-const MAPPING = {
-  "house.fill": "home",
-  "paperplane.fill": "send",
-  "chevron.left.forwardslash.chevron.right": "code",
-  "chevron.right": "chevron-right",
-  "moon.stars.fill": "nightlight-round",
-  "book.fill": "menu-book",
-  "person.2.fill": "people",
-  "gearshape.fill": "settings",
-  "plus.circle.fill": "add-circle",
-  "play.fill": "play-arrow",
-  "star.fill": "star",
-  "arrow.left": "arrow-back",
-  "chevron.left": "chevron-left",
-  "pause.fill": "pause",
-  "backward.fill": "skip-previous",
-  "forward.fill": "skip-next",
-  "printer.fill": "print",
-  "cart.fill": "shopping-cart",
-  "bell.fill": "notifications",
-  "speaker.wave.2.fill": "volume-up",
-  "clock.fill": "access-time",
-  "creditcard.fill": "credit-card",
-  "checkmark.circle.fill": "check-circle",
-  "xmark": "close",
-  "photo.fill": "photo",
-  "gift.fill": "card-giftcard",
-  "arrow.right": "arrow-forward",
-  "sparkles": "auto-awesome",
-  "lock.fill": "lock",
-  "crown.fill": "workspace-premium",
-} as IconMapping;
-
-/**
- * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
- */
-export function IconSymbol({
+export const IconSymbol: React.FC<IconSymbolProps> = ({
   name,
   size = 24,
-  color,
+  color = "black",
   style,
-}: {
-  name: IconSymbolName;
-  size?: number;
-  color: string | OpaqueColorValue;
-  style?: StyleProp<TextStyle>;
-  weight?: SymbolWeight;
-}) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
-}
+}) => {
+  return <Ionicons name={name} size={size} color={color} style={style} />;
+};
