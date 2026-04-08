@@ -1,16 +1,24 @@
 /**
  * Stripe payment service for subscription management.
  * Handles customer creation, checkout sessions, webhook processing, and subscription queries.
+ * Includes graceful error handling when Stripe is not configured.
  */
 
 import Stripe from "stripe";
-import { ENV } from "./env";
+import { ENV, isServiceConfigured } from "./env";
 import { db } from "../db";
 import { users } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 // Lazy initialization to avoid errors when STRIPE_SECRET_KEY is not set
 let _stripe: Stripe | null = null;
+
+/**
+ * Check if Stripe is properly configured
+ */
+export function isStripeConfigured(): boolean {
+  return isServiceConfigured("stripe") && !!ENV.stripeSecretKey;
+}
 
 /**
  * Get or initialize the Stripe instance.
@@ -47,35 +55,45 @@ export async function getOrCreateCustomer(
   email: string,
   name?: string
 ): Promise<string> {
-  const stripe = getStripe();
-
-  // Check if user already has a Stripe customer ID
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (user?.stripeCustomerId) {
-    return user.stripeCustomerId;
+  if (!isStripeConfigured()) {
+    throw new Error("Payment service is not configured. Please contact support.");
   }
 
-  // Create new customer
-  const customer = await stripe.customers.create({
-    email,
-    name: name || undefined,
-    metadata: {
-      userId: userId.toString(),
-    },
-  });
+  try {
+    const stripe = getStripe();
 
-  // Store the customer ID in the database
-  await db
-    .update(users)
-    .set({ stripeCustomerId: customer.id })
-    .where(eq(users.id, userId));
+    // Check if user already has a Stripe customer ID
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
-  return customer.id;
+    if (user?.stripeCustomerId) {
+      return user.stripeCustomerId;
+    }
+
+    // Create new customer
+    const customer = await stripe.customers.create({
+      email,
+      name: name || undefined,
+      metadata: {
+        userId: userId.toString(),
+      },
+    });
+
+    // Store the customer ID in the database
+    await db
+      .update(users)
+      .set({ stripeCustomerId: customer.id })
+      .where(eq(users.id, userId));
+
+    return customer.id;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Stripe] Failed to get or create customer: ${errorMsg}`);
+    throw new Error(`Payment service error: ${errorMsg}`);
+  }
 }
 
 /**
@@ -90,38 +108,48 @@ export async function createCheckoutSession(
   successUrl: string = "https://example.com/success",
   cancelUrl: string = "https://example.com/cancel"
 ): Promise<string> {
-  const stripe = getStripe();
+  if (!isStripeConfigured()) {
+    throw new Error("Payment service is not configured. Please contact support.");
+  }
 
-  const sessionConfig: Stripe.Checkout.SessionCreateParams = {
-    customer: customerId,
-    line_items: [
-      {
-        price: priceId,
-        quantity: 1,
+  try {
+    const stripe = getStripe();
+
+    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
+      customer: customerId,
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: "subscription",
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: {
+        userId: userId.toString(),
       },
-    ],
-    mode: "subscription",
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-    metadata: {
-      userId: userId.toString(),
-    },
-  };
-
-  // Add trial days if provided
-  if (trialDays && trialDays > 0) {
-    sessionConfig.subscription_data = {
-      trial_period_days: trialDays,
     };
+
+    // Add trial days if provided
+    if (trialDays && trialDays > 0) {
+      sessionConfig.subscription_data = {
+        trial_period_days: trialDays,
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
+
+    if (!session.url) {
+      throw new Error("Failed to create checkout session");
+    }
+
+    return session.url;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Stripe] Failed to create checkout session: ${errorMsg}`);
+    throw new Error(`Payment service error: ${errorMsg}`);
   }
-
-  const session = await stripe.checkout.sessions.create(sessionConfig);
-
-  if (!session.url) {
-    throw new Error("Failed to create checkout session");
-  }
-
-  return session.url;
 }
 
 /**
@@ -132,14 +160,24 @@ export async function createBillingPortalSession(
   customerId: string,
   returnUrl: string = "https://example.com"
 ): Promise<string> {
-  const stripe = getStripe();
+  if (!isStripeConfigured()) {
+    throw new Error("Payment service is not configured. Please contact support.");
+  }
 
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: returnUrl,
-  });
+  try {
+    const stripe = getStripe();
 
-  return session.url;
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl,
+    });
+
+    return session.url;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Stripe] Failed to create billing portal session: ${errorMsg}`);
+    throw new Error(`Payment service error: ${errorMsg}`);
+  }
 }
 
 /**
@@ -153,34 +191,44 @@ export async function getSubscriptionStatus(customerId: string): Promise<{
   currentPeriodEnd: Date;
   trialEndsAt?: Date;
 } | null> {
-  const stripe = getStripe();
-
-  const subscriptions = await stripe.subscriptions.list({
-    customer: customerId,
-    status: "all",
-    limit: 1,
-  });
-
-  if (!subscriptions.data.length) {
-    return null;
+  if (!isStripeConfigured()) {
+    throw new Error("Payment service is not configured.");
   }
 
-  const subscription = subscriptions.data[0];
+  try {
+    const stripe = getStripe();
 
-  // Get the plan from the price ID
-  const item = subscription.items.data[0];
-  if (!item.price.id) return null;
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 1,
+    });
 
-  const plan = getPlanFromPriceId(item.price.id);
-  if (!plan) return null;
+    if (!subscriptions.data.length) {
+      return null;
+    }
 
-  return {
-    subscriptionId: subscription.id,
-    plan,
-    status: subscription.status,
-    currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-    trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : undefined,
-  };
+    const subscription = subscriptions.data[0];
+
+    // Get the plan from the price ID
+    const item = subscription.items.data[0];
+    if (!item.price.id) return null;
+
+    const plan = getPlanFromPriceId(item.price.id);
+    if (!plan) return null;
+
+    return {
+      subscriptionId: subscription.id,
+      plan,
+      status: subscription.status,
+      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : undefined,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Stripe] Failed to get subscription status: ${errorMsg}`);
+    throw new Error(`Payment service error: ${errorMsg}`);
+  }
 }
 
 /**
@@ -188,6 +236,14 @@ export async function getSubscriptionStatus(customerId: string): Promise<{
  * Updates the database with subscription status changes.
  */
 export async function handleWebhookEvent(payload: Buffer, signature: string): Promise<void> {
+  if (!isStripeConfigured()) {
+    throw new Error("Stripe is not configured. Cannot process webhooks.");
+  }
+
+  if (!ENV.stripeWebhookSecret) {
+    throw new Error("Stripe webhook secret is not configured.");
+  }
+
   const stripe = getStripe();
 
   let event: Stripe.Event;
@@ -199,7 +255,9 @@ export async function handleWebhookEvent(payload: Buffer, signature: string): Pr
       ENV.stripeWebhookSecret
     ) as Stripe.Event;
   } catch (err) {
-    throw new Error(`Webhook signature verification failed: ${err}`);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[Stripe] Webhook signature verification failed: ${errorMsg}`);
+    throw new Error(`Webhook signature verification failed: ${errorMsg}`);
   }
 
   // Handle different event types

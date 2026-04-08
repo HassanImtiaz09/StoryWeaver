@@ -1,3 +1,6 @@
+import { ENV, isServiceConfigured } from "./env";
+import axios from "axios";
+
 // ─── Pricing Types ─────────────────────────────────────────────
 export interface PriceBreakdown {
   baseCost: number; // Printful cost
@@ -6,6 +9,11 @@ export interface PriceBreakdown {
   tax: number;
   total: number;
   currency: "USD";
+}
+
+export interface CachedPrice {
+  value: number;
+  timestamp: number;
 }
 
 // ─── Base Pricing ───────────────────────────────────────────────
@@ -206,4 +214,123 @@ export function applyDiscount(
     ...priceBreakdown,
     total: Math.round((priceBreakdown.total - discountAmount) * 100) / 100,
   };
+}
+
+// ─── Live Price Fetching with Caching ───────────────────────────
+const PRICE_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const priceCache = new Map<string, CachedPrice>();
+
+/**
+ * Fetch live prices from Printful's Products API
+ * Caches results for 24 hours to avoid excessive API calls
+ * Falls back to hardcoded prices if API is unavailable
+ */
+export async function fetchLivePrices(): Promise<void> {
+  // Skip if Printful is not configured
+  if (!isServiceConfigured("printful") || !ENV.printfulApiKey) {
+    console.warn("[PrintPricing] Printful not configured, using fallback prices");
+    return;
+  }
+
+  try {
+    const client = axios.create({
+      baseURL: "https://api.printful.com",
+      headers: {
+        Authorization: `Bearer ${ENV.printfulApiKey}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 10000,
+    });
+
+    // Fetch product variants from Printful
+    const response = await client.get("/catalog/products", {
+      params: { limit: 100 },
+    });
+
+    if (!response.data?.result) {
+      console.warn("[PrintPricing] Invalid Printful API response, using fallback prices");
+      return;
+    }
+
+    // Process products and update cache
+    for (const product of response.data.result) {
+      for (const variant of product.variants || []) {
+        const cacheKey = `product_${product.id}_variant_${variant.id}`;
+        priceCache.set(cacheKey, {
+          value: parseFloat(variant.retail_price) || 0,
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    console.log("[PrintPricing] Successfully fetched live prices from Printful");
+  } catch (error) {
+    console.warn(
+      `[PrintPricing] Failed to fetch live prices from Printful: ${
+        error instanceof Error ? error.message : String(error)
+      }, using fallback prices`
+    );
+    // Prices will fall back to hardcoded values
+  }
+}
+
+/**
+ * Get cached price if available and not expired
+ * Returns undefined if cache miss or expired
+ */
+function getCachedPrice(cacheKey: string): number | undefined {
+  const cached = priceCache.get(cacheKey);
+  if (!cached) return undefined;
+
+  // Check if cache has expired
+  if (Date.now() - cached.timestamp > PRICE_CACHE_DURATION) {
+    priceCache.delete(cacheKey);
+    return undefined;
+  }
+
+  return cached.value;
+}
+
+/**
+ * Get live price for a product variant with caching
+ * Falls back to hardcoded prices if not available
+ */
+export function getLivePrice(
+  productId: number,
+  variantId: number,
+  fallbackPrice: number
+): number {
+  const cacheKey = `product_${productId}_variant_${variantId}`;
+  const cachedPrice = getCachedPrice(cacheKey);
+
+  if (cachedPrice !== undefined) {
+    return cachedPrice;
+  }
+
+  // Use fallback price from BOOK_BASE_PRICES
+  return fallbackPrice;
+}
+
+/**
+ * Initialize price fetching on startup
+ * Non-blocking: doesn't prevent server from starting
+ */
+export async function initializePriceFetching(): Promise<void> {
+  try {
+    await fetchLivePrices();
+  } catch (error) {
+    // Silently fail - prices will use fallback values
+  }
+
+  // Refresh prices every 12 hours
+  setInterval(
+    async () => {
+      try {
+        await fetchLivePrices();
+      } catch (error) {
+        // Silently fail - prices will use fallback values
+      }
+    },
+    12 * 60 * 60 * 1000
+  );
 }

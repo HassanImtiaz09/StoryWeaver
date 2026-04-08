@@ -53,6 +53,7 @@ import {
   confirmPrintfulOrder,
   getPrintfulOrderStatus,
   generateBookInteriorPdf,
+  isPrintfulConfigured,
   type BookSpec,
   type PrintfulShippingAddress,
 } from "./_core/printful";
@@ -1551,6 +1552,14 @@ export const appRouter = router({
         }),
       }))
       .mutation(async ({ input, ctx }) => {
+        // Guard: Check if Printful is configured
+        if (!isPrintfulConfigured()) {
+          throw new TRPCError({
+            code: "UNAVAILABLE",
+            message: "Print-on-demand service is not configured. Please contact support.",
+          });
+        }
+
         const [order] = await db
           .select()
           .from(printOrders)
@@ -2088,6 +2097,15 @@ export const appRouter = router({
     createCheckoutSession: protectedProcedure
       .input(z.object({ planId: z.enum(["monthly", "yearly", "family"]) }))
       .mutation(async ({ input, ctx }) => {
+        // Guard: Check if Stripe is configured
+        const { isStripeConfigured } = await import("./_core/stripe");
+        if (!isStripeConfigured()) {
+          throw new TRPCError({
+            code: "UNAVAILABLE",
+            message: "Payment service is not configured. Please contact support.",
+          });
+        }
+
         const [user] = await db
           .select()
           .from(users)
@@ -2127,6 +2145,15 @@ export const appRouter = router({
       }),
 
     createBillingPortal: protectedProcedure.mutation(async ({ ctx }) => {
+      // Guard: Check if Stripe is configured
+      const { isStripeConfigured } = await import("./_core/stripe");
+      if (!isStripeConfigured()) {
+        throw new TRPCError({
+          code: "UNAVAILABLE",
+          message: "Payment service is not configured. Please contact support.",
+        });
+      }
+
       const [user] = await db
         .select()
         .from(users)
@@ -2150,6 +2177,15 @@ export const appRouter = router({
     }),
 
     syncSubscription: protectedProcedure.mutation(async ({ ctx }) => {
+      // Guard: Check if Stripe is configured
+      const { isStripeConfigured } = await import("./_core/stripe");
+      if (!isStripeConfigured()) {
+        throw new TRPCError({
+          code: "UNAVAILABLE",
+          message: "Payment service is not configured. Please contact support.",
+        });
+      }
+
       const [user] = await db
         .select()
         .from(users)
