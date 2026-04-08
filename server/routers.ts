@@ -3104,6 +3104,193 @@ export const appRouter = router({
       }),
   }),
 
+  offline: router({
+    /**
+     * Get complete story bundle for offline download
+     * Includes all episodes, pages, and media URLs
+     */
+    getStoryBundle: protectedProcedure
+      .input(z.object({ arcId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const [arc] = await db
+          .select()
+          .from(storyArcs)
+          .where(
+            and(
+              eq(storyArcs.id, input.arcId),
+              eq(storyArcs.userId, ctx.user.id)
+            )
+          )
+          .limit(1);
+
+        if (!arc) throw new TRPCError({ code: "NOT_FOUND" });
+
+        const arcEpisodes = await db
+          .select()
+          .from(episodes)
+          .where(eq(episodes.storyArcId, input.arcId));
+
+        const episodeBundles = [];
+
+        for (const episode of arcEpisodes) {
+          const pageList = await db
+            .select()
+            .from(pages)
+            .where(eq(pages.episodeId, episode.id));
+
+          const pageData = pageList.map((p) => ({
+            pageNumber: p.pageNumber,
+            text: p.storyText,
+            imageUrl: p.imageUrl,
+            audioUrl: p.audioUrl,
+            mood: p.mood,
+            characters: p.characters,
+          }));
+
+          episodeBundles.push({
+            episodeId: episode.id,
+            episodeNumber: episode.episodeNumber,
+            title: episode.title,
+            summary: episode.summary,
+            pages: pageData,
+            musicUrl: episode.musicUrl,
+            fullAudioUrl: episode.fullAudioUrl,
+          });
+        }
+
+        return {
+          arcId: arc.id,
+          userId: arc.userId,
+          title: arc.title,
+          theme: arc.theme,
+          coverImageUrl: arc.coverImageUrl,
+          synopsis: arc.synopsis,
+          episodes: episodeBundles,
+        };
+      }),
+
+    /**
+     * Get single episode bundle with all assets
+     */
+    getEpisodeBundle: protectedProcedure
+      .input(z.object({ episodeId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const [episode] = await db
+          .select()
+          .from(episodes)
+          .where(eq(episodes.id, input.episodeId))
+          .limit(1);
+
+        if (!episode) throw new TRPCError({ code: "NOT_FOUND" });
+
+        const [arc] = await db
+          .select()
+          .from(storyArcs)
+          .where(eq(storyArcs.id, episode.storyArcId))
+          .limit(1);
+
+        if (!arc || arc.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+
+        const pageList = await db
+          .select()
+          .from(pages)
+          .where(eq(pages.episodeId, input.episodeId));
+
+        return {
+          episodeId: episode.id,
+          episodeNumber: episode.episodeNumber,
+          title: episode.title,
+          summary: episode.summary,
+          pages: pageList.map((p) => ({
+            pageNumber: p.pageNumber,
+            text: p.storyText,
+            imageUrl: p.imageUrl,
+            audioUrl: p.audioUrl,
+            mood: p.mood,
+            characters: p.characters,
+          })),
+          musicUrl: episode.musicUrl,
+          fullAudioUrl: episode.fullAudioUrl,
+        };
+      }),
+
+    /**
+     * Check if offline stories have updates available
+     */
+    checkUpdates: protectedProcedure
+      .input(z.object({ arcIds: z.array(z.number()) }))
+      .query(async ({ input, ctx }) => {
+        const arcs = await db
+          .select()
+          .from(storyArcs)
+          .where(
+            and(
+              eq(storyArcs.userId, ctx.user.id)
+            )
+          );
+
+        const updates: Record<number, { hasUpdate: boolean; newEpisodes: number }> = {};
+
+        for (const arcId of input.arcIds) {
+          const arc = arcs.find((a) => a.id === arcId);
+          if (!arc) continue;
+
+          const episodes = await db
+            .select()
+            .from(episodes)
+            .where(eq(episodes.storyArcId, arcId));
+
+          // Check if there are episodes beyond what was likely downloaded
+          updates[arcId] = {
+            hasUpdate: episodes.length > 5, // Arbitrary threshold
+            newEpisodes: Math.max(0, episodes.length - 5),
+          };
+        }
+
+        return updates;
+      }),
+
+    /**
+     * Report offline reading activity for analytics
+     */
+    reportUsage: protectedProcedure
+      .input(
+        z.object({
+          arcId: z.number(),
+          episodeId: z.number(),
+          readDurationMs: z.number(),
+          readOffline: z.boolean(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        try {
+          // Record the activity using gamification system
+          const child = await db
+            .select()
+            .from(children)
+            .where(eq(children.userId, ctx.user.id))
+            .limit(1);
+
+          if (child.length > 0) {
+            await recordActivity(child[0].id, {
+              type: "story_reading",
+              arcId: input.arcId,
+              episodeId: input.episodeId,
+              durationMs: input.readDurationMs,
+              offline: input.readOffline,
+            });
+          }
+
+          return { success: true };
+        } catch (error) {
+          console.error("Failed to report usage:", error);
+          return { success: false };
+        }
+      }),
+  }),
+
   admin: router({
     /**
      * Get detailed health status (authenticated admin only)

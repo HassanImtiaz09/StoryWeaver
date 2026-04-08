@@ -59,6 +59,15 @@ export interface AppSettings {
   vocabularyHighlightsEnabled: boolean; // Show educational vocabulary highlights
   bilingualDisplayFormat: "side-by-side" | "stacked"; // How to display bilingual content
   showLanguageLearningNotes: boolean; // Show language learning tips
+
+  // Offline mode
+  offlineModeEnabled: boolean; // Enable offline story access
+  offlineStorageQuota: number; // Max storage in MB (100-2000, default 500)
+  autoDownloadOnWifi: boolean; // Auto-download new episodes on WiFi
+  preloadNextEpisode: boolean; // Smart preload of next likely episode
+  downloadQuality: "high" | "medium" | "low"; // Image download quality
+  wifiOnlyDownload: boolean; // Only download over WiFi, not cellular
+  autoPruneDays: number; // Auto-remove stories not accessed in X days
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -97,6 +106,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   vocabularyHighlightsEnabled: true,
   bilingualDisplayFormat: "side-by-side",
   showLanguageLearningNotes: true,
+  offlineModeEnabled: true,
+  offlineStorageQuota: 500,
+  autoDownloadOnWifi: true,
+  preloadNextEpisode: true,
+  downloadQuality: "medium",
+  wifiOnlyDownload: true,
+  autoPruneDays: 30,
 };
 
 export async function getSettings(): Promise<AppSettings> {
