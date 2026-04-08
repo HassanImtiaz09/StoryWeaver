@@ -82,6 +82,9 @@ export interface AppSettings {
   analyticsDataRetention: number; // Days to keep analytics data (default 365)
   trackVocabularyGrowth: boolean; // Track vocabulary learning progress
   trackReadingPatterns: boolean; // Track reading time patterns
+
+  // Accessibility
+  accessibilityEnabled: boolean; // Show accessibility button in story reader
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -137,6 +140,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   analyticsDataRetention: 365,
   trackVocabularyGrowth: true,
   trackReadingPatterns: true,
+  accessibilityEnabled: false,
 };
 
 export async function getSettings(): Promise<AppSettings> {

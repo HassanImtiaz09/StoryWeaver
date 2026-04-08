@@ -24,6 +24,12 @@ interface SettingSection {
 
 const SETTINGS_SECTIONS: SettingSection[] = [
   {
+    title: "Accessibility",
+    icon: "accessibility-outline",
+    route: "/accessibility-settings",
+    description: "Dyslexia fonts, contrast, reading guides, and more",
+  },
+  {
     title: "Language Settings",
     icon: "globe-outline",
     route: "/language-settings",

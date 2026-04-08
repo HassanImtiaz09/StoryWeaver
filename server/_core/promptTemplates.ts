@@ -44,6 +44,45 @@ export const ART_STYLE_PROMPTS: Record<string, string> = {
 };
 
 /**
+ * Build accessibility instructions for story generation
+ */
+export function buildAccessibilityInstructions(
+  syllableBreaks: boolean = false,
+  largePrint: boolean = false,
+  simplifiedVocabulary: boolean = false
+): string {
+  let instructions = "";
+
+  if (syllableBreaks) {
+    instructions += `
+SYLLABLE BREAKS:
+For words that may be challenging for early readers, include syllable breaks in parentheses:
+Example: "adventure (ad-ven-ture)" or use hyphenated format in narrative: "the ad-ven-ture was exciting"
+Include syllable breaks for words with 3+ syllables that are not common.`;
+  }
+
+  if (largePrint) {
+    instructions += `
+LARGE PRINT MODE:
+- Reduce words per page to 80-120 words (instead of typical 120-180)
+- Use shorter sentences (average 8-12 words)
+- Use more line breaks and whitespace
+- Choose vocabulary that is concrete and familiar`;
+  }
+
+  if (simplifiedVocabulary) {
+    instructions += `
+SIMPLIFIED VOCABULARY:
+- Prioritize common, everyday words
+- Define any unfamiliar words within the text naturally
+- Use words from the Dolch sight word list when possible
+- Avoid complex words with multiple syllables unless necessary`;
+  }
+
+  return instructions;
+}
+
+/**
  * Build a system prompt for character voice instruction
  */
 export function buildVoiceFormatPrompt(): string {
@@ -63,10 +102,24 @@ NARRATOR: Maya tiptoed forward, heart racing with excitement. The air smelled li
 
 /**
  * Generate episode template
+ * @param context Story context
+ * @param accessibilityOptions Optional accessibility settings for story generation
  */
-export function EPISODE_GENERATION_TEMPLATE(context: StoryContext): string {
+export function EPISODE_GENERATION_TEMPLATE(
+  context: StoryContext,
+  accessibilityOptions?: {
+    syllableBreaks?: boolean;
+    largePrint?: boolean;
+    simplifiedVocabulary?: boolean;
+  }
+): string {
   const heroName = context.child.name;
-  const pageCount = context.child.age <= 3 ? 8 : context.child.age <= 5 ? 10 : 12;
+
+  // Adjust page count for large print mode
+  let pageCount = context.child.age <= 3 ? 8 : context.child.age <= 5 ? 10 : 12;
+  if (accessibilityOptions?.largePrint) {
+    pageCount = Math.ceil(pageCount * 1.2); // More pages with fewer words each
+  }
 
   let ageGuide = "";
   if (context.child.age <= 4) {
@@ -77,6 +130,11 @@ export function EPISODE_GENERATION_TEMPLATE(context: StoryContext): string {
     ageGuide = AGE_VOCABULARY_GUIDELINES["8-10"];
   } else {
     ageGuide = AGE_VOCABULARY_GUIDELINES["11-13"];
+  }
+
+  // Add accessibility notes to age guide
+  if (accessibilityOptions?.simplifiedVocabulary) {
+    ageGuide += `\n\nACCESSIBILITY NOTE: Prioritize the most common words. Keep vocabulary simple and concrete.`;
   }
 
   const previousEpisodeContext = context.previousEpisodes
@@ -122,6 +180,16 @@ CRITICAL STORYTELLING REQUIREMENTS:
 8. BEDTIME ENDING: Final 2 pages must gently wind down using calming language, slowing pace, mentions of stars/moon/sleep/dreams.
 
 ${buildVoiceFormatPrompt()}
+
+${
+  accessibilityOptions
+    ? buildAccessibilityInstructions(
+        accessibilityOptions.syllableBreaks,
+        accessibilityOptions.largePrint,
+        accessibilityOptions.simplifiedVocabulary
+      )
+    : ""
+}
 
 IMAGE PROMPT GUIDELINES:
 Style: Warm watercolor children's book illustration, soft dreamy lighting, gentle colors, no text overlays, safe for children.
