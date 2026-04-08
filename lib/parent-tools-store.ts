@@ -1,6 +1,46 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
-import { trpc } from "../app/_layout";
+
+/**
+ * Helper to make tRPC-compatible API calls from outside React tree.
+ */
+async function apiCall(method: "GET" | "POST", path: string, input?: any) {
+  const { getApiBaseUrl } = await import("@/constants/oauth");
+  const Auth = await import("@/lib/_core/auth");
+  const baseUrl = getApiBaseUrl();
+  const token = await Auth.getSessionToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  if (method === "GET") {
+    const params = input !== undefined ? `?input=${encodeURIComponent(JSON.stringify(input))}` : "";
+    const res = await fetch(`${baseUrl}/api/trpc/${path}${params}`, { method: "GET", headers, credentials: "include" });
+    const json = await res.json();
+    if (json.error) throw new Error(json.error.message ?? "Request failed");
+    return json.result?.data;
+  } else {
+    const res = await fetch(`${baseUrl}/api/trpc/${path}`, { method: "POST", headers, credentials: "include", body: JSON.stringify(input) });
+    const json = await res.json();
+    if (json.error) throw new Error(json.error.message ?? "Request failed");
+    return json.result?.data;
+  }
+}
+
+const trpc = {
+  parentTools: {
+    getCustomElements: { query: (input: any) => apiCall("GET", "parentTools.getCustomElements", input) },
+    createCustomElement: { mutate: (input: any) => apiCall("POST", "parentTools.createCustomElement", input) },
+    updateCustomElement: { mutate: (input: any) => apiCall("POST", "parentTools.updateCustomElement", input) },
+    deleteCustomElement: { mutate: (input: any) => apiCall("POST", "parentTools.deleteCustomElement", input) },
+    getVoiceRecordings: { query: (input: any) => apiCall("GET", "parentTools.getVoiceRecordings", input) },
+    createVoiceRecording: { mutate: (input: any) => apiCall("POST", "parentTools.createVoiceRecording", input) },
+    updateVoiceRecordingStatus: { mutate: (input: any) => apiCall("POST", "parentTools.updateVoiceRecordingStatus", input) },
+    submitForApproval: { mutate: (input: any) => apiCall("POST", "parentTools.submitForApproval", input) },
+    reviewEpisode: { mutate: (input: any) => apiCall("POST", "parentTools.reviewEpisode", input) },
+    getPendingApprovals: { query: () => apiCall("GET", "parentTools.getPendingApprovals") },
+    getChildStoryPreferences: { query: (input: any) => apiCall("GET", "parentTools.getChildStoryPreferences", input) },
+  },
+};
 
 const PARENT_TOOLS_KEY = "storyweaver_parent_tools";
 
@@ -475,7 +515,7 @@ export async function initializeParentToolsCache() {
 
       if (Array.isArray(data)) {
         // Custom elements or voice recordings cache
-        const elementMap = new Map(
+        const elementMap: Map<number, CustomElement[]> = new Map(
           data.filter(
             ([, items]: [number, unknown]) =>
               Array.isArray(items) &&
@@ -486,7 +526,7 @@ export async function initializeParentToolsCache() {
           store.customElements = elementMap;
         }
 
-        const recordingMap = new Map(
+        const recordingMap: Map<number, VoiceRecording[]> = new Map(
           data.filter(
             ([, items]: [number, unknown]) =>
               Array.isArray(items) && (items[0] as any)?.voiceName !== undefined

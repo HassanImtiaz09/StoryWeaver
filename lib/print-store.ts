@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { trpc } from "./trpc";
 
 // ─── Types ─────────────────────────────────────────────────────
 export interface BookProduct {
@@ -145,7 +144,49 @@ interface PrintStore {
   clearError: () => void;
 }
 
-export const usePrintStore = create<PrintStore>((set, get) => ({
+/**
+ * Helper to get the tRPC vanilla client lazily.
+ * We import dynamically to avoid circular dependency issues and because
+ * the store is used outside of React component tree (zustand).
+ */
+async function getTrpcClient() {
+  // Dynamic import to avoid circular deps
+  const { getApiBaseUrl } = await import("@/constants/oauth");
+  const Auth = await import("@/lib/_core/auth");
+
+  const baseUrl = getApiBaseUrl();
+  const token = await Auth.getSessionToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  headers["Content-Type"] = "application/json";
+
+  return {
+    async query(path: string, input?: any) {
+      const params = input !== undefined ? `?input=${encodeURIComponent(JSON.stringify(input))}` : "";
+      const res = await fetch(`${baseUrl}/api/trpc/${path}${params}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message ?? "Request failed");
+      return json.result?.data;
+    },
+    async mutate(path: string, input?: any) {
+      const res = await fetch(`${baseUrl}/api/trpc/${path}`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify(input),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message ?? "Request failed");
+      return json.result?.data;
+    },
+  };
+}
+
+export const usePrintStore = create<PrintStore>((set, _get) => ({
   // Initial state
   bookProducts: [],
   orders: [],
@@ -159,7 +200,8 @@ export const usePrintStore = create<PrintStore>((set, get) => ({
   createBookProduct: async (input) => {
     set({ isLoading: true, error: null });
     try {
-      const product = await trpc.printOrders.createBookProduct.mutate(input);
+      const client = await getTrpcClient();
+      const product = await client.mutate("printOrders.createBookProduct", input);
       set((state) => ({
         bookProducts: [...state.bookProducts, product],
         isLoading: false,
@@ -175,7 +217,8 @@ export const usePrintStore = create<PrintStore>((set, get) => ({
   getBookPreview: async (bookProductId) => {
     set({ isLoading: true, error: null });
     try {
-      const preview = await trpc.printOrders.getBookPreview.query({ bookProductId });
+      const client = await getTrpcClient();
+      const preview = await client.query("printOrders.getBookPreview", { bookProductId });
       set({ isLoading: false });
       return preview;
     } catch (err: any) {
@@ -188,7 +231,8 @@ export const usePrintStore = create<PrintStore>((set, get) => ({
   estimateShipping: async (input) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await trpc.printOrders.estimateShipping.mutate(input);
+      const client = await getTrpcClient();
+      const result = await client.mutate("printOrders.estimateShipping", input);
       set({ currentPricing: result.price, isLoading: false });
       return result;
     } catch (err: any) {
@@ -201,7 +245,8 @@ export const usePrintStore = create<PrintStore>((set, get) => ({
   placeOrder: async (input) => {
     set({ isLoading: true, error: null });
     try {
-      const order = await trpc.printOrders.placeOrder.mutate(input);
+      const client = await getTrpcClient();
+      const order = await client.mutate("printOrders.placeOrder", input);
       set((state) => ({
         orders: [...state.orders, order],
         isLoading: false,
@@ -217,7 +262,8 @@ export const usePrintStore = create<PrintStore>((set, get) => ({
   saveAddress: async (input) => {
     set({ isLoading: true, error: null });
     try {
-      const address = await trpc.printOrders.saveAddress.mutate(input);
+      const client = await getTrpcClient();
+      const address = await client.mutate("printOrders.saveAddress", input);
       set((state) => ({
         addresses: [...state.addresses, address],
         isLoading: false,
@@ -233,7 +279,8 @@ export const usePrintStore = create<PrintStore>((set, get) => ({
   getAddresses: async () => {
     set({ isLoading: true, error: null });
     try {
-      const addresses = await trpc.printOrders.getAddresses.query();
+      const client = await getTrpcClient();
+      const addresses = await client.query("printOrders.getAddresses");
       set({ addresses, isLoading: false });
       return addresses;
     } catch (err: any) {
@@ -246,7 +293,8 @@ export const usePrintStore = create<PrintStore>((set, get) => ({
   loadFormats: async () => {
     set({ isLoading: true, error: null });
     try {
-      const formats = await trpc.printOrders.getFormats.query();
+      const client = await getTrpcClient();
+      const formats = await client.query("printOrders.getFormats");
       set({ availableFormats: formats, isLoading: false });
       return formats;
     } catch (err: any) {

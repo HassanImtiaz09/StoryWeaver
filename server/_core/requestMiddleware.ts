@@ -3,6 +3,7 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
+// @ts-ignore - uuid has no type declarations
 import { v4 as uuidv4 } from "uuid";
 import { logger } from "./logger";
 import { rateLimiter } from "./rateLimiter";
@@ -26,8 +27,8 @@ declare global {
  */
 export function requestIdMiddleware(): (req: Request, res: Response, next: NextFunction) => void {
   return (req: Request, res: Response, next: NextFunction) => {
-    req.id = req.headers["x-request-id"] as string || uuidv4();
-    res.setHeader("X-Request-ID", req.id);
+    req.id = (req.headers["x-request-id"] as string | undefined) || uuidv4();
+    res.setHeader("X-Request-ID", req.id ?? "");
     next();
   };
 }

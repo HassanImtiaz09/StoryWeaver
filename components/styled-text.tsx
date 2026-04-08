@@ -279,6 +279,23 @@ export function TabLabel({ color, style, ...props }: StyledTextProps) {
   );
 }
 
+// Screen Title - for screen headings (Baloo 2 Bold, large)
+export function ScreenTitle({ color, style, ...props }: StyledTextProps) {
+  const { colorScheme } = useThemeContext();
+  const colors = Colors[colorScheme];
+
+  return (
+    <Text
+      {...props}
+      style={[
+        TextStyles.screenTitle,
+        { color: color || colors.foreground },
+        style,
+      ]}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   storyTitle: {
     // Additional styles for story title if needed

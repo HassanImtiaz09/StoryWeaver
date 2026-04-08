@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "./_core/trpc";
 import { db } from "./db";
-import { eq, and, desc, isNull, asc } from "drizzle-orm";
+import { eq, and, desc, isNull, asc, inArray } from "drizzle-orm";
 import {
   users,
   children,
@@ -609,7 +609,7 @@ export const appRouter = router({
             age: child.age,
             interests: child.interests ?? [],
             personality: child.personalityTraits?.join(", "),
-            fears: child.fears,
+            fears: child.fears ?? undefined,
           },
           theme: arc.theme,
           storyArc: {
@@ -619,7 +619,7 @@ export const appRouter = router({
           },
           previousEpisodes: episodeContext.previousEpisodes,
           preferences: {
-            readingLevel: child.readingLevel,
+            readingLevel: child.readingLevel ?? undefined,
             tone: "bedtime-friendly",
           },
         };
@@ -1822,7 +1822,7 @@ export const appRouter = router({
         .select()
         .from(shippingAddresses)
         .where(eq(shippingAddresses.userId, ctx.user.id))
-        .orderBy(shippingAddresses.isDefault ? desc(shippingAddresses.isDefault) : undefined);
+        .orderBy(desc(shippingAddresses.isDefault));
     }),
   }),
 
@@ -2427,7 +2427,7 @@ export const appRouter = router({
           queueId: z.number(),
           status: z.enum(["approved", "rejected", "edited"]),
           parentNotes: z.string().optional(),
-          editedContent: z.record(z.unknown()).optional(),
+          editedContent: z.record(z.string(), z.unknown()).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -2676,9 +2676,7 @@ export const appRouter = router({
           await db
             .update(mediaQueue)
             .set({ status: "queued", errorMessage: null })
-            .where((table) =>
-              table.id.inArray(retried)
-            );
+            .where(inArray(mediaQueue.id, retried));
         }
 
         // Start processing

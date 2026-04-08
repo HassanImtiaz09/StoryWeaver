@@ -58,3 +58,4 @@
 - [x] Fix: After story generation, navigate user directly to story-detail episode list page
 - [x] Add inline "Generate Episode" button on story-detail with server-side generation and progress indicator
 - [x] Add pull-to-refresh on Library and story-detail screens
+- [x] Sync project with latest GitHub changes (fourth sync - fixed 17 TS errors across 9 files: gamification-store, parent-tools-store, bedtime-mode-wrapper, book-preview-card, assetManager, dbPool, narrativeArc, requestMiddleware, routers.ts, auth.logout.test.ts; 0 TS errors, 77/77 tests passing)

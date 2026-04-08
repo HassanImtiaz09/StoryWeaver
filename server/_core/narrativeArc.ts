@@ -60,7 +60,7 @@ export async function getArcState(arcId: number): Promise<ArcState> {
     arcId: arc.id,
     currentEpisode: episodeList.length + 1,
     totalEpisodes: arc.totalEpisodes ?? 5,
-    completedEpisodes: episodeList.map((e) => e.title),
+    completedEpisodes: episodeList.map((e) => e.title).filter((t): t is string => t !== null),
   };
 
   // Cache for 5 minutes
@@ -100,8 +100,8 @@ export async function getEpisodeContext(
   const previousEpisodes = previousEpisodeList
     .filter((e) => e.episodeNumber < episodeNumber)
     .map((e) => ({
-      title: e.title,
-      summary: e.summary,
+      title: e.title ?? "",
+      summary: e.summary ?? "",
     }));
 
   const context: EpisodeContext = {

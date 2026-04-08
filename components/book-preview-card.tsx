@@ -1,4 +1,4 @@
-import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
+import { View, Text, Image, StyleSheet, Dimensions, type ViewStyle, type TextStyle, type ImageStyle } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 
 interface Props {
@@ -58,7 +58,21 @@ export function BookPreviewCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<{
+  root: ViewStyle;
+  bookContainer: ViewStyle;
+  bookSpine: ViewStyle;
+  coverWrapper: ViewStyle;
+  coverImage: ImageStyle;
+  coverPlaceholder: ViewStyle;
+  placeholderText: TextStyle;
+  coverOverlay: ViewStyle;
+  coverTitle: TextStyle;
+  coverSubtitle: TextStyle;
+  infoContainer: ViewStyle;
+  infoLabel: TextStyle;
+  infoValue: TextStyle;
+}>({
   root: {
     borderRadius: 16,
     overflow: "hidden",
@@ -67,7 +81,6 @@ const styles = StyleSheet.create({
   bookContainer: {
     flexDirection: "row",
     height: 280,
-    perspective: 1,
   },
   bookSpine: {
     width: 12,

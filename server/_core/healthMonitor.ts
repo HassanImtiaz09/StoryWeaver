@@ -4,6 +4,7 @@
 
 import { getDb } from "../db";
 import { logger } from "./logger";
+import { sql } from "drizzle-orm";
 
 export interface HealthStatus {
   status: "healthy" | "degraded" | "unhealthy";
@@ -54,6 +55,8 @@ export interface Metrics {
   uptime: number;
 }
 
+type ApiStatusValue = "unknown" | "healthy" | "unhealthy";
+
 /**
  * Health monitor for system status and external API checks
  */
@@ -65,13 +68,13 @@ export class HealthMonitor {
     errorCount: 0,
     totalDuration: 0,
   };
-  private externalApiStatus = {
-    anthropic: { status: "unknown" as const, lastCheck: new Date(), latency: 0 },
-    elevenlabs: { status: "unknown" as const, lastCheck: new Date(), latency: 0 },
-    printful: { status: "unknown" as const, lastCheck: new Date(), latency: 0 },
-    stripe: { status: "unknown" as const, lastCheck: new Date(), latency: 0 },
+  private externalApiStatus: Record<string, { status: ApiStatusValue; lastCheck: Date; latency: number }> = {
+    anthropic: { status: "unknown", lastCheck: new Date(), latency: 0 },
+    elevenlabs: { status: "unknown", lastCheck: new Date(), latency: 0 },
+    printful: { status: "unknown", lastCheck: new Date(), latency: 0 },
+    stripe: { status: "unknown", lastCheck: new Date(), latency: 0 },
   };
-  private periodicCheckIntervalId?: NodeJS.Timeout;
+  private periodicCheckIntervalId?: ReturnType<typeof setInterval>;
 
   constructor() {
     this.startTime = Date.now();
@@ -84,7 +87,7 @@ export class HealthMonitor {
     const dbCheck = await this.checkDatabase();
     const memUsage = process.memoryUsage();
 
-    const status: "healthy" | "degraded" | "unhealthy" = this.determineOverallStatus(dbCheck);
+    const status = this.determineOverallStatus(dbCheck);
 
     return {
       status,
@@ -95,20 +98,20 @@ export class HealthMonitor {
         cache: this.checkCache(),
         externalApis: {
           anthropic: {
-            status: this.externalApiStatus.anthropic.status,
-            lastCheck: this.externalApiStatus.anthropic.lastCheck,
+            status: this.externalApiStatus.anthropic?.status ?? "unknown",
+            lastCheck: this.externalApiStatus.anthropic?.lastCheck ?? new Date(),
           },
           elevenlabs: {
-            status: this.externalApiStatus.elevenlabs.status,
-            lastCheck: this.externalApiStatus.elevenlabs.lastCheck,
+            status: this.externalApiStatus.elevenlabs?.status ?? "unknown",
+            lastCheck: this.externalApiStatus.elevenlabs?.lastCheck ?? new Date(),
           },
           printful: {
-            status: this.externalApiStatus.printful.status,
-            lastCheck: this.externalApiStatus.printful.lastCheck,
+            status: this.externalApiStatus.printful?.status ?? "unknown",
+            lastCheck: this.externalApiStatus.printful?.lastCheck ?? new Date(),
           },
           stripe: {
-            status: this.externalApiStatus.stripe.status,
-            lastCheck: this.externalApiStatus.stripe.lastCheck,
+            status: this.externalApiStatus.stripe?.status ?? "unknown",
+            lastCheck: this.externalApiStatus.stripe?.lastCheck ?? new Date(),
           },
         },
       },
@@ -117,7 +120,7 @@ export class HealthMonitor {
         heapTotal: memUsage.heapTotal,
         rss: memUsage.rss,
       },
-      activeConnections: 0, // Would need tracking middleware
+      activeConnections: 0,
     };
   }
 
@@ -138,8 +141,7 @@ export class HealthMonitor {
       }
 
       const startTime = Date.now();
-      // Simple health query
-      await db.select().from({ 1: 1 });
+      await db.execute(sql`SELECT 1`);
       const latencyMs = Date.now() - startTime;
 
       return {
@@ -186,15 +188,18 @@ export class HealthMonitor {
   async checkExternalApi(name: string, url: string): Promise<boolean> {
     try {
       const startTime = Date.now();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(url, {
         method: "HEAD",
-        timeout: 5000,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const latency = Date.now() - startTime;
 
-      const isHealthy = response.ok || response.status === 405; // 405 OK for HEAD on non-HEAD endpoints
+      const isHealthy = response.ok || response.status === 405;
 
-      const key = name.toLowerCase() as keyof typeof this.externalApiStatus;
+      const key = name.toLowerCase();
       if (this.externalApiStatus[key]) {
         this.externalApiStatus[key].status = isHealthy ? "healthy" : "unhealthy";
         this.externalApiStatus[key].lastCheck = new Date();
@@ -203,7 +208,7 @@ export class HealthMonitor {
 
       return isHealthy;
     } catch (error) {
-      const key = name.toLowerCase() as keyof typeof this.externalApiStatus;
+      const key = name.toLowerCase();
       if (this.externalApiStatus[key]) {
         this.externalApiStatus[key].status = "unhealthy";
         this.externalApiStatus[key].lastCheck = new Date();
@@ -256,7 +261,6 @@ export class HealthMonitor {
 
     this.periodicCheckIntervalId = setInterval(async () => {
       try {
-        // Check external APIs
         await Promise.allSettled([
           this.checkExternalApi("anthropic", "https://api.anthropic.com/health"),
           this.checkExternalApi("elevenlabs", "https://api.elevenlabs.io/v1/models"),
@@ -289,7 +293,6 @@ export class HealthMonitor {
       return "unhealthy";
     }
 
-    // Check if any external API is unhealthy
     const unhealthyApis = Object.values(this.externalApiStatus).filter(
       (api) => api.status === "unhealthy"
     ).length;
@@ -306,7 +309,4 @@ export class HealthMonitor {
   }
 }
 
-/**
- * Global health monitor instance
- */
 export const healthMonitor = new HealthMonitor();

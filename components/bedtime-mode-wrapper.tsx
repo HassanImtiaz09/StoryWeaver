@@ -1,5 +1,6 @@
 import { View } from "react-native";
-import Animated, { useAnimatedStyle, withTiming, useSharedValue, useEffect } from "react-native-reanimated";
+import { useEffect } from "react";
+import Animated, { useAnimatedStyle, withTiming, useSharedValue } from "react-native-reanimated";
 import { BEDTIME_THEME } from "@/lib/bedtime-mode";
 
 interface Props {

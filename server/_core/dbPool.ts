@@ -3,6 +3,7 @@
  */
 
 import { getDb } from "../db";
+import { sql } from "drizzle-orm";
 import { logger } from "./logger";
 
 /**
@@ -106,7 +107,7 @@ export class DatabasePool {
 
       const startTime = Date.now();
       // Simple test query
-      await db.select().from({ 1: 1 });
+      await db.execute(sql`SELECT 1`);
       const latencyMs = Date.now() - startTime;
 
       const poolStatus = await this.getStatus();

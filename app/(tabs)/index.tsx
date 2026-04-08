@@ -81,7 +81,7 @@ export default function TonightScreen() {
       setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
 
       // Load gamification progress
-      await gamificationStore.fetchProgress(child.id);
+      await gamificationStore.fetchProgress(Number(child.id));
     } else {
       setSelectedChild(null);
       setActiveArcs([]);
@@ -110,7 +110,7 @@ export default function TonightScreen() {
     const arcs = await getLocalStoryArcs();
     setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
     // Load gamification data for the selected child
-    await gamificationStore.fetchProgress(child.id);
+    await gamificationStore.fetchProgress(Number(child.id));
   };
 
   const toggleBedtimeMode = async () => {
@@ -189,7 +189,7 @@ export default function TonightScreen() {
   ];
 
   const childProgress = selectedChild
-    ? gamificationStore.childProgress.get(selectedChild.id)
+    ? gamificationStore.childProgress.get(Number(selectedChild.id))
     : null;
 
   return (

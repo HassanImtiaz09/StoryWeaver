@@ -14,7 +14,7 @@
 
 import { db } from "../db";
 import { mediaAssets } from "../../drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, lt } from "drizzle-orm";
 import { storagePut } from "../storage";
 
 export interface Asset {
@@ -337,10 +337,7 @@ export class AssetManager {
     const results = await db
       .select()
       .from(mediaAssets)
-      .where((table) => {
-        // Filter by date - this is a simplified version
-        return table.createdAt < cutoffDate;
-      });
+      .where(lt(mediaAssets.createdAt, cutoffDate));
 
     return results.length;
   }

@@ -418,20 +418,21 @@ export class MediaPipeline extends EventEmitter {
       );
 
       const audioResult = await Promise.race([
-        generatePageAudio({
-          text: job.input.text,
-          voiceId: job.input.voiceId,
-        }),
+        generatePageAudio(
+          job.input.text,
+          [{ name: "narrator", traits: "warm storytelling voice" }],
+          job.id
+        ),
         timeout,
       ]);
 
-      if (!audioResult.url) {
+      if (!audioResult.audioUrl) {
         throw new Error("No audio URL returned");
       }
 
       job.status = "completed";
       job.output = {
-        url: audioResult.url,
+        url: audioResult.audioUrl,
         format: "mp3",
         size: 0,
         duration: audioResult.durationMs,
@@ -497,21 +498,21 @@ export class MediaPipeline extends EventEmitter {
       );
 
       const musicResult = await Promise.race([
-        generateEpisodeMusic({
-          theme: musicJob.input.theme,
-          mood: musicJob.input.mood,
-          durationSeconds: musicJob.input.durationSeconds,
-        }),
+        generateEpisodeMusic(
+          musicJob.input.theme,
+          [musicJob.input.mood],
+          musicJob.input.durationSeconds
+        ),
         timeout,
       ]);
 
-      if (!musicResult.url) {
+      if (!musicResult.musicUrl) {
         throw new Error("No music URL returned");
       }
 
       musicJob.status = "completed";
       musicJob.output = {
-        url: musicResult.url,
+        url: musicResult.musicUrl,
         format: "mp3",
         size: 0,
         duration: musicJob.input.durationSeconds,
