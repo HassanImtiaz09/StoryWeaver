@@ -156,6 +156,15 @@ export default function RootLayout() {
             animationEnabled: true,
           }}
         />
+
+        <Stack.Screen
+          name="grandparent-cocreation"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
       </Stack>
     </GestureHandlerRootView>
   );

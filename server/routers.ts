@@ -31,6 +31,7 @@ import {
 import { characterRouter } from "./_core/characterRouter";
 import { languageRouter } from "./_core/language-router";
 import { educatorRouter } from "./_core/educatorRouter";
+import { grandparentRouter } from "./_core/grandparentRouter";
 import { checkParentalConsent, recordParentalConsent, requireConsent, getConsentStatus } from "./_core/coppaConsent";
 import { moderateEpisode, aiSafetyCheck, validateChildAge } from "./_core/contentModeration";
 import {
@@ -165,6 +166,8 @@ export const appRouter = router({
   language: languageRouter,
 
   educator: educatorRouter,
+
+  grandparent: grandparentRouter,
 
   analytics: router({
     /**

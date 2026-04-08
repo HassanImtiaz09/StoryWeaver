@@ -585,6 +585,70 @@ export const assessments = mysqlTable("assessments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Grandparent Co-Creation: Family & Memories ───────────────
+
+export const familyInvites = mysqlTable("family_invites", {
+  id: int("id").primaryKey().autoincrement(),
+  inviterUserId: int("inviter_user_id").notNull(),
+  familyMemberName: varchar("family_member_name", { length: 255 }).notNull(),
+  relationship: mysqlEnum("relationship", [
+    "grandparent",
+    "aunt_uncle",
+    "cousin",
+    "family_friend",
+    "other",
+  ]).notNull(),
+  inviteCode: varchar("invite_code", { length: 20 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  status: mysqlEnum("status", ["pending", "accepted", "expired"]).default("pending"),
+  acceptedByUserId: int("accepted_by_user_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+});
+
+export const familyConnections = mysqlTable("family_connections", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  familyMemberUserId: int("family_member_user_id").notNull(),
+  relationship: mysqlEnum("relationship", [
+    "grandparent",
+    "aunt_uncle",
+    "cousin",
+    "family_friend",
+    "parent",
+    "other",
+  ]).notNull(),
+  familyMemberName: varchar("family_member_name", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const coCreationSessions = mysqlTable("co_creation_sessions", {
+  id: int("id").primaryKey().autoincrement(),
+  hostUserId: int("host_user_id").notNull(),
+  familyMemberUserId: int("family_member_user_id").notNull(),
+  childId: int("child_id").notNull(),
+  arcId: int("arc_id"),
+  status: mysqlEnum("status", ["active", "paused", "completed"]).default("active"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const memoryPrompts = mysqlTable("memory_prompts", {
+  id: int("id").primaryKey().autoincrement(),
+  sessionId: int("session_id").notNull(),
+  userId: int("user_id").notNull(),
+  memoryText: text("memory_text").notNull(),
+  category: mysqlEnum("category", [
+    "childhood",
+    "travel",
+    "family_tradition",
+    "funny_moment",
+    "life_lesson",
+  ]).notNull(),
+  generatedStoryId: int("generated_story_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -618,3 +682,7 @@ export type ClassroomStudent = typeof classroomStudents.$inferSelect;
 export type StoryAssignment = typeof storyAssignments.$inferSelect;
 export type StudentAssignmentProgress = typeof studentAssignmentProgress.$inferSelect;
 export type Assessment = typeof assessments.$inferSelect;
+export type FamilyInvite = typeof familyInvites.$inferSelect;
+export type FamilyConnection = typeof familyConnections.$inferSelect;
+export type CoCreationSession = typeof coCreationSessions.$inferSelect;
+export type MemoryPrompt = typeof memoryPrompts.$inferSelect;
