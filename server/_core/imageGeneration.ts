@@ -1,81 +1,201 @@
 /**
- * Image generation helper using internal ImageService
+ * Image Generation Service
  *
- * Example usage:
- *   const { url: imageUrl } = await generateImage({
- *     prompt: "A serene landscape with mountains"
- *   });
- *
- * For editing:
- *   const { url: imageUrl } = await generateImage({
- *     prompt: "Add a rainbow to this landscape",
- *     originalImages: [{
- *       url: "https://example.com/original.jpg",
- *       mimeType: "image/jpeg"
- *     }]
- *   });
+ * Handles image generation using Forge API or similar providers
+ * Includes support for character generation and story illustrations
  */
-import { storagePut } from "../storage";
+
 import { ENV } from "./env";
 
-export type GenerateImageOptions = {
+export interface ImageGenerationRequest {
   prompt: string;
-  originalImages?: Array<{
-    url?: string;
-    b64Json?: string;
-    mimeType?: string;
-  }>;
-};
+  width?: number;
+  height?: number;
+  quality?: "low" | "medium" | "high";
+  style?: string;
+  seed?: number;
+}
 
-export type GenerateImageResponse = {
-  url?: string;
-};
+export interface ImageGenerationResult {
+  imageUrl: string;
+  width: number;
+  height: number;
+  format: string;
+  seed?: number;
+}
 
-export async function generateImage(options: GenerateImageOptions): Promise<GenerateImageResponse> {
-  if (!ENV.forgeApiUrl) {
-    throw new Error("BUILT_IN_FORGE_API_URL is not configured");
+/**
+ * Create a Forge image generation request
+ */
+export function createForgeImageRequest(
+  prompt: string,
+  options?: {
+    width?: number;
+    height?: number;
+    quality?: "low" | "medium" | "high";
+    style?: string;
+    seed?: number;
   }
-  if (!ENV.forgeApiKey) {
-    throw new Error("BUILT_IN_FORGE_API_KEY is not configured");
-  }
-
-  // Build the full URL by appending the service path to the base URL
-  const baseUrl = ENV.forgeApiUrl.endsWith("/") ? ENV.forgeApiUrl : `${ENV.forgeApiUrl}/`;
-  const fullUrl = new URL("images.v1.ImageService/GenerateImage", baseUrl).toString();
-
-  const response = await fetch(fullUrl, {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "connect-protocol-version": "1",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify({
-      prompt: options.prompt,
-      original_images: options.originalImages || [],
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(
-      `Image generation request failed (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`,
-    );
-  }
-
-  const result = (await response.json()) as {
-    image: {
-      b64Json: string;
-      mimeType: string;
-    };
-  };
-  const base64Data = result.image.b64Json;
-  const buffer = Buffer.from(base64Data, "base64");
-
-  // Save to S3
-  const { url } = await storagePut(`generated/${Date.now()}.png`, buffer, result.image.mimeType);
+): ImageGenerationRequest {
   return {
-    url,
+    prompt,
+    width: options?.width || 1024,
+    height: options?.height || 1024,
+    quality: options?.quality || "high",
+    style: options?.style || "illustration",
+    seed: options?.seed,
   };
+}
+
+/**
+ * Execute a Forge image generation request
+ *
+ * This function handles the actual API call to generate images.
+ * In production, this would integrate with Forge API or similar service.
+ */
+export async function executeForgeRequest(
+  request: ImageGenerationRequest
+): Promise<ImageGenerationResult> {
+  try {
+    // Call Forge API endpoint
+    const response = await fetch(`${ENV.forgeApiUrl}/v1/images/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ENV.forgeApiKey}`,
+      },
+      body: JSON.stringify({
+        prompt: request.prompt,
+        size: `${request.width}x${request.height}`,
+        quality: request.quality,
+        style: request.style,
+        ...(request.seed && { seed: request.seed }),
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(
+        `Forge API error ${response.status}: ${error}`
+      );
+    }
+
+    const data = await response.json();
+
+    return {
+      imageUrl: data.url || data.images?.[0]?.url,
+      width: request.width || 1024,
+      height: request.height || 1024,
+      format: "png",
+      seed: data.seed,
+    };
+  } catch (error) {
+    console.error("Image generation failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Generate an image from a prompt
+ * Simplified wrapper for image generation
+ */
+export async function generateImage(options: {
+  prompt: string;
+  width?: number;
+  height?: number;
+  quality?: "low" | "medium" | "high";
+  style?: string;
+}): Promise<string> {
+  try {
+    const request = createForgeImageRequest(options.prompt, {
+      width: options.width,
+      height: options.height,
+      quality: options.quality,
+      style: options.style,
+    });
+
+    const result = await executeForgeRequest(request);
+    return result.imageUrl;
+  } catch (error) {
+    console.error("Image generation failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Generate multiple images from a prompt
+ * Useful for generating variants
+ */
+export async function generateImageVariants(
+  prompt: string,
+  count: number = 3,
+  options?: {
+    width?: number;
+    height?: number;
+    quality?: "low" | "medium" | "high";
+  }
+): Promise<string[]> {
+  const results: string[] = [];
+
+  for (let i = 0; i < count; i++) {
+    try {
+      const imageUrl = await generateImage({
+        prompt: `${prompt}\n\nVariant ${i + 1} of ${count}`,
+        width: options?.width,
+        height: options?.height,
+        quality: options?.quality,
+      });
+      results.push(imageUrl);
+    } catch (error) {
+      console.error(`Failed to generate variant ${i + 1}:`, error);
+      // Continue with next variant on error
+    }
+  }
+
+  if (results.length === 0) {
+    throw new Error("Failed to generate any image variants");
+  }
+
+  return results;
+}
+
+/**
+ * Batch image generation for multiple prompts
+ */
+export async function generateImageBatch(
+  prompts: string[],
+  options?: {
+    width?: number;
+    height?: number;
+    quality?: "low" | "medium" | "high";
+    concurrency?: number;
+  }
+): Promise<Map<string, string>> {
+  const results = new Map<string, string>();
+  const concurrency = options?.concurrency || 3;
+
+  // Process prompts in batches
+  for (let i = 0; i < prompts.length; i += concurrency) {
+    const batch = prompts.slice(i, i + concurrency);
+    const batchPromises = batch.map((prompt) =>
+      generateImage({
+        prompt,
+        width: options?.width,
+        height: options?.height,
+        quality: options?.quality,
+      }).catch((error) => {
+        console.error(`Failed to generate image for prompt: ${error}`);
+        return null;
+      })
+    );
+
+    const batchResults = await Promise.all(batchPromises);
+    batchResults.forEach((url, index) => {
+      if (url) {
+        results.set(batch[index], url);
+      }
+    });
+  }
+
+  return results;
 }

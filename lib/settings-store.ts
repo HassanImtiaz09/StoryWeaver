@@ -41,6 +41,10 @@ export interface AppSettings {
   voiceResponseEnabled: boolean; // Whether app speaks responses back
   voiceResponseSpeed: number; // 0.75-1.25, default 1.0
   voiceResponseMode: "quick" | "rich" | "auto"; // quick = device TTS, rich = ElevenLabs, auto = smart choice
+
+  // Character avatars
+  characterAvatarEnabled: boolean;
+  preferredCharacterArtStyle: "watercolor" | "cartoon" | "anime" | "storybook-classic" | "pixel-art";
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -67,6 +71,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   voiceResponseEnabled: true,
   voiceResponseSpeed: 1.0,
   voiceResponseMode: "auto",
+  characterAvatarEnabled: true,
+  preferredCharacterArtStyle: "watercolor",
 };
 
 export async function getSettings(): Promise<AppSettings> {

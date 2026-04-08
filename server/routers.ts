@@ -23,7 +23,9 @@ import {
   storyApprovalQueue,
   mediaAssets,
   mediaQueue,
+  characterAvatars,
 } from "../drizzle/schema";
+import { characterRouter } from "./_core/characterRouter";
 import { checkParentalConsent, recordParentalConsent, requireConsent, getConsentStatus } from "./_core/coppaConsent";
 import { moderateEpisode, aiSafetyCheck, validateChildAge } from "./_core/contentModeration";
 import {
@@ -151,6 +153,8 @@ export const appRouter = router({
       return { message: "pong" };
     }),
   }),
+
+  character: characterRouter,
 
   auth: router({
     signUp: publicProcedure

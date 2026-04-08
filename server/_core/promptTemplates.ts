@@ -197,13 +197,19 @@ export function IMAGE_PROMPT_TEMPLATE(
   pageText: string,
   artStyle: string,
   childAge: number,
-  theme: string
+  theme: string,
+  characterDirective?: string
 ): string {
+  const characterSection = characterDirective
+    ? `\nCHARACTER CONSISTENCY:\n${characterDirective}\n`
+    : "";
+
   return `Create a detailed image generation prompt for a children's book illustration.
 
 Story Excerpt: "${pageText.substring(0, 300)}"
 Theme: ${theme}
 Child Age: ${childAge}
+${characterSection}
 
 The image should:
 1. Directly visualize the story scene
@@ -219,6 +225,18 @@ Return ONLY the detailed image prompt text. Be specific about:
 - Background environment details
 - Color palette and lighting
 - Emotional tone and mood`;
+}
+
+/**
+ * Inject a character directive into an image prompt
+ * Ensures the character appears consistently across all story illustrations
+ */
+export function injectCharacterIntoImagePrompt(
+  basePrompt: string,
+  characterDirective: string
+): string {
+  // Insert character directive at the beginning of the prompt
+  return `${characterDirective}\n\n${basePrompt}`;
 }
 
 /**

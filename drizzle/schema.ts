@@ -370,6 +370,36 @@ export const mediaQueue = mysqlTable("media_queue", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Character Avatars ────────────────────────────────────────
+// Stores AI-generated character avatars for children
+
+export const characterAvatars = mysqlTable("character_avatars", {
+  id: int("id").primaryKey().autoincrement(),
+  childId: int("child_id").notNull().unique(),
+  photoUrl: varchar("photo_url", { length: 1024 }),
+  artStyle: varchar("art_style", { length: 50 }).notNull(), // watercolor, cartoon, anime, storybook-classic, pixel-art
+  description: json("description").$type<{
+    hairColor: string;
+    hairStyle: string;
+    skinTone: string;
+    eyeColor: string;
+    expression: string;
+    distinguishingFeatures: string[];
+    clothingStyle: string;
+    ageGroup: string;
+    personalityHints: string[];
+  }>().notNull(),
+  selectedVariantId: varchar("selected_variant_id", { length: 100 }),
+  variants: json("variants").$type<{
+    portrait: string;
+    fullBody: string;
+    actionPose: string;
+  }>().notNull(),
+  consistencyPrompt: text("consistency_prompt"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -391,3 +421,4 @@ export type ParentVoiceRecording = typeof parentVoiceRecordings.$inferSelect;
 export type StoryApprovalQueueItem = typeof storyApprovalQueue.$inferSelect;
 export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type MediaQueueItem = typeof mediaQueue.$inferSelect;
+export type CharacterAvatar = typeof characterAvatars.$inferSelect;
