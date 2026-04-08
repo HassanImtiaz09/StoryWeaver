@@ -649,6 +649,56 @@ export const memoryPrompts = mysqlTable("memory_prompts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Social-Emotional Learning (SEL) ──────────────────────────
+
+export const selTemplates = mysqlTable("sel_templates", {
+  id: int("id").primaryKey().autoincrement(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  competency: mysqlEnum("competency", [
+    "self_awareness",
+    "self_management",
+    "social_awareness",
+    "relationship_skills",
+    "responsible_decision_making",
+  ]).notNull(),
+  ageRangeMin: int("age_range_min").default(3),
+  ageRangeMax: int("age_range_max").default(12),
+  difficulty: mysqlEnum("difficulty", ["gentle", "moderate", "challenging"]).default("gentle"),
+  promptTemplate: text("prompt_template").notNull(),
+  emotionalGoals: json("emotional_goals").$type<string[]>().notNull(),
+  iconEmoji: varchar("icon_emoji", { length: 10 }).notNull(),
+  isBuiltIn: boolean("is_built_in").default(true),
+  createdByUserId: int("created_by_user_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const selProgress = mysqlTable("sel_progress", {
+  id: int("id").primaryKey().autoincrement(),
+  childId: int("child_id").notNull(),
+  templateId: int("template_id").notNull(),
+  arcId: int("arc_id"),
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+  competency: mysqlEnum("competency", [
+    "self_awareness",
+    "self_management",
+    "social_awareness",
+    "relationship_skills",
+    "responsible_decision_making",
+  ]).notNull(),
+});
+
+export const selResponses = mysqlTable("sel_responses", {
+  id: int("id").primaryKey().autoincrement(),
+  childId: int("child_id").notNull(),
+  templateId: int("template_id").notNull(),
+  arcId: int("arc_id"),
+  emotionFelt: varchar("emotion_felt", { length: 50 }).notNull(),
+  emotionIntensity: int("emotion_intensity").default(3),
+  reflection: text("reflection"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -686,3 +736,6 @@ export type FamilyInvite = typeof familyInvites.$inferSelect;
 export type FamilyConnection = typeof familyConnections.$inferSelect;
 export type CoCreationSession = typeof coCreationSessions.$inferSelect;
 export type MemoryPrompt = typeof memoryPrompts.$inferSelect;
+export type SelTemplate = typeof selTemplates.$inferSelect;
+export type SelProgress = typeof selProgress.$inferSelect;
+export type SelResponse = typeof selResponses.$inferSelect;

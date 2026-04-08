@@ -165,6 +165,15 @@ export default function RootLayout() {
             animationEnabled: true,
           }}
         />
+
+        <Stack.Screen
+          name="sel-stories"
+          options={{
+            presentation: "card",
+            headerShown: false,
+            animationEnabled: true,
+          }}
+        />
       </Stack>
     </GestureHandlerRootView>
   );
