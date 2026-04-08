@@ -1,39 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
-
-async function apiCall(method: "GET" | "POST", path: string, input?: any) {
-  const { getApiBaseUrl } = await import("@/constants/oauth");
-  const Auth = await import("@/lib/_core/auth");
-  const baseUrl = getApiBaseUrl();
-  const token = await Auth.getSessionToken();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  if (method === "GET") {
-    const params = input !== undefined ? `?input=${encodeURIComponent(JSON.stringify(input))}` : "";
-    const res = await fetch(`${baseUrl}/api/trpc/${path}${params}`, { method, headers, credentials: "include" });
-    const json = await res.json();
-    if (json.error) throw new Error(json.error.message ?? "Request failed");
-    return json.result?.data;
-  } else {
-    const res = await fetch(`${baseUrl}/api/trpc/${path}`, { method, headers, credentials: "include", body: JSON.stringify(input) });
-    const json = await res.json();
-    if (json.error) throw new Error(json.error.message ?? "Request failed");
-    return json.result?.data;
-  }
-}
-
-const trpc = {
-  gamification: {
-    getProgress: { query: (input: any) => apiCall("GET", "gamification.getProgress", input) },
-    getAchievements: { query: (input: any) => apiCall("GET", "gamification.getAchievements", input) },
-    getLeaderboard: { query: () => apiCall("GET", "gamification.getLeaderboard") },
-    awardXp: { mutate: (input: any) => apiCall("POST", "gamification.awardXp", input) },
-    checkAchievements: { mutate: (input: any) => apiCall("POST", "gamification.checkAchievements", input) },
-    updateStreak: { mutate: (input: any) => apiCall("POST", "gamification.updateStreak", input) },
-    getChildProgress: { query: (input: any) => apiCall("GET", "gamification.getChildProgress", input) },
-    recordReading: { mutate: (input: any) => apiCall("POST", "gamification.recordReading", input) },
-  },
-};
+import { trpc } from "./trpc";
 
 const GAMIFICATION_KEY = "storyweaver_gamification";
 
@@ -232,7 +199,7 @@ export async function initializeGamificationCache() {
 
       if (Array.isArray(data)) {
         // Old cache format with progress entries
-        const progressMap = new Map<number, ChildProgress>(data);
+        const progressMap = new Map(data);
         store.childProgress = progressMap;
       }
     }

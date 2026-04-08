@@ -1,35 +1,61 @@
+/**
+ * tRPC Client Configuration for React Native/Expo
+ * Configures the client-side tRPC hooks and query client
+ */
+
 import { createTRPCReact } from "@trpc/react-query";
 import { httpBatchLink } from "@trpc/client";
-import superjson from "superjson";
-import type { AppRouter } from "@/server/routers";
-import { getApiBaseUrl } from "@/constants/oauth";
-import * as Auth from "@/lib/_core/auth";
+import { QueryClient } from "@tanstack/react-query";
+import type { AppRouter } from "../server/routers";
 
 /**
- * tRPC React client for type-safe API calls.
- *
- * IMPORTANT (tRPC v11): The `transformer` must be inside `httpBatchLink`,
- * NOT at the root createClient level. This ensures client and server
- * use the same serialization format (superjson).
+ * Create the tRPC React hooks
  */
 export const trpc = createTRPCReact<AppRouter>();
 
 /**
- * Creates the tRPC client with proper configuration.
- * Call this once in your app's root layout.
+ * Create React Query client with optimized settings for mobile
  */
-export function createTRPCClient() {
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Reduce memory footprint on mobile
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+    mutations: {
+      retry: 1,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+});
+
+/**
+ * Get the API URL from environment
+ * Defaults to localhost for development
+ */
+function getApiUrl(): string {
+  // Check for API URL in environment
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  // Default to localhost (can be changed via environment variable)
+  return "http://localhost:3000";
+}
+
+/**
+ * Create tRPC client with HTTP batch link
+ * This is used to configure the provider
+ */
+export function createTrpcClient() {
   return trpc.createClient({
     links: [
       httpBatchLink({
-        url: `${getApiBaseUrl()}/api/trpc`,
-        // tRPC v11: transformer MUST be inside httpBatchLink, not at root
-        transformer: superjson,
-        async headers() {
-          const token = await Auth.getSessionToken();
-          return token ? { Authorization: `Bearer ${token}` } : {};
-        },
-        // Custom fetch to include credentials for cookie-based auth
+        url: `${getApiUrl()}/api/trpc`,
+        // Include credentials (cookies) with requests
         fetch(url, options) {
           return fetch(url, {
             ...options,
@@ -40,3 +66,5 @@ export function createTRPCClient() {
     ],
   });
 }
+
+export type AppRouter = typeof AppRouter;

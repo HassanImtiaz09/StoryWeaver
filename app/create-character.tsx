@@ -20,7 +20,7 @@ import {
   useCharacterAvatarFlow,
   type ArtStyle,
 } from "@/lib/character-avatar";
-import { api } from "@/utils/api";
+import { trpc } from "@/lib/trpc";
 
 type Step = "upload" | "style" | "generate" | "select" | "confirm";
 
@@ -48,9 +48,9 @@ export default function CreateCharacterScreen() {
   const uploadedPhoto = store.getUploadedPhoto(childId);
 
   // API mutations
-  const analyzePhotoMutation = api.character.analyzePhoto.useMutation();
-  const generateAvatarsMutation = api.character.generateAvatars.useMutation();
-  const selectAvatarMutation = api.character.selectAvatar.useMutation();
+  const analyzePhotoMutation = trpc.character.analyzePhoto.useMutation();
+  const generateAvatarsMutation = trpc.character.generateAvatars.useMutation();
+  const selectAvatarMutation = trpc.character.selectAvatar.useMutation();
 
   const handlePhotoSelected = useCallback(
     async (photoUri: string, base64: string) => {

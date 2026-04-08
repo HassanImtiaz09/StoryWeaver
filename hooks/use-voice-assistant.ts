@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from "react";
 import { useVoiceAssistantStore, parseVoiceCommand, type VoiceCommand } from "@/lib/voice-assistant";
-import { trpc } from "@/app/_layout";
+import { trpc } from "@/lib/trpc";
 import { getSettings } from "@/lib/settings-store";
 import { speakContent, stopSpeaking, getIsSpeaking } from "@/lib/voice-response";
 

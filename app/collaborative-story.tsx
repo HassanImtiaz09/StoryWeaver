@@ -14,6 +14,7 @@ import {
   Platform,
 } from "react-native";
 import { useCollaborativeStore, loadSavedCollaborativeSession } from "../lib/collaborative-store";
+import { trpc } from "../lib/trpc";
 import { SessionLobby } from "../components/session-lobby";
 import { TurnInput } from "../components/turn-input";
 import { CollaborativeStoryView } from "../components/collaborative-story-view";
@@ -95,20 +96,16 @@ export const CollaborativeStoryScreen: React.FC<CollaborativeStoryScreenProps> =
     };
   }, [session?.id]);
 
+  const startSessionMutation = trpc.collaborative.startSession.useMutation();
+
   const handleStartSession = async () => {
     if (!isHost || !session) return;
 
     try {
       setIsLoading(true);
-      const response = await fetch("/api/collaborative/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id }),
+      const updatedSession = await startSessionMutation.mutateAsync({
+        sessionId: session.id,
       });
-
-      if (!response.ok) throw new Error("Failed to start session");
-
-      const updatedSession = await response.json();
       useCollaborativeStore.setState({ activeSession: updatedSession });
     } catch (error) {
       Alert.alert("Error", "Failed to start session");
@@ -117,64 +114,53 @@ export const CollaborativeStoryScreen: React.FC<CollaborativeStoryScreenProps> =
     }
   };
 
+  const submitTurnMutation = trpc.collaborative.submitTurn.useMutation();
+  const advanceTurnMutation = trpc.collaborative.advanceTurn.useMutation();
+
   const handleSubmitTurn = useCallback(
     async (input: string) => {
       try {
         setIsLoading(true);
-        await submitTurn(input);
+        await submitTurnMutation.mutateAsync({ sessionId: session?.id || 0, input });
 
         // Automatically advance turn after submission
         if (session) {
-          const response = await fetch("/api/collaborative/advance-turn", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: session.id }),
+          const updatedSession = await advanceTurnMutation.mutateAsync({
+            sessionId: session.id,
           });
-
-          if (!response.ok) throw new Error("Failed to advance turn");
-
-          const updatedSession = await response.json();
           useCollaborativeStore.setState({ activeSession: updatedSession });
         }
       } finally {
         setIsLoading(false);
       }
     },
-    [session?.id, submitTurn]
+    [session?.id, submitTurnMutation, advanceTurnMutation]
   );
+
+  const skipTurnMutation = trpc.collaborative.skipTurn.useMutation();
 
   const handleSkipTurn = async () => {
     if (!session || !isHost) return;
 
     try {
-      const response = await fetch("/api/collaborative/skip-turn", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id }),
+      const updatedSession = await skipTurnMutation.mutateAsync({
+        sessionId: session.id,
       });
-
-      if (!response.ok) throw new Error("Failed to skip turn");
-
-      const updatedSession = await response.json();
       useCollaborativeStore.setState({ activeSession: updatedSession });
     } catch (error) {
       Alert.alert("Error", "Failed to skip turn");
     }
   };
 
+  const saveStoryMutation = trpc.collaborative.saveStory.useMutation();
+
   const handleSaveToLibrary = async () => {
     if (!session) return;
 
     try {
-      const response = await fetch("/api/collaborative/save-story", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id }),
+      const result = await saveStoryMutation.mutateAsync({
+        sessionId: session.id,
       });
-
-      if (!response.ok) throw new Error("Failed to save story");
-
-      const result = await response.json();
       Alert.alert("Success!", "Story saved to your library");
       return result;
     } catch (error) {
@@ -214,19 +200,15 @@ export const CollaborativeStoryScreen: React.FC<CollaborativeStoryScreenProps> =
     ]);
   };
 
+  const endSessionMutation = trpc.collaborative.endSession.useMutation();
+
   const handleEndSession = async () => {
     if (!isHost || !session) return;
 
     try {
-      const response = await fetch("/api/collaborative/end-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id }),
+      const updatedSession = await endSessionMutation.mutateAsync({
+        sessionId: session.id,
       });
-
-      if (!response.ok) throw new Error("Failed to end session");
-
-      const updatedSession = await response.json();
       useCollaborativeStore.setState({ activeSession: updatedSession });
       setScreenState("complete");
     } catch (error) {

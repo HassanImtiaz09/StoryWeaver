@@ -215,7 +215,7 @@ class VoiceResponseManager {
   }
 
   /**
-   * Speak using ElevenLabs TTS via API
+   * Speak using ElevenLabs TTS via tRPC API
    */
   private async speakWithElevenLabs(
     text: string,
@@ -227,8 +227,15 @@ class VoiceResponseManager {
 
       const voiceId = options.voice || settings.selectedVoicePreset || "narrator";
 
-      // Call server-side ElevenLabs endpoint
-      const response = await fetch("/api/voice/tts", {
+      // Import trpc client for API calls
+      // Note: This is imported here to avoid circular dependency issues
+      const { trpc } = await import("./trpc");
+
+      // Call server-side voice generation endpoint via tRPC
+      // The actual tRPC client instance needs to be created at the app level
+      // For now, we'll use a direct fetch for voice responses
+      // which operate outside of React component context
+      const response = await fetch("/api/trpc/voice.generateSpeech", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -236,22 +243,24 @@ class VoiceResponseManager {
         body: JSON.stringify({
           text,
           voiceId,
-          speed: settings.voiceResponseSpeed || 1.0,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`ElevenLabs API error: ${response.statusText}`);
+        throw new Error(`Voice API error: ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      if (!data.audioUrl) {
+      // Handle tRPC response format (wrapped in result property)
+      const audioUrl = data.result?.audioUrl || data.audioUrl;
+
+      if (!audioUrl) {
         throw new Error("No audio URL returned from API");
       }
 
       // Play the audio
-      await this.playAudio(data.audioUrl);
+      await this.playAudio(audioUrl);
     } catch (error) {
       // Fallback to device TTS if ElevenLabs fails
       console.warn("ElevenLabs TTS failed, falling back to device TTS:", error);

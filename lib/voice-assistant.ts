@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
-import { trpc } from "../app/_layout";
 
 const VOICE_ASSISTANT_KEY = "storyweaver_voice_assistant";
 
