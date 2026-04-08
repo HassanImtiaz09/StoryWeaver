@@ -51,6 +51,14 @@ export interface AppSettings {
   defaultMaxParticipants: number;
   defaultTurnTimeLimit: number;
   aiEnhancementLevel: "light" | "moderate" | "heavy";
+
+  // Multilingual features
+  storyLanguage: string; // Language code for story generation (e.g., 'en', 'es', 'fr')
+  bilingualModeEnabled: boolean; // Enable bilingual display mode
+  learningLanguage: string | null; // Language child is learning (e.g., 'es')
+  vocabularyHighlightsEnabled: boolean; // Show educational vocabulary highlights
+  bilingualDisplayFormat: "side-by-side" | "stacked"; // How to display bilingual content
+  showLanguageLearningNotes: boolean; // Show language learning tips
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -83,6 +91,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultMaxParticipants: 4,
   defaultTurnTimeLimit: 120,
   aiEnhancementLevel: "moderate",
+  storyLanguage: "en",
+  bilingualModeEnabled: false,
+  learningLanguage: null,
+  vocabularyHighlightsEnabled: true,
+  bilingualDisplayFormat: "side-by-side",
+  showLanguageLearningNotes: true,
 };
 
 export async function getSettings(): Promise<AppSettings> {

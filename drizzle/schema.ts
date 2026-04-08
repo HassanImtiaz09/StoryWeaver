@@ -441,6 +441,53 @@ export const storySegments = mysqlTable("story_segments", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 
+// ─── Story Translations (Multilingual Support) ────────────────────
+
+export const storyTranslations = mysqlTable("story_translations", {
+  id: int("id").primaryKey().autoincrement(),
+  episodeId: int("episode_id").notNull(),
+  sourceLanguage: varchar("source_language", { length: 10 }).notNull(), // e.g., 'en'
+  targetLanguage: varchar("target_language", { length: 10 }).notNull(), // e.g., 'es'
+  translatedTitle: varchar("translated_title", { length: 512 }),
+  translatedSummary: text("translated_summary"),
+  translationStatus: varchar("translation_status", { length: 50 }).default("pending").notNull(), // "pending", "in_progress", "completed", "failed"
+  translationModel: varchar("translation_model", { length: 100 }).default("claude").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const pageTranslations = mysqlTable("page_translations", {
+  id: int("id").primaryKey().autoincrement(),
+  pageId: int("page_id").notNull(),
+  translationId: int("translation_id").notNull(), // references storyTranslations
+  sourceLanguage: varchar("source_language", { length: 10 }).notNull(),
+  targetLanguage: varchar("target_language", { length: 10 }).notNull(),
+  translatedText: text("translated_text"),
+  translatedImagePrompt: text("translated_image_prompt"),
+  translationStatus: varchar("translation_status", { length: 50 }).default("pending").notNull(), // "pending", "completed", "failed"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Vocabulary Bank (Language Learning) ──────────────────────────
+
+export const vocabularyBank = mysqlTable("vocabulary_bank", {
+  id: int("id").primaryKey().autoincrement(),
+  childId: int("child_id").notNull(),
+  userId: int("user_id").notNull(),
+  word: varchar("word", { length: 255 }).notNull(),
+  translation: varchar("translation", { length: 255 }).notNull(),
+  sourceLanguage: varchar("source_language", { length: 10 }).notNull(), // e.g., 'en'
+  learningLanguage: varchar("learning_language", { length: 10 }).notNull(), // e.g., 'es'
+  context: text("context"), // sentence or phrase where word appeared
+  pronunciation: varchar("pronunciation", { length: 500 }), // phonetic guide
+  definition: text("definition"), // simple definition for children
+  masteryLevel: int("mastery_level").default(0).notNull(), // 0-100 percent
+  timesEncountered: int("times_encountered").default(1).notNull(),
+  lastReviewedAt: timestamp("last_reviewed_at"),
+  addedAt: timestamp("added_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;

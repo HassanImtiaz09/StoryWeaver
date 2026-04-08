@@ -301,3 +301,149 @@ Criteria:
 - Educational Value: Meaningful lessons or learning opportunities
 - Narrative Coherence: Story flows logically, characters consistent, satisfying arc`;
 }
+
+/**
+ * Multilingual language guidelines for story generation
+ * Maps language_ageGroup to vocabulary and grammar rules
+ */
+export const LANGUAGE_VOCABULARY_GUIDELINES: Record<string, string> = {
+  // English
+  en_default: `English: Use clear, simple vocabulary. Sentences 5-15 words. Include sensory descriptions. Follow natural English word order.`,
+
+  // Spanish
+  es_default: `Spanish: Use present tense frequently. Include diminutives for endearment (ito/ita). Maintain subject-verb-object order. Use "hay" for existence.`,
+
+  // French
+  fr_default: `French: Use present and passé composé tenses. Include liaisons and proper pronunciation guides. Use formal address with children (vous). Maintain French article usage.`,
+
+  // German
+  de_default: `German: Use present tense. Include articles (der/die/das). Maintain German word order (verb-final in clauses). Use diminutives (chen/lein). Separate prefixes clearly.`,
+
+  // Italian
+  it_default: `Italian: Use present tense. Include proper article agreements. Use "c'è/ci sono" for existence. Maintain Italian syntax. Include diminutive endings naturally.`,
+
+  // Portuguese
+  pt_default: `Portuguese: Use present tense. Include diminutives naturally. Use "há" for time expressions. Maintain Portuguese phonetics and rhythm.`,
+
+  // Mandarin Chinese
+  zh_default: `Mandarin Chinese: Use simplified characters when possible. Keep sentences short (subject-verb-object). Use measure words correctly (个/条/只). Include emotional particles (呀/啊). Use present tense (no verb conjugation).`,
+
+  // Japanese
+  ja_default: `Japanese: Use hiragana, katakana, and kanji appropriately. Use polite forms (ます). Keep sentences 5-8 words. Use particles correctly (は/を/に). Include onomatopoeia naturally.`,
+
+  // Korean
+  ko_default: `Korean: Use polite formal style (습니다). Include particles correctly (을/를/이/가). Use present tense. Keep sentences moderate length. Include particles for emotion and emphasis.`,
+
+  // Arabic
+  ar_default: `Arabic (Modern Standard): Use Modern Standard Arabic. Include proper diacritics. Use present tense. Keep sentences 5-12 words. Use appropriate formality level for children. Include cultural expressions naturally.`,
+
+  // Hindi
+  hi_default: `Hindi: Use present tense. Include articles correctly. Use postpositions properly. Maintain Devanagari script consistency. Use honorifics appropriately.`,
+
+  // Russian
+  ru_default: `Russian: Use present tense (imperfective aspects). Maintain case agreement (nominative, accusative, etc.). Include articles sparingly. Use correct gender agreements. Include Russian diminutives naturally.`,
+
+  // Dutch
+  nl_default: `Dutch: Use present tense. Maintain Dutch word order (verb-second in main clauses). Include articles correctly (de/het). Use simple compound sentences.`,
+
+  // Swedish
+  sv_default: `Swedish: Use present tense. Include articles correctly (en/ett). Maintain Swedish word order. Use simple, clear phrasing. Include common Swedish words naturally.`,
+
+  // Turkish
+  tr_default: `Turkish: Use present tense. Maintain subject-object-verb order. Use agglutination correctly. Include Turkish suffixes for case. Use appropriate formality.`,
+};
+
+/**
+ * Translation template for converting story pages
+ */
+export function TRANSLATION_TEMPLATE(
+  sourceText: string,
+  sourceLanguage: string,
+  targetLanguage: string,
+  childAge: number,
+  ageGroup: string,
+  vocabGuidelines: string,
+  context?: string
+): string {
+  const sourceContext = context ? `\n\nPrevious context: ${context}` : "";
+
+  return `Translate the following children's story text from ${sourceLanguage} to ${targetLanguage}.
+
+TRANSLATION REQUIREMENTS:
+1. Maintain the original emotional tone and pacing
+2. Keep cultural references appropriate for a ${childAge}-year-old
+3. Adjust vocabulary to be age-appropriate for the target language
+4. Preserve all names, character voices, and dialogue structure
+5. Use natural phrasing that sounds native to ${targetLanguage}
+
+VOCABULARY AND GRAMMAR GUIDELINES:
+${vocabGuidelines}
+
+${sourceContext}
+
+SOURCE TEXT (${sourceLanguage}):
+"${sourceText}"
+
+TRANSLATION INSTRUCTIONS:
+- Do NOT use formal/academic language
+- DO use conversational, child-friendly phrasing
+- Preserve sentence structure where possible
+- Translate idioms to equivalent ${targetLanguage} expressions
+- Keep the same number of lines/paragraphs
+- Maintain all dialogue formatting (Speaker: "dialogue")
+
+Return ONLY the translated text, no explanations or metadata.`;
+}
+
+/**
+ * Bilingual vocabulary template for language learning
+ */
+export function BILINGUAL_VOCABULARY_TEMPLATE(
+  pageText: string,
+  sourceLanguage: string,
+  targetLanguage: string,
+  ageGroup: string
+): string {
+  const wordCountByAge: Record<string, number> = {
+    "2-4": 3,
+    "5-7": 5,
+    "8-10": 7,
+    "11-13": 10,
+  };
+
+  const count = wordCountByAge[ageGroup] || 5;
+
+  return `Extract the top ${count} most important vocabulary words from this children's story text for a child to learn in ${targetLanguage}.
+
+SELECTION CRITERIA:
+1. Choose words that are:
+   - Key to understanding the story
+   - New or challenging for a ${ageGroup}-year-old
+   - Frequently used in the language
+   - Cultural or interesting
+
+2. For each word, provide:
+   - Word in original text
+   - Translation to ${targetLanguage}
+   - Phonetic pronunciation guide
+   - Simple definition appropriate for a child
+   - Example sentence from the text or new simple sentence
+
+SOURCE TEXT (${sourceLanguage}):
+"${pageText}"
+
+Return valid JSON:
+{
+  "vocabularyWords": [
+    {
+      "word": "original word",
+      "translation": "translation in ${targetLanguage}",
+      "pronunciation": "phonetic guide",
+      "definition": "simple definition for children",
+      "exampleSentence": "simple example sentence"
+    }
+  ]
+}
+
+Make sure the words are appropriate for learning and memorable for the child.`;
+}
