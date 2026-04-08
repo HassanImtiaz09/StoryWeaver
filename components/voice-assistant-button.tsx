@@ -7,11 +7,15 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 
 interface VoiceAssistantButtonProps {
   onTranscriptComplete: (transcript: string) => void;
+  isSpeaking?: boolean;
+  onInterruptSpeech?: () => void;
   enabled?: boolean;
 }
 
 export function VoiceAssistantButton({
   onTranscriptComplete,
+  isSpeaking = false,
+  onInterruptSpeech,
   enabled = true,
 }: VoiceAssistantButtonProps) {
   const store = useVoiceAssistantStore();
@@ -63,6 +67,12 @@ export function VoiceAssistantButton({
       return;
     }
 
+    // If speaking, interrupt the speech
+    if (isSpeaking) {
+      onInterruptSpeech?.();
+      return;
+    }
+
     if (store.isListening) {
       // Stop listening
       await store.stopListening();
@@ -80,12 +90,14 @@ export function VoiceAssistantButton({
 
   const getButtonColor = () => {
     if (!enabled || !store.voiceEnabled) return "#D1D5DB";
+    if (isSpeaking) return "#6366F1"; // Indigo for speaking
     if (store.isProcessing) return "#F59E0B";
     if (store.isListening) return "#EF4444";
     return "#3B82F6";
   };
 
   const getIconName = () => {
+    if (isSpeaking) return "speaker.wave.2";
     if (store.isProcessing) return "waveform.circle";
     if (store.isListening) return "mic.fill";
     return "mic";
@@ -127,6 +139,9 @@ export function VoiceAssistantButton({
       </Animated.View>
 
       {/* Status indicator text */}
+      {isSpeaking && (
+        <Text className="text-indigo-500 text-xs font-semibold">Speaking...</Text>
+      )}
       {store.isListening && (
         <Text className="text-red-500 text-xs font-semibold">Listening...</Text>
       )}

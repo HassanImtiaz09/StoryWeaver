@@ -36,6 +36,11 @@ export interface AppSettings {
   voiceAssistantEnabled: boolean;
   voiceCommandHints: boolean;
   voiceLanguage: string; // e.g., "en-US", "es-ES"
+
+  // Voice response (TTS - app speaking back)
+  voiceResponseEnabled: boolean; // Whether app speaks responses back
+  voiceResponseSpeed: number; // 0.75-1.25, default 1.0
+  voiceResponseMode: "quick" | "rich" | "auto"; // quick = device TTS, rich = ElevenLabs, auto = smart choice
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -59,6 +64,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   voiceAssistantEnabled: true,
   voiceCommandHints: true,
   voiceLanguage: "en-US",
+  voiceResponseEnabled: true,
+  voiceResponseSpeed: 1.0,
+  voiceResponseMode: "auto",
 };
 
 export async function getSettings(): Promise<AppSettings> {

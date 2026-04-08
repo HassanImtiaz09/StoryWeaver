@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from "react";
 import { useVoiceAssistantStore, parseVoiceCommand, type VoiceCommand } from "@/lib/voice-assistant";
 import { trpc } from "@/app/_layout";
 import { getSettings } from "@/lib/settings-store";
+import { speakContent, stopSpeaking, getIsSpeaking } from "@/lib/voice-response";
 
 export interface UseVoiceAssistantOptions {
   episodeId: number;
@@ -25,6 +26,7 @@ export interface UseVoiceAssistantOptions {
 export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
   const store = useVoiceAssistantStore();
   const [settings, setSettings] = useState<Awaited<ReturnType<typeof getSettings>> | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const voiceCommandMutation = trpc.voice.processCommand.useMutation();
 
   // Load settings on mount
@@ -34,6 +36,15 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
       setSettings(loaded);
     };
     loadSettings();
+  }, []);
+
+  // Monitor speaking status
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsSpeaking(getIsSpeaking());
+    }, 100);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Handle transcript completion
@@ -73,6 +84,18 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
         store.setProcessing(false);
         store.clearTranscript();
 
+        // Speak the response if TTS is enabled
+        if (result.spokenText && settings?.voiceResponseEnabled) {
+          await speakContent(result.spokenText, {
+            onStart: () => setIsSpeaking(true),
+            onDone: () => setIsSpeaking(false),
+            onError: (error) => {
+              console.error("TTS error:", error);
+              setIsSpeaking(false);
+            },
+          });
+        }
+
         return result;
       } catch (error) {
         console.error("Voice command error:", error);
@@ -80,11 +103,12 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
         return {
           type: "error" as const,
           content: "Sorry, something went wrong. Try again!",
+          spokenText: "Sorry, something went wrong. Try again!",
           approved: false,
         };
       }
     },
-    [options, store, voiceCommandMutation]
+    [options, store, voiceCommandMutation, settings]
   );
 
   const startListening = useCallback(async () => {
@@ -113,6 +137,11 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     store.clearError();
   }, [store]);
 
+  const handleStopSpeaking = useCallback(async () => {
+    await stopSpeaking();
+    setIsSpeaking(false);
+  }, []);
+
   const isEnabled = settings?.voiceAssistantEnabled ?? true;
   const showHints = settings?.voiceCommandHints ?? true;
 
@@ -120,6 +149,7 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     // State
     isListening: store.isListening,
     isProcessing: store.isProcessing,
+    isSpeaking,
     transcript: store.transcript,
     lastCommand: store.lastCommand,
     error: store.error,
@@ -131,6 +161,7 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     stopListening,
     handleTranscriptComplete,
     resetVoiceState,
+    stopSpeaking: handleStopSpeaking,
     setTranscript: (text: string) => store.setTranscript(text),
   };
 }

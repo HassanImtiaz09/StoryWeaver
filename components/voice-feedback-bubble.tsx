@@ -1,12 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import Animated, { FadeIn, FadeOut, SlideInUp, SlideOutDown } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInUp,
+  SlideOutDown,
+  withRepeat,
+  withSequence,
+  useSharedValue,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+  withTiming,
+} from "react-native-reanimated";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export interface VoiceFeedbackProps {
   command?: string;
   response: string;
   type: "success" | "error" | "info";
+  isSpeaking?: boolean;
+  onStopSpeaking?: () => void;
   autoHideDuration?: number;
   onDismiss?: () => void;
 }
@@ -15,20 +29,51 @@ export function VoiceFeedbackBubble({
   command,
   response,
   type,
+  isSpeaking = false,
+  onStopSpeaking,
   autoHideDuration = 5000,
   onDismiss,
 }: VoiceFeedbackProps) {
   const [visible, setVisible] = useState(true);
+  const waveScale = useSharedValue(1);
+
+  // Animate waveform when speaking
+  useEffect(() => {
+    if (isSpeaking) {
+      waveScale.value = withRepeat(
+        withSequence(
+          withTiming(1.3, { duration: 800 }),
+          withTiming(1, { duration: 800 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      waveScale.value = 1;
+    }
+  }, [isSpeaking, waveScale]);
+
+  const waveAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(
+        waveScale.value,
+        [1, 1.3],
+        [0.3, 1],
+        Extrapolate.CLAMP
+      ),
+      transform: [{ scaleY: waveScale.value }],
+    };
+  });
 
   useEffect(() => {
-    if (visible && autoHideDuration > 0) {
+    if (visible && autoHideDuration > 0 && !isSpeaking) {
       const timer = setTimeout(() => {
         setVisible(false);
         onDismiss?.();
       }, autoHideDuration);
       return () => clearTimeout(timer);
     }
-  }, [visible, autoHideDuration, onDismiss]);
+  }, [visible, autoHideDuration, onDismiss, isSpeaking]);
 
   if (!visible) return null;
 
@@ -96,12 +141,23 @@ export function VoiceFeedbackBubble({
       >
         {/* Icon */}
         <View className="mt-0.5">
-          <IconSymbol
-            name={getIconName()}
-            size={20}
-            color={getIconColor()}
-            weight="semibold"
-          />
+          {isSpeaking ? (
+            <Animated.View style={waveAnimatedStyle}>
+              <IconSymbol
+                name="speaker.wave.2"
+                size={20}
+                color={getIconColor()}
+                weight="semibold"
+              />
+            </Animated.View>
+          ) : (
+            <IconSymbol
+              name={getIconName()}
+              size={20}
+              color={getIconColor()}
+              weight="semibold"
+            />
+          )}
         </View>
 
         {/* Content */}
@@ -117,18 +173,27 @@ export function VoiceFeedbackBubble({
           >
             {response}
           </Text>
+          {isSpeaking && (
+            <Text className="text-xs font-semibold text-gray-500 mt-2">
+              Speaking...
+            </Text>
+          )}
         </View>
 
-        {/* Close button */}
+        {/* Close/Mute button */}
         <Pressable
           onPress={() => {
-            setVisible(false);
-            onDismiss?.();
+            if (isSpeaking) {
+              onStopSpeaking?.();
+            } else {
+              setVisible(false);
+              onDismiss?.();
+            }
           }}
           className="ml-2 mt-0.5"
         >
           <IconSymbol
-            name="xmark"
+            name={isSpeaking ? "speaker.slash.fill" : "xmark"}
             size={16}
             color={getIconColor()}
             weight="semibold"

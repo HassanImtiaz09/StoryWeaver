@@ -1,5 +1,6 @@
 import { getDefaultProvider } from "./aiProvider";
 import { moderateStoryContent } from "./contentModeration";
+import { generateSpokenResponse } from "./voiceResponseGenerator";
 
 export interface VoiceCommandInput {
   command: string;
@@ -31,6 +32,7 @@ export type VoiceCommandResponseType =
 export interface VoiceCommandResponse {
   type: VoiceCommandResponseType;
   content: string;
+  spokenText: string; // What the app should speak to the child
   modifiedText?: string;
   pageNumber?: number;
   conversationStarter?: boolean;
@@ -130,6 +132,7 @@ Respond with ONLY the modified story text, no explanations.`;
       return {
         type: "error",
         content: "I couldn't incorporate that change safely. Try something else!",
+        spokenText: "I couldn't incorporate that change safely. Try something else!",
         approved: false,
         moderationWarning: moderation.flaggedContent
           .slice(0, 2)
@@ -138,9 +141,19 @@ Respond with ONLY the modified story text, no explanations.`;
       };
     }
 
+    const displayText = `Great idea, ${input.childProfile.name}! Here's what happens:`;
+    const spokenResponse = await generateSpokenResponse({
+      commandType: "story_modification",
+      aiResponse: modifiedText,
+      childAge: input.childProfile.age,
+      childName: input.childProfile.name,
+      storyTitle: input.storyContext.title,
+    });
+
     return {
       type: "story_modification",
-      content: `Great idea, ${input.childProfile.name}! Here's what happens:`,
+      content: displayText,
+      spokenText: spokenResponse.spokenText,
       modifiedText,
       approved: true,
     };
@@ -149,6 +162,8 @@ Respond with ONLY the modified story text, no explanations.`;
     return {
       type: "error",
       content:
+        "Hmm, I had trouble with that. Let's try something else!",
+      spokenText:
         "Hmm, I had trouble with that. Let's try something else!",
       approved: false,
     };
@@ -196,13 +211,23 @@ Respond with ONLY the answer, no explanations.`;
       return {
         type: "error",
         content: "I'm not sure how to answer that right now.",
+        spokenText: "I'm not sure how to answer that right now.",
         approved: false,
       };
     }
 
+    const spokenResponse = await generateSpokenResponse({
+      commandType: "answer",
+      aiResponse: answer,
+      childAge: input.childProfile.age,
+      childName: input.childProfile.name,
+      storyTitle: input.storyContext.title,
+    });
+
     return {
       type: "answer",
       content: answer,
+      spokenText: spokenResponse.spokenText,
       approved: true,
       conversationStarter: true,
     };
@@ -211,6 +236,7 @@ Respond with ONLY the answer, no explanations.`;
     return {
       type: "error",
       content: "Let me keep reading to find the answer!",
+      spokenText: "Let me keep reading to find the answer!",
       approved: false,
     };
   }
@@ -243,9 +269,12 @@ function processNavigation(input: VoiceCommandInput): VoiceCommandResponse {
       ? "back"
       : "replay";
 
+  const message = messages[key];
+
   return {
     type: "navigation",
-    content: messages[key],
+    content: message,
+    spokenText: message,
     pageNumber: newPage,
     approved: true,
   };
@@ -294,13 +323,23 @@ Respond with ONLY the interaction response, no explanations.`;
       return {
         type: "interaction_effect",
         content: "Oops! That didn't work out. Try something else!",
+        spokenText: "Oops! That didn't work out. Try something else!",
         approved: false,
       };
     }
 
+    const spokenResponse = await generateSpokenResponse({
+      commandType: "interaction_effect",
+      aiResponse: response,
+      childAge: input.childProfile.age,
+      childName: input.childProfile.name,
+      storyTitle: input.storyContext.title,
+    });
+
     return {
       type: "interaction_effect",
       content: response,
+      spokenText: spokenResponse.spokenText,
       approved: true,
     };
   } catch (error) {
@@ -308,6 +347,7 @@ Respond with ONLY the interaction response, no explanations.`;
     return {
       type: "interaction_effect",
       content: "That's a fun idea! Let's keep reading.",
+      spokenText: "That's a fun idea! Let's keep reading.",
       approved: false,
     };
   }
@@ -324,6 +364,7 @@ export async function processVoiceCommand(
     return {
       type: "error",
       content: "I didn't catch that. Try again!",
+      spokenText: "I didn't catch that. Try again!",
       approved: false,
     };
   }
@@ -334,6 +375,7 @@ export async function processVoiceCommand(
     return {
       type: "error",
       content: "Hmm, I can't help with that request. Try something else!",
+      spokenText: "Hmm, I can't help with that request. Try something else!",
       approved: false,
       moderationWarning: commandModeration.flaggedContent
         .slice(0, 1)

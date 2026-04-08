@@ -2859,6 +2859,7 @@ export const appRouter = router({
           return {
             type: "error" as const,
             content: "Sorry, I couldn't process that. Try again!",
+            spokenText: "Sorry, I couldn't process that. Try again!",
             approved: false,
           };
         }
