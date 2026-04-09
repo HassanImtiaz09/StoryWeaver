@@ -40,6 +40,8 @@ import { StoryNarrative, StoryTitle, CaptionText } from '@/components/styled-tex
 import { WordHighlighter } from '@/components/word-highlighter';
 import { IllustrationShimmer } from '@/components/illustration-shimmer';
 import { StoryFeedbackModal } from '@/components/story-feedback-modal';
+import { ReadingGuide } from '@/components/reading-guide';
+import { useAccessibilityStore } from '@/lib/accessibility-store';
 
 // ─── Constants ──────────────────────────────────────────────────
 const MOOD_COLORS: Record<string, [string, string]> = {
@@ -250,6 +252,10 @@ export default function StoryReaderScreen() {
 
   // Interact tooltip
   const [activeTooltip, setActiveTooltip] = useState<InteractZone | null>(null);
+
+  // Reading guide state
+  const [textAreaLayout, setTextAreaLayout] = useState({ height: 0, y: 0 });
+  const accessibility = useAccessibilityStore();
 
   // Refs
   const narratorSoundRef = useRef<Audio.Sound | null>(null);
@@ -969,7 +975,17 @@ export default function StoryReaderScreen() {
               accessibilityRole="text"
               accessibilityLabel={`Story text: ${currentPage?.storyText || ''}`}
               accessibilityHint="Swipe left or right to turn pages"
+              onLayout={(event) => {
+                const { height, y } = event.nativeEvent.layout;
+                setTextAreaLayout({ height, y });
+              }}
             >
+              {/* Reading Guide Overlay */}
+              <ReadingGuide
+                enabled={accessibility.readingGuide || !!accessibility.colorOverlay}
+                textAreaHeight={textAreaLayout.height}
+                textAreaY={textAreaLayout.y}
+              />
               <FlatList
                 ref={flatListRef}
                 data={pages}

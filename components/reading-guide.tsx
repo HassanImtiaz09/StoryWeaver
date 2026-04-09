@@ -1,113 +1,217 @@
-import React, { useState } from "react";
-import { View, PanResponder, StyleSheet, GestureResponderEvent } from "react-native";
+import React, { useMemo } from "react";
+import {
+  View,
+  StyleSheet,
+  AccessibilityInfo,
+} from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useAccessibilityStore } from "@/lib/accessibility-store";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
-/**
- * Reading Guide Component
- * Displays a transparent overlay with a highlighted "reading strip"
- * that users can drag up/down to follow along with the text
- */
-export interface ReadingGuideProps {
-  containerHeight: number; // Total height of the text container
-  stripHeight?: "small" | "medium" | "large"; // Default: medium
+interface ReadingGuideProps {
+  enabled: boolean;
+  textAreaHeight: number;
+  textAreaY: number;
 }
 
-const STRIP_HEIGHTS = {
-  small: 60,
-  medium: 80,
-  large: 100,
-};
+/**
+ * ReadingGuide Component
+ *
+ * Provides two visual accessibility modes:
+ * 1. Ruler Mode: A horizontal semi-transparent strip highlighting one line at a time
+ * 2. Color Overlay Mode: A full-screen translucent tint to reduce visual stress
+ *
+ * In Ruler Mode, the guide follows the user's touch input via pan gestures.
+ * In Color Overlay Mode, a colored overlay is applied to the entire reading area.
+ */
+export const ReadingGuide = React.memo(({
+  enabled,
+  textAreaHeight,
+  textAreaY,
+}: ReadingGuideProps) => {
+  const { readingGuide, colorOverlay, colorOverlayOpacity } = useAccessibilityStore();
+  const reducedMotion = useReducedMotion();
 
-export function ReadingGuide({ containerHeight, stripHeight = "medium" }: ReadingGuideProps) {
-  const { readingGuide } = useAccessibilityStore();
-  const [scrollPosition, setScrollPosition] = useState(0);
+  // Shared animation values for ruler guide position
+  const guideY = useSharedValue(0);
+  const isGestureActive = useSharedValue(false);
 
-  const stripHeightValue = STRIP_HEIGHTS[stripHeight];
+  const GUIDE_HEIGHT = 40;
+  const OVERLAY_OPACITY_SCALE = 0.01; // Map 10-40 to 0.1-0.4
 
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (_evt: GestureResponderEvent, gestureState) => {
-        const newPosition = Math.max(
-          0,
-          Math.min(containerHeight - stripHeightValue, scrollPosition + gestureState.dy)
-        );
-        setScrollPosition(newPosition);
-      },
-    })
-  ).current;
+  // Color definitions matching accessibility store
+  const overlayColorMap: Record<string, string> = {
+    amber: "#FFD700",
+    blue: "#4FC3F7",
+    green: "#81C784",
+    pink: "#F48FB1",
+    purple: "#CE93D8",
+  };
 
-  if (!readingGuide) {
+  // Animated styles for ruler guide
+  const guideAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: guideY.value }],
+    };
+  });
+
+  // Pan gesture for ruler mode
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onStart(() => {
+          isGestureActive.value = true;
+        })
+        .onUpdate((event) => {
+          // Map touch position to guide position (Y position relative to text area)
+          const newY = Math.max(0, Math.min(event.y - textAreaY - GUIDE_HEIGHT / 2, textAreaHeight - GUIDE_HEIGHT));
+          if (reducedMotion) {
+            guideY.value = newY;
+          } else {
+            guideY.value = withSpring(newY, {
+              damping: 10,
+              mass: 1,
+              overshootClamping: false,
+            });
+          }
+        })
+        .onFinalize(() => {
+          isGestureActive.value = false;
+        }),
+    [textAreaHeight, textAreaY, reducedMotion]
+  );
+
+  if (!enabled) {
     return null;
   }
 
-  return (
-    <Animated.View
-      entering={FadeInDown.duration(300)}
-      {...panResponder.panHandlers}
-      style={[
-        styles.container,
-        {
-          height: containerHeight,
-        },
-      ]}
-      accessibilityLabel="Reading guide - drag to reposition"
-      accessibilityRole="none"
-      accessibilityHint="Drag the highlighted reading strip to follow along with the text"
-    >
-      {/* Top darkened area */}
-      <View
-        style={[
-          styles.darkenedArea,
-          {
-            height: scrollPosition,
-          },
-        ]}
-      />
+  // Return ruler guide if enabled
+  if (readingGuide) {
+    return (
+      <GestureDetector gesture={panGesture}>
+        <View
+          style={[
+            styles.gestureContainer,
+            {
+              height: textAreaHeight,
+              top: textAreaY,
+            },
+          ]}
+          accessibilityLabel="Reading guide ruler"
+          accessibilityHint="Drag vertically to move the reading line"
+        >
+          {/* Dark overlay above the guide */}
+          <Animated.View
+            style={[
+              styles.overlayAbove,
+              {
+                height: guideY.value,
+              },
+            ]}
+            pointerEvents="none"
+            accessibilityElementsHidden={true}
+          />
 
-      {/* Highlighted reading strip */}
+          {/* Reading guide ruler strip */}
+          <Animated.View
+            style={[
+              styles.guide,
+              {
+                height: GUIDE_HEIGHT,
+              },
+              guideAnimatedStyle,
+            ]}
+            pointerEvents="none"
+            accessibilityElementsHidden={true}
+          />
+
+          {/* Dark overlay below the guide */}
+          <Animated.View
+            style={[
+              styles.overlayBelow,
+              {
+                top: guideY.value + GUIDE_HEIGHT,
+                height: Math.max(0, textAreaHeight - (guideY.value + GUIDE_HEIGHT)),
+              },
+            ]}
+            pointerEvents="none"
+            accessibilityElementsHidden={true}
+          />
+        </View>
+      </GestureDetector>
+    );
+  }
+
+  // Return color overlay if enabled
+  if (colorOverlay) {
+    const overlayColor = overlayColorMap[colorOverlay] || overlayColorMap.amber;
+    const opacity = colorOverlayOpacity * OVERLAY_OPACITY_SCALE;
+
+    return (
       <View
         style={[
-          styles.readingStrip,
+          styles.colorOverlayContainer,
           {
-            height: stripHeightValue,
+            backgroundColor: `rgba(${parseInt(overlayColor.slice(1, 3), 16)}, ${parseInt(overlayColor.slice(3, 5), 16)}, ${parseInt(overlayColor.slice(5, 7), 16)}, ${opacity})`,
+            height: textAreaHeight,
+            top: textAreaY,
           },
         ]}
+        pointerEvents="none"
+        accessibilityLabel="Color overlay for visual stress relief"
+        accessibilityRole="none"
         accessibilityElementsHidden={true}
       />
+    );
+  }
 
-      {/* Bottom darkened area */}
-      <View
-        style={[
-          styles.darkenedArea,
-          {
-            flex: 1,
-          },
-        ]}
-      />
-    </Animated.View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 99,
-  },
-  darkenedArea: {
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-  },
-  readingStrip: {
-    backgroundColor: "rgba(255, 215, 0, 0.15)",
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: "rgba(255, 215, 0, 0.4)",
-  },
+  return null;
 });
 
-export default ReadingGuide;
+ReadingGuide.displayName = "ReadingGuide";
+
+const styles = StyleSheet.create({
+  gestureContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    width: "100%",
+    zIndex: 50,
+  },
+  guide: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(255, 215, 0, 0.3)", // Soft yellow/amber
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: "rgba(255, 215, 0, 0.6)",
+  },
+  overlayAbove: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  overlayBelow: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+  },
+  colorOverlayContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    width: "100%",
+    zIndex: 50,
+    pointerEvents: "none",
+  },
+});
