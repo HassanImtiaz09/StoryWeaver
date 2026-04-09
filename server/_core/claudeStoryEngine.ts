@@ -39,6 +39,7 @@ function sanitizeChildProfile(child: ChildProfile): ChildProfile {
     fears: sanitizeArray(child.fears) || undefined,
     favoriteColor: sanitizeField(child.favoriteColor, 30) || undefined,
     favoriteCharacter: sanitizeField(child.favoriteCharacter, 60) || undefined,
+    readingLevel: sanitizeField(child.readingLevel, 30) || undefined,
     language: sanitizeField(child.language, 30) || undefined,
     hairColor: sanitizeField(child.hairColor, 30) || undefined,
     skinTone: sanitizeField(child.skinTone, 30) || undefined,

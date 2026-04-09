@@ -953,11 +953,15 @@ export const appRouter = router({
           // Log the flagged content for review
           await db.insert(contentModerationLog).values({
             userId: ctx.user.id,
+            childId: child.id,
             contentType: "episode",
-            contentId: `arc-${input.arcId}-ep-${input.episodeNumber}`,
-            flaggedReason: moderationResult.flaggedContent.map((f) => f.reason).join("; ") || "Content failed safety checks",
-            moderationScore: moderationResult.overallSeverity === "high" ? 100 : moderationResult.overallSeverity === "medium" ? 60 : 30,
-            action: "blocked",
+            approved: false,
+            flaggedItems: moderationResult.flaggedContent.map((f) => ({
+              text: f.text,
+              reason: f.reason,
+              severity: f.severity,
+            })),
+            overallSeverity: moderationResult.overallSeverity,
           });
           throw new TRPCError({
             code: "BAD_REQUEST",
