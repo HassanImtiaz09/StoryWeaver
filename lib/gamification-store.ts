@@ -98,10 +98,8 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       return { childProgress: newMap, isLoading: false };
     });
 
-    // Cache to AsyncStorage
-    const state = get();
-    const cacheData = Array.from(state.childProgress.entries());
-    await safeCache(GAMIFICATION_KEY, cacheData);
+    // Cache to AsyncStorage with per-child key
+    await safeCache(`${GAMIFICATION_KEY}_${childId}`, progress);
   },
 
   setAchievements: async (childId: number, achievements: Achievement[]) => {
@@ -111,10 +109,8 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       return { allAchievements: newMap, isLoading: false };
     });
 
-    // Cache to AsyncStorage
-    const state = get();
-    const cacheData = Array.from(state.allAchievements.entries());
-    await safeCache(GAMIFICATION_KEY, cacheData);
+    // Cache to AsyncStorage with per-child key
+    await safeCache(`${GAMIFICATION_KEY}_achievements_${childId}`, achievements);
   },
 
   setLeaderboard: async (leaderboard: LeaderboardEntry[]) => {
@@ -131,10 +127,8 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
       return { childProgress: newMap, isLoading: false };
     });
 
-    // Cache to AsyncStorage
-    const state = get();
-    const cacheData = Array.from(state.childProgress.entries());
-    await safeCache(GAMIFICATION_KEY, cacheData);
+    // Cache to AsyncStorage with per-child key
+    await safeCache(`${GAMIFICATION_KEY}_${childId}`, progress);
   },
 
   clearError: () => {
@@ -145,17 +139,16 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
 // Load cached progress on store creation
 export async function initializeGamificationCache() {
   try {
-    const cached = await AsyncStorage.getItem(GAMIFICATION_KEY);
-    if (cached) {
-      const data = JSON.parse(cached);
-      const store = useGamificationStore.getState();
+    const store = useGamificationStore.getState();
 
-      if (Array.isArray(data)) {
-        // Old cache format with progress entries
-        const progressMap = new Map(data);
-        store.childProgress = progressMap;
-      }
-    }
+    // Note: Per-child caching is handled by AsyncStorage keys like
+    // `${GAMIFICATION_KEY}_${childId}` and `${GAMIFICATION_KEY}_achievements_${childId}`
+    // These are loaded on-demand in individual child profile views.
+    //
+    // For bulk loading all children's progress, you would iterate through known childIds
+    // and load each: const progress = await AsyncStorage.getItem(`${GAMIFICATION_KEY}_${childId}`);
+    //
+    // This approach is more efficient than loading a single large blob containing all children.
   } catch (error) {
     console.error("Failed to load gamification cache:", error);
   }
