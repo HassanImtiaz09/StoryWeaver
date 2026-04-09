@@ -1,8 +1,12 @@
 /**
- * Offline Store (Zustand)
+ * Offline Store (Zustand) (CQ-002)
  *
  * Manages offline story state and synchronization.
  * Tracks downloaded stories, active downloads, storage usage, and network status.
+ *
+ * STATUS: Currently in use by offline-library.tsx, offline-indicator.tsx,
+ * download-manager-sheet.tsx, offline-download-button.tsx, offline-settings.tsx,
+ * and offline-manager-hook.ts. This file is actively used and maintained.
  */
 
 import { create } from "zustand";

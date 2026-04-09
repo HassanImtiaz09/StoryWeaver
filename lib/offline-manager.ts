@@ -1,8 +1,12 @@
 /**
- * Offline Manager
+ * Offline Manager (CQ-002)
  *
  * High-level API for managing offline content.
  * Coordinates story downloads, caching, and preloading.
+ *
+ * STATUS: Currently in use by offline-library.tsx, offline-indicator.tsx,
+ * download-manager-sheet.tsx, offline-download-button.tsx, offline-settings.tsx,
+ * and offline-manager-hook.ts. This file is actively used and maintained.
  */
 
 import { offlineStorageService, type StoryTextData } from "./offline-storage";
