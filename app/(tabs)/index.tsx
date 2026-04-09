@@ -196,30 +196,44 @@ export default function TonightScreen() {
     pointsReward: number;
     tier: "bronze" | "silver" | "gold" | "diamond";
   } | null>(null);
+  const [dataFetchError, setDataFetchError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
-    const kids = await getLocalChildren();
-    setChildren(kids);
-    if (kids.length > 0) {
-      const child =
-        selectedChild && kids.find((k) => k.id === selectedChild.id)
-          ? selectedChild
-          : kids[0];
-      setSelectedChild(child);
-      // Update global child context for theming
-      await updateSelectedChild(child.id, child.age);
-      const arcs = await getLocalStoryArcs();
-      setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
-      await fetchGamificationProgress(child.id);
-    } else {
-      setSelectedChild(null);
-      setActiveArcs([]);
+    try {
+      setDataFetchError(null);
+      const kids = await getLocalChildren();
+      setChildren(kids);
+      if (kids.length > 0) {
+        const child =
+          selectedChild && kids.find((k) => k.id === selectedChild.id)
+            ? selectedChild
+            : kids[0];
+        setSelectedChild(child);
+        // Update global child context for theming
+        await updateSelectedChild(child.id, child.age);
+        const arcs = await getLocalStoryArcs();
+        setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
+        try {
+          await fetchGamificationProgress(child.id);
+        } catch (err) {
+          // Network error fetching gamification progress
+          setDataFetchError("Failed to load gamification data. Check your connection.");
+          console.error("Gamification fetch error:", err);
+        }
+      } else {
+        setSelectedChild(null);
+        setActiveArcs([]);
+      }
+      const sub = await getSubscriptionState();
+      setSubState(sub);
+      const bedtime = await getBedtimeState();
+      setBedtimeState(bedtime);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error loading data:", error);
+      setDataFetchError("Failed to load home screen data. Check your connection.");
+      setLoading(false);
     }
-    const sub = await getSubscriptionState();
-    setSubState(sub);
-    const bedtime = await getBedtimeState();
-    setBedtimeState(bedtime);
-    setLoading(false);
   }, [selectedChild, gamificationStore]);
 
   useFocusEffect(
@@ -230,8 +244,11 @@ export default function TonightScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await loadData();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const selectChild = async (child: LocalChild) => {
@@ -266,6 +283,23 @@ export default function TonightScreen() {
       <ScreenContainer>
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color="#FFD700" />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // ─── Network error state ───────────────────────────────────
+  if (dataFetchError && children.length > 0) {
+    return (
+      <ScreenContainer>
+        <View style={styles.centerContent}>
+          <IllustratedEmptyState
+            type="no-network"
+            title="No Internet Connection"
+            subtitle="Check your connection and try again"
+            actionLabel="Retry"
+            onAction={() => loadData()}
+          />
         </View>
       </ScreenContainer>
     );

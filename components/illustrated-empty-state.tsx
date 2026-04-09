@@ -10,6 +10,8 @@
  *   - no-stickers: Album with magnifying glass
  *   - no-bookshelf: Wooden shelf with dust motes
  *   - no-missions: Compass with rotation wobble
+ *   - no-network: Confused Ollie with broken Wi-Fi symbol and side-to-side sway
+ *   - error: Broken book tilting with falling stars and healing bandaid pop-in
  */
 import React, { useEffect } from "react";
 import {
@@ -43,7 +45,9 @@ export type EmptyStateType =
   | "no-achievements"
   | "no-stickers"
   | "no-bookshelf"
-  | "no-missions";
+  | "no-missions"
+  | "no-network"
+  | "error";
 
 interface IllustratedEmptyStateProps {
   type: EmptyStateType;
@@ -427,6 +431,274 @@ function NoMissionsIllustration({ compact }: { compact?: boolean }) {
   );
 }
 
+/**
+ * No Network: Owl Ollie confused with broken Wi-Fi symbol
+ */
+function NoNetworkIllustration({ compact }: { compact?: boolean }) {
+  const reducedMotion = useReducedMotion();
+  const illustrationHeight = compact ? 80 : 120;
+  const translateX = useSharedValue(0);
+
+  useEffect(() => {
+    if (!reducedMotion) {
+      translateX.value = withRepeat(
+        withSequence(
+          withTiming(5, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(-5, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        false
+      );
+    }
+  }, [reducedMotion]);
+
+  const swayStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  return (
+    <View
+      style={[styles.illustrationContainer, { height: illustrationHeight }]}
+      accessible={true}
+      accessibilityRole="image"
+      accessibilityLabel="Illustration: Confused owl with broken Wi-Fi symbol"
+    >
+      <View style={{ position: "relative", alignItems: "center" }}>
+        {/* Owl */}
+        <Animated.View style={swayStyle}>
+          <Text style={{ fontSize: compact ? 48 : 64 }}>🦉</Text>
+        </Animated.View>
+
+        {/* Speech bubble with question mark */}
+        <View style={styles.speechBubble} accessible={false}>
+          <Text style={styles.speechText}>?</Text>
+        </View>
+
+        {/* Wi-Fi symbol with X */}
+        <View
+          style={{
+            position: "absolute",
+            top: -8,
+            right: -8,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          accessible={false}
+        >
+          {/* Wi-Fi arcs */}
+          <View
+            style={{
+              width: 32,
+              height: 28,
+              borderBottomLeftRadius: 32,
+              borderBottomRightRadius: 32,
+              borderWidth: 2,
+              borderTopColor: "transparent",
+              borderColor: "rgba(150,150,150,0.5)",
+              position: "absolute",
+            }}
+          />
+          <View
+            style={{
+              width: 22,
+              height: 18,
+              borderBottomLeftRadius: 22,
+              borderBottomRightRadius: 22,
+              borderWidth: 2,
+              borderTopColor: "transparent",
+              borderColor: "rgba(150,150,150,0.6)",
+              position: "absolute",
+              top: 4,
+            }}
+          />
+          <View
+            style={{
+              width: 4,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: "rgba(150,150,150,0.7)",
+              position: "absolute",
+              top: 20,
+            }}
+          />
+
+          {/* Red X overlay */}
+          <View
+            style={{
+              position: "absolute",
+              width: 24,
+              height: 24,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ fontSize: 20, color: "#E74C3C" }}>✕</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Error: Broken/open book with falling stars and healing bandaid
+ */
+function ErrorIllustration({ compact }: { compact?: boolean }) {
+  const reducedMotion = useReducedMotion();
+  const illustrationHeight = compact ? 80 : 120;
+  const bookRotation = useSharedValue(0);
+  const bandaidScale = useSharedValue(0);
+
+  useEffect(() => {
+    if (!reducedMotion) {
+      // Slight tilt of the book
+      bookRotation.value = withTiming(-5, {
+        duration: 600,
+        easing: Easing.inOut(Easing.ease),
+      });
+
+      // Bandaid pops in after 1s with spring
+      bandaidScale.value = withDelay(
+        1000,
+        withSpring(1, { damping: 8, stiffness: 120 })
+      );
+    } else {
+      bookRotation.value = -5;
+      bandaidScale.value = 1;
+    }
+  }, [reducedMotion]);
+
+  const bookStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${bookRotation.value}deg` }],
+  }));
+
+  const bandaidStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bandaidScale.value }],
+  }));
+
+  // Star particles with faster falling
+  const stars = [0, 1, 2, 3];
+
+  return (
+    <View
+      style={[styles.illustrationContainer, { height: illustrationHeight }]}
+      accessible={true}
+      accessibilityRole="image"
+      accessibilityLabel="Illustration: Broken book with falling stars and healing bandaid"
+    >
+      <View style={{ position: "relative", alignItems: "center" }}>
+        {/* Book */}
+        <Animated.View style={bookStyle}>
+          <Text style={{ fontSize: compact ? 48 : 64 }}>📕</Text>
+        </Animated.View>
+
+        {/* Falling stars */}
+        {stars.map((idx) => (
+          <FallingStar
+            key={idx}
+            delay={idx * 200}
+            reducedMotion={reducedMotion}
+          />
+        ))}
+
+        {/* Healing bandaid */}
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              bottom: -8,
+              right: -8,
+            },
+            bandaidStyle,
+          ]}
+          accessible={false}
+        >
+          <Text style={{ fontSize: compact ? 20 : 28 }}>🩹</Text>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+function FallingStar({
+  delay,
+  reducedMotion,
+}: {
+  delay: number;
+  reducedMotion: boolean;
+}) {
+  const translateY = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    if (!reducedMotion) {
+      // Fall faster than floating stars (1.5s instead of 2s)
+      translateY.value = withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(100, { duration: 1500, easing: Easing.in(Easing.ease) }),
+            withTiming(0, { duration: 0 })
+          ),
+          -1,
+          false
+        )
+      );
+
+      // Slight horizontal drift
+      const driftAmount = (Math.random() - 0.5) * 20;
+      translateX.value = withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(driftAmount, {
+              duration: 1500,
+              easing: Easing.inOut(Easing.ease),
+            }),
+            withTiming(0, { duration: 0 })
+          ),
+          -1,
+          false
+        )
+      );
+
+      // Fade out while falling
+      opacity.value = withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(0.2, { duration: 1500 }),
+            withTiming(1, { duration: 0 })
+          ),
+          -1,
+          false
+        )
+      );
+    }
+  }, [reducedMotion]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: translateY.value },
+      { translateX: translateX.value },
+    ],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        { position: "absolute", top: -20, left: 20 + Math.random() * 20 },
+        animStyle,
+      ]}
+      accessible={false}
+    >
+      <Text style={{ fontSize: 16 }}>✨</Text>
+    </Animated.View>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Illustration Selector
 // ═══════════════════════════════════════════════════════════════
@@ -448,6 +720,10 @@ function renderIllustration(type: EmptyStateType, compact?: boolean) {
       return <NoBookshelfIllustration {...props} />;
     case "no-missions":
       return <NoMissionsIllustration {...props} />;
+    case "no-network":
+      return <NoNetworkIllustration {...props} />;
+    case "error":
+      return <ErrorIllustration {...props} />;
     default:
       return <NoStoriesIllustration {...props} />;
   }

@@ -36,6 +36,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { IllustratedEmptyState } from "@/components/illustrated-empty-state";
 import {
   STORY_THEMES,
   EDUCATIONAL_VALUES,
@@ -99,6 +100,7 @@ export default function NewStoryScreen() {
   const [customElements, setCustomElements] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [genMessageIdx, setGenMessageIdx] = useState(0);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -255,6 +257,7 @@ export default function NewStoryScreen() {
 
     try {
       setIsGenerating(true);
+      setGenerationError(null);
       genProgress.value = withTiming(1, { duration: 20000 });
 
       const result = await generateMutation.mutateAsync({
@@ -280,10 +283,9 @@ export default function NewStoryScreen() {
       }
     } catch (error) {
       setIsGenerating(false);
-      Alert.alert(
-        "Generation Error",
-        error instanceof Error ? error.message : "Failed to generate story"
-      );
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate story";
+      setGenerationError(errorMessage);
+      announce("Generation failed. " + errorMessage);
     }
   };
 
@@ -738,6 +740,27 @@ export default function NewStoryScreen() {
       </Animated.View>
     );
   };
+
+  /* ════════ ERROR STATE ═════════ */
+  if (generationError) {
+    return (
+      <ScreenContainer>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <IllustratedEmptyState
+            type="error"
+            title="Oops! Something went wrong"
+            subtitle="Don't worry, let's try that again"
+            actionLabel="Try Again"
+            onAction={() => {
+              setGenerationError(null);
+              setStep(3);
+              handleGenerate();
+            }}
+          />
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   /* ════════ MAIN LAYOUT ═════════ */
   return (

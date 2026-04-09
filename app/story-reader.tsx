@@ -42,6 +42,7 @@ import { IllustrationShimmer } from '@/components/illustration-shimmer';
 import { StoryFeedbackModal } from '@/components/story-feedback-modal';
 import { ReadingGuide } from '@/components/reading-guide';
 import { ReaderSettingsTray } from '@/components/reader-settings-tray';
+import { IllustratedEmptyState } from '@/components/illustrated-empty-state';
 import { useAccessibilityStore } from '@/lib/accessibility-store';
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -796,6 +797,23 @@ export default function StoryReaderScreen() {
         <View style={styles.centerContent}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.foreground }]}>Loading story...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Error state ────────────────────────────────────────────
+  if (pagesQuery.isError) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.centerContent}>
+          <IllustratedEmptyState
+            type="error"
+            title="Oops! Something went wrong"
+            subtitle="Don't worry, let's try that again"
+            actionLabel="Retry"
+            onAction={() => pagesQuery.refetch()}
+          />
         </View>
       </SafeAreaView>
     );
