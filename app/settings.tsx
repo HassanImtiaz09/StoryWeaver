@@ -12,6 +12,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { announce } from "@/lib/a11y-helpers";
 import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import {
   getSettings,
@@ -191,10 +192,13 @@ function CollapsibleSection({
         onPress={onToggle}
         style={({ pressed }) => [
           styles.sectionHeader,
+          { minHeight: 44 },
           pressed && { opacity: 0.7 },
         ]}
         accessibilityRole="button"
-        accessibilityLabel={`${section.title} section, ${expanded ? "collapse" : "expand"}`}
+        accessibilityLabel={`${section.title} section`}
+        accessibilityState={{ expanded }}
+        accessibilityHint={expanded ? "Double tap to collapse" : "Double tap to expand"}
       >
         <Ionicons
           name={section.icon as any}
@@ -202,7 +206,10 @@ function CollapsibleSection({
           color={colors.primary}
         />
         <View style={styles.sectionHeaderText}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          <Text
+            style={[styles.sectionTitle, { color: colors.text }]}
+            accessibilityRole="header"
+          >
             {section.title}
           </Text>
           <Text
@@ -226,7 +233,15 @@ function CollapsibleSection({
         >
           {/* Quick toggles */}
           {section.quickToggles?.map((toggle) => (
-            <View key={toggle.key} style={styles.toggleRow}>
+            <View
+              key={toggle.key}
+              style={[styles.toggleRow, { minHeight: 44 }]}
+              accessible={true}
+              accessibilityRole="switch"
+              accessibilityLabel={toggle.label}
+              accessibilityHint={toggle.description}
+              accessibilityState={{ checked: !!settings[toggle.key] }}
+            >
               <View style={styles.toggleContent}>
                 <Text style={[styles.toggleLabel, { color: colors.text }]}>
                   {toggle.label}
@@ -239,9 +254,13 @@ function CollapsibleSection({
               </View>
               <Switch
                 value={!!settings[toggle.key]}
-                onValueChange={(val) => onSettingChange(toggle.key, val)}
+                onValueChange={(val) => {
+                  onSettingChange(toggle.key, val);
+                  announce(`${toggle.label} ${val ? "enabled" : "disabled"}`);
+                }}
                 trackColor={{ false: "#9CA3AF", true: colors.primary }}
                 thumbColor={settings[toggle.key] ? "#FFF" : "#F3F4F6"}
+                accessible={false}
               />
             </View>
           ))}
@@ -260,9 +279,12 @@ function CollapsibleSection({
               }
               style={({ pressed }) => [
                 styles.inlineNavItem,
-                { backgroundColor: colors.surface },
+                { backgroundColor: colors.surface, minHeight: 44 },
                 pressed && { opacity: 0.7 },
               ]}
+              accessibilityRole="menuitem"
+              accessibilityLabel={item.label}
+              accessibilityHint={`${item.description}. Navigates to ${item.label} screen`}
             >
               <Ionicons name={item.icon as any} size={20} color={colors.primary} />
               <View style={styles.inlineNavContent}>
@@ -301,7 +323,14 @@ function SettingRow({
   colors: any;
 }) {
   return (
-    <View style={[styles.settingRow, { backgroundColor: colors.card }]}>
+    <View
+      style={[styles.settingRow, { backgroundColor: colors.card, minHeight: 44 }]}
+      accessible={true}
+      accessibilityRole="switch"
+      accessibilityLabel={title}
+      accessibilityHint={description}
+      accessibilityState={{ checked: enabled }}
+    >
       <Ionicons name={icon as any} size={24} color={colors.primary} />
       <View style={styles.settingRowContent}>
         <Text style={[styles.settingRowTitle, { color: colors.text }]}>
@@ -313,9 +342,13 @@ function SettingRow({
       </View>
       <Switch
         value={enabled}
-        onValueChange={onToggle}
+        onValueChange={(val) => {
+          onToggle(val);
+          announce(`${title} ${val ? "enabled" : "disabled"}`);
+        }}
         trackColor={{ false: "#9CA3AF", true: colors.primary }}
         thumbColor={enabled ? "#FFF" : "#F3F4F6"}
+        accessible={false}
       />
     </View>
   );
@@ -382,8 +415,14 @@ export default function SettingsScreen() {
         <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
           <Pressable
             onPress={() => router.back()}
-            style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
+            style={({ pressed }) => [
+              styles.backButton,
+              { minHeight: 44, minWidth: 44, justifyContent: "center", alignItems: "center" },
+              pressed && { opacity: 0.6 }
+            ]}
+            accessibilityRole="button"
             accessibilityLabel="Go back"
+            accessibilityHint="Returns to the previous screen"
           >
             <Ionicons name="chevron-back" size={28} color={colors.text} />
           </Pressable>
@@ -396,17 +435,27 @@ export default function SettingsScreen() {
           <Animated.View
             entering={FadeInDown.delay(100).duration(400)}
             style={styles.childSection}
+            accessible={true}
+            accessibilityRole="tablist"
+            accessibilityLabel="Select child profile"
           >
-            <Text style={[styles.groupTitle, { color: colors.text }]}>
+            <Text
+              style={[styles.groupTitle, { color: colors.text }]}
+              accessibilityRole="header"
+            >
               Select Child
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {children.map((child) => (
                 <Pressable
                   key={child.id}
-                  onPress={() => setSelectedChild(child)}
+                  onPress={() => {
+                    setSelectedChild(child);
+                    announce(`${child.name} selected`);
+                  }}
                   style={[
                     styles.childChip,
+                    { minHeight: 44, justifyContent: "center" },
                     {
                       backgroundColor:
                         selectedChild?.id === child.id
@@ -419,6 +468,10 @@ export default function SettingsScreen() {
                           : colors.border,
                     },
                   ]}
+                  accessibilityRole="tab"
+                  accessibilityLabel={child.name}
+                  accessibilityState={{ selected: selectedChild?.id === child.id }}
+                  accessibilityHint={selectedChild?.id === child.id ? "Currently selected" : "Tap to select this child"}
                 >
                   <Text
                     style={[
@@ -442,7 +495,10 @@ export default function SettingsScreen() {
           entering={FadeInDown.delay(150).duration(400)}
           style={styles.group}
         >
-          <Text style={[styles.groupTitle, { color: colors.text }]}>
+          <Text
+            style={[styles.groupTitle, { color: colors.text }]}
+            accessibilityRole="header"
+          >
             Quick Settings
           </Text>
 
@@ -464,10 +520,19 @@ export default function SettingsScreen() {
           />
 
           {/* Navigation mode toggle */}
-          <View style={[styles.navModeCard, { backgroundColor: colors.card }]}>
+          <View
+            style={[styles.navModeCard, { backgroundColor: colors.card, minHeight: 44 }]}
+            accessible={true}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Navigation Mode"
+            accessibilityHint="Choose between child mode with 3 tabs or parent mode with all 5 tabs"
+          >
             <Ionicons name="apps-outline" size={24} color={colors.primary} />
             <View style={styles.navModeContent}>
-              <Text style={[styles.settingRowTitle, { color: colors.text }]}>
+              <Text
+                style={[styles.settingRowTitle, { color: colors.text }]}
+                accessibilityRole="header"
+              >
                 Navigation Mode
               </Text>
               <Text
@@ -480,13 +545,21 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.navModeToggle}>
               <Pressable
-                onPress={() => handleSettingChange("navMode", "child")}
+                onPress={() => {
+                  handleSettingChange("navMode", "child");
+                  announce("Navigation mode changed to child mode with 3 simple tabs");
+                }}
                 style={[
                   styles.navModeButton,
+                  { minHeight: 44, justifyContent: "center" },
                   settings.navMode === "child" && {
                     backgroundColor: colors.primary,
                   },
                 ]}
+                accessibilityRole="radio"
+                accessibilityLabel="Child mode"
+                accessibilityState={{ selected: settings.navMode === "child" }}
+                accessibilityHint="3 simple tabs for child use"
               >
                 <Text
                   style={[
@@ -501,13 +574,21 @@ export default function SettingsScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => handleSettingChange("navMode", "parent")}
+                onPress={() => {
+                  handleSettingChange("navMode", "parent");
+                  announce("Navigation mode changed to parent mode with all 5 tabs");
+                }}
                 style={[
                   styles.navModeButton,
+                  { minHeight: 44, justifyContent: "center" },
                   settings.navMode === "parent" && {
                     backgroundColor: colors.primary,
                   },
                 ]}
+                accessibilityRole="radio"
+                accessibilityLabel="Parent mode"
+                accessibilityState={{ selected: settings.navMode === "parent" }}
+                accessibilityHint="All 5 tabs for parent use"
               >
                 <Text
                   style={[
@@ -530,7 +611,10 @@ export default function SettingsScreen() {
           entering={FadeInDown.delay(200).duration(400)}
           style={styles.group}
         >
-          <Text style={[styles.groupTitle, { color: colors.text }]}>
+          <Text
+            style={[styles.groupTitle, { color: colors.text }]}
+            accessibilityRole="header"
+          >
             Preferences
           </Text>
 
@@ -554,16 +638,22 @@ export default function SettingsScreen() {
           entering={FadeInDown.delay(250).duration(400)}
           style={styles.group}
         >
-          <Text style={[styles.groupTitle, { color: colors.text }]}>
+          <Text
+            style={[styles.groupTitle, { color: colors.text }]}
+            accessibilityRole="header"
+          >
             Account & Support
           </Text>
 
           <Pressable
             style={({ pressed }) => [
               styles.accountItem,
-              { backgroundColor: colors.card },
+              { backgroundColor: colors.card, minHeight: 44 },
               pressed && { opacity: 0.7 },
             ]}
+            accessibilityRole="menuitem"
+            accessibilityLabel="Subscription"
+            accessibilityHint="Manage your subscription and payment. Navigates to subscription management"
           >
             <Ionicons name="card-outline" size={24} color={colors.primary} />
             <View style={styles.settingRowContent}>
@@ -582,9 +672,12 @@ export default function SettingsScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.accountItem,
-              { backgroundColor: colors.card },
+              { backgroundColor: colors.card, minHeight: 44 },
               pressed && { opacity: 0.7 },
             ]}
+            accessibilityRole="menuitem"
+            accessibilityLabel="Help & Support"
+            accessibilityHint="FAQs, contact us, and report issues. Navigates to support resources"
           >
             <Ionicons name="help-circle-outline" size={24} color={colors.primary} />
             <View style={styles.settingRowContent}>
@@ -603,9 +696,12 @@ export default function SettingsScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.accountItem,
-              { backgroundColor: colors.card },
+              { backgroundColor: colors.card, minHeight: 44 },
               pressed && { opacity: 0.7 },
             ]}
+            accessibilityRole="menuitem"
+            accessibilityLabel="About StoryWeaver"
+            accessibilityHint="Version 1.0.0. Application information and details"
           >
             <Ionicons
               name="information-circle-outline"
@@ -649,10 +745,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
+    minHeight: 44,
+    minWidth: 44,
   },
   title: {
     fontSize: 28,
@@ -670,6 +768,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 18,
     marginRight: 8,
+    minHeight: 44,
+    justifyContent: "center",
   },
   childChipText: {
     fontSize: 13,
@@ -696,6 +796,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     gap: 12,
+    minHeight: 44,
   },
   settingRowContent: {
     flex: 1,
@@ -730,6 +831,8 @@ const styles = StyleSheet.create({
   navModeButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
+    minHeight: 44,
+    justifyContent: "center",
   },
   navModeButtonText: {
     fontSize: 12,
@@ -746,6 +849,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 14,
     gap: 12,
+    minHeight: 44,
   },
   sectionHeaderText: {
     flex: 1,
@@ -770,6 +874,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     paddingVertical: 6,
+    minHeight: 44,
   },
   toggleContent: {
     flex: 1,
@@ -790,6 +895,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     gap: 10,
+    minHeight: 44,
   },
   inlineNavContent: {
     flex: 1,
@@ -810,5 +916,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     gap: 12,
+    minHeight: 44,
   },
 });

@@ -105,6 +105,9 @@ export interface AppSettings {
 
   // Navigation mode
   navMode: "parent" | "child"; // child = simplified 3-tab nav, parent = full 5-tab nav
+
+  // Theme & Display preferences
+  kidFriendlyLightModeEnabled: boolean; // Force light mode for young children (3-7) with high contrast
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -166,6 +169,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   educatorModeEnabled: false,
   defaultGradeLevel: "K",
   navMode: "parent",
+  kidFriendlyLightModeEnabled: false,
 };
 
 export async function getSettings(): Promise<AppSettings> {

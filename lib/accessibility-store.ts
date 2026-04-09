@@ -91,7 +91,7 @@ const DEFAULT_ACCESSIBILITY: Omit<
   letterSpacing: 0,
   wordSpacing: 0,
   ttsSpeed: 1.0,
-  autoHighlightWords: false,
+  autoHighlightWords: true,
   reduceMotion: false,
   screenReaderOptimized: false,
   syllableBreaks: false,

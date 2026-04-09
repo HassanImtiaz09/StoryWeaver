@@ -11,11 +11,15 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useRouter, useFocusEffect } from "expo-router";
+import { announce } from "@/lib/a11y-helpers";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { AnimatedPressable, BounceButton } from "@/components/animated-pressable";
 import { STORY_THEMES, ASSETS } from "@/constants/assets";
 import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
+import { setSelectedChild as updateSelectedChild } from "@/lib/child-context-store";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -51,6 +55,8 @@ import { fetchProgress as fetchGamificationProgress } from "@/lib/gamification-a
 import { StreakCounter } from "@/components/streak-counter";
 import { PointsDisplay } from "@/components/points-display";
 import { AchievementToast } from "@/components/achievement-toast";
+import { IllustratedEmptyState } from "@/components/illustrated-empty-state";
+import { FloatingStars } from "@/components/micro-animations";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const THEME_CARD_WIDTH = (SCREEN_WIDTH - 52) / 2;
@@ -71,22 +77,24 @@ function getTimeGreeting(childName: string): { greeting: string; emoji: string }
 }
 
 // ─── Animated Waving Mascot ─────────────────────────────────────
-function WavingMascot() {
+function WavingMascot({ reducedMotion }: { reducedMotion: boolean }) {
   const waveRotation = useSharedValue(0);
 
   useEffect(() => {
-    waveRotation.value = withRepeat(
-      withSequence(
-        withTiming(15, { duration: 300, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-10, { duration: 250, easing: Easing.inOut(Easing.ease) }),
-        withTiming(12, { duration: 250, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 300, easing: Easing.inOut(Easing.ease) }),
-        withDelay(2000, withTiming(0, { duration: 0 }))
-      ),
-      -1,
-      false
-    );
-  }, []);
+    if (!reducedMotion) {
+      waveRotation.value = withRepeat(
+        withSequence(
+          withTiming(15, { duration: 300, easing: Easing.inOut(Easing.ease) }),
+          withTiming(-10, { duration: 250, easing: Easing.inOut(Easing.ease) }),
+          withTiming(12, { duration: 250, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0, { duration: 300, easing: Easing.inOut(Easing.ease) }),
+          withDelay(2000, withTiming(0, { duration: 0 }))
+        ),
+        -1,
+        false
+      );
+    }
+  }, [reducedMotion]);
 
   const waveStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${waveRotation.value}deg` }],
@@ -120,15 +128,15 @@ function IllustratedRecCard({
   const imageUrl = themeData?.image;
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.recCard,
-        pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-      ]}
+    <AnimatedPressable
+      style={styles.recCard}
       onPress={onPress}
+      accessibilityLabel={`${title} - ${theme} story`}
+      accessibilityRole="button"
+      accessibilityHint="Double-tap to read this story"
     >
       {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.recImage} contentFit="cover" />
+        <Image source={{ uri: imageUrl }} style={styles.recImage} contentFit="cover" accessibilityLabel={title} />
       ) : (
         <View style={[styles.recImageFallback, { backgroundColor: colors.surface }]}>
           <Text style={styles.recFallbackEmoji}>{emoji}</Text>
@@ -146,7 +154,7 @@ function IllustratedRecCard({
           {reason}
         </Text>
       </LinearGradient>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -170,6 +178,7 @@ const RECOMMENDATIONS = [
 export default function TonightScreen() {
   const router = useRouter();
   const colors = useColors();
+  const reducedMotion = useReducedMotion();
   const [children, setChildren] = useState<LocalChild[]>([]);
   const [selectedChild, setSelectedChild] = useState<LocalChild | null>(null);
   const [activeArcs, setActiveArcs] = useState<LocalStoryArc[]>([]);
@@ -197,6 +206,8 @@ export default function TonightScreen() {
           ? selectedChild
           : kids[0];
       setSelectedChild(child);
+      // Update global child context for theming
+      await updateSelectedChild(child.id, child.age);
       const arcs = await getLocalStoryArcs();
       setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
       await fetchGamificationProgress(child.id);
@@ -225,6 +236,8 @@ export default function TonightScreen() {
 
   const selectChild = async (child: LocalChild) => {
     setSelectedChild(child);
+    // Update global child context for theming
+    await updateSelectedChild(child.id, child.age);
     const arcs = await getLocalStoryArcs();
     setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
     await gamificationStore.fetchProgress(child.id);
@@ -276,26 +289,13 @@ export default function TonightScreen() {
           edges={["top", "bottom", "left", "right"]}
         >
           <View style={styles.emptyInner}>
-            <Animated.View entering={FadeInDown.duration(800)} style={styles.emptyContent}>
-              <Image
-                source={require("@/assets/images/icon.png")}
-                style={styles.emptyLogo}
-                contentFit="contain"
-              />
-              <Text style={styles.emptyTitle}>Welcome to StoryWeaver</Text>
-              <Text style={styles.emptySubtitle}>
-                Create your first child profile to start generating personalized bedtime stories
-              </Text>
-              <Pressable
-                onPress={() => router.push("/create-child")}
-                style={({ pressed }) => [
-                  styles.emptyBtn,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-                ]}
-              >
-                <Text style={styles.emptyBtnText}>Create Child Profile</Text>
-              </Pressable>
-            </Animated.View>
+            <IllustratedEmptyState
+              type="no-children"
+              title="Welcome to StoryWeaver"
+              subtitle="Create your first child profile to start generating personalized bedtime stories"
+              actionLabel="Create Child Profile"
+              onAction={() => router.push("/create-child")}
+            />
           </View>
         </ScreenContainer>
       </View>
@@ -327,11 +327,17 @@ export default function TonightScreen() {
 
           {/* ═══ 1. Personalized Greeting with Time-Aware Message ═══ */}
           <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
+            {/* Floating stars background decoration */}
+            <FloatingStars count={3} area={{ width: 200, height: 100 }} />
+
             <View style={styles.greetingTopRow}>
               <View style={styles.greetingLeft}>
-                {timeGreeting && <WavingMascot />}
+                {timeGreeting && <WavingMascot reducedMotion={reducedMotion} />}
                 <View style={styles.greetingTextWrap}>
-                  <Text style={[styles.greeting, { color: colors.text }]}>
+                  <Text
+                    style={[styles.greeting, { color: colors.text }]}
+                    accessibilityRole="header"
+                  >
                     {timeGreeting?.greeting ?? "Tonight's Story"}
                   </Text>
                   <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
@@ -342,26 +348,32 @@ export default function TonightScreen() {
                 </View>
               </View>
               <View style={styles.headerButtons}>
-                <Pressable
+                <AnimatedPressable
                   onPress={toggleBedtimeMode}
-                  style={({ pressed }) => [
+                  style={[
                     styles.headerBtn,
                     bedtimeState?.isActive && { backgroundColor: "rgba(255,215,0,0.15)" },
-                    pressed && { opacity: 0.6 },
                   ]}
+                  accessibilityLabel="Bedtime mode"
+                  accessibilityRole="button"
+                  accessibilityHint={bedtimeState?.isActive ? "Double-tap to disable bedtime mode" : "Double-tap to enable bedtime mode"}
+                  accessibilityState={{ checked: bedtimeState?.isActive }}
                 >
                   <IconSymbol
                     name="moon.fill"
                     size={22}
                     color={bedtimeState?.isActive ? "#FFD700" : colors.muted}
                   />
-                </Pressable>
-                <Pressable
+                </AnimatedPressable>
+                <AnimatedPressable
                   onPress={() => router.push("/settings" as any)}
-                  style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.6 }]}
+                  style={styles.headerBtn}
+                  accessibilityLabel="Settings"
+                  accessibilityRole="button"
+                  accessibilityHint="Double-tap to open settings"
                 >
                   <IconSymbol name="gearshape.fill" size={22} color={colors.muted} />
-                </Pressable>
+                </AnimatedPressable>
               </View>
             </View>
 
@@ -376,6 +388,9 @@ export default function TonightScreen() {
                 <Pressable
                   onPress={() => router.push("/achievements" as any)}
                   style={[styles.pointsBadge, { backgroundColor: colors.card }]}
+                  accessibilityLabel={`Level ${childProgress.level}, ${childProgress.totalPoints.toLocaleString()} points`}
+                  accessibilityRole="button"
+                  accessibilityHint="Double-tap to view achievements"
                 >
                   <Text style={styles.pointsEmoji}>⭐</Text>
                   <View>
@@ -412,6 +427,9 @@ export default function TonightScreen() {
                         selectedChild?.id === child.id ? colors.primary : colors.border,
                     },
                   ]}
+                  accessibilityLabel={`Select ${child.name}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedChild?.id === child.id }}
                 >
                   <Text
                     style={[
@@ -476,7 +494,10 @@ export default function TonightScreen() {
           {/* ═══ 3. Continue Reading — Active Story Arcs ═══ */}
           {activeArcs.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.text }]}
+                accessibilityRole="header"
+              >
                 📚 Continue Reading
               </Text>
               {activeArcs.map((arc) => {
@@ -486,7 +507,7 @@ export default function TonightScreen() {
                     ? (arc.currentEpisode / arc.totalEpisodes) * 100
                     : 0;
                 return (
-                  <Pressable
+                  <AnimatedPressable
                     key={arc.id}
                     style={[styles.arcCard, { backgroundColor: colors.card }]}
                     onPress={() =>
@@ -501,6 +522,9 @@ export default function TonightScreen() {
                         },
                       })
                     }
+                    accessibilityLabel={arc.title}
+                    accessibilityRole="button"
+                    accessibilityHint={`Episode ${arc.currentEpisode} of ${arc.totalEpisodes}. Double-tap to continue reading`}
                   >
                     {themeData?.image ? (
                       <Image source={{ uri: themeData.image }} style={styles.arcImage} contentFit="cover" />
@@ -518,7 +542,7 @@ export default function TonightScreen() {
                         <View style={[styles.progressFill, { width: `${progress}%` }]} />
                       </View>
                     </View>
-                  </Pressable>
+                  </AnimatedPressable>
                 );
               })}
             </View>
@@ -562,17 +586,17 @@ export default function TonightScreen() {
 
           {/* ═══ 5. Browse All Themes ═══ */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            <Text
+              style={[styles.sectionTitle, { color: colors.text }]}
+              accessibilityRole="header"
+            >
               🎨 Browse All Themes
             </Text>
             <View style={styles.themeGrid}>
               {STORY_THEMES.map((theme) => (
-                <Pressable
+                <AnimatedPressable
                   key={theme.id}
-                  style={({ pressed }) => [
-                    styles.themeCard,
-                    pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
-                  ]}
+                  style={styles.themeCard}
                   onPress={() => {
                     if (selectedChild) {
                       router.push({
@@ -586,6 +610,9 @@ export default function TonightScreen() {
                       });
                     }
                   }}
+                  accessibilityLabel={`${theme.name} theme`}
+                  accessibilityRole="button"
+                  accessibilityHint="Double-tap to browse stories in this theme"
                 >
                   {theme.image ? (
                     <Image
@@ -604,7 +631,7 @@ export default function TonightScreen() {
                     <Text style={styles.themeEmoji}>{theme.emoji}</Text>
                     <Text style={styles.themeLabel}>{theme.name}</Text>
                   </LinearGradient>
-                </Pressable>
+                </AnimatedPressable>
               ))}
             </View>
           </View>
@@ -642,6 +669,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     marginTop: 8,
+    minHeight: 44,
+    minWidth: 44,
   },
   emptyBtnText: { color: "#0A0E1A", fontSize: 17, fontWeight: "700" },
 
@@ -667,11 +696,13 @@ const styles = StyleSheet.create({
   subGreeting: { fontSize: 14, marginTop: 3 },
   headerButtons: { flexDirection: "row", gap: 6, marginLeft: 8, marginTop: 2 },
   headerBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
+    minHeight: 44,
+    minWidth: 44,
   },
 
   // Stats row
@@ -689,6 +720,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 14,
     gap: 8,
+    minHeight: 44,
+    minWidth: 44,
   },
   pointsEmoji: { fontSize: 20 },
   pointsLevel: { fontSize: 11, fontWeight: "600" },
@@ -698,10 +731,12 @@ const styles = StyleSheet.create({
   childScroll: { marginBottom: 14 },
   childChip: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
+    minHeight: 44,
+    minWidth: 44,
   },
   childChipText: { fontSize: 14, fontWeight: "600" },
 
@@ -717,6 +752,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 16,
     overflow: "hidden",
+    minHeight: 44,
+    minWidth: 44,
   },
   recImage: {
     ...StyleSheet.absoluteFillObject,
@@ -749,6 +786,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
     marginBottom: 12,
+    minHeight: 44,
+    minWidth: 44,
   },
   arcImage: { width: 80, height: 80 },
   arcInfo: { flex: 1, padding: 12, justifyContent: "center" },
@@ -773,6 +812,8 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 16,
     overflow: "hidden",
+    minHeight: 44,
+    minWidth: 44,
   },
   themeGradient: { flex: 1, justifyContent: "flex-end", padding: 12 },
   themeEmoji: { fontSize: 28, marginBottom: 4 },

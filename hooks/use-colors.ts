@@ -1,4 +1,4 @@
-import { useColorScheme } from "react-native";
+import { useEffect, useState } from "react";
 import {
   SchemeColors,
   getAgeAdaptiveColors,
@@ -6,6 +6,11 @@ import {
   type ColorScheme,
   type AgeGroup,
 } from "@/lib/_core/theme";
+import {
+  getSelectedChildAge,
+  onSelectedChildChange,
+} from "@/lib/child-context-store";
+import { useThemeMode } from "@/hooks/use-theme-mode";
 
 export interface Colors {
   primary: string;
@@ -33,13 +38,38 @@ export interface Colors {
  * Now powered by theme.config.js with proper light/dark values,
  * age-adaptive overrides, and improved contrast ratios.
  *
- * @param childAge - Optional child age for age-adaptive theming
+ * Automatically applies age-based theming based on the globally selected child.
+ * Also respects kid-friendly light mode setting for young children (3-7).
+ * Can optionally override with explicit childAge parameter.
+ *
+ * @param childAge - Optional explicit child age (overrides selected child's age)
  */
 export function useColors(childAge?: number): Colors {
-  const systemScheme = useColorScheme();
-  const isDark = systemScheme === "dark";
-  const scheme: ColorScheme = isDark ? "dark" : "light";
-  const ageGroup: AgeGroup = ageToGroup(childAge);
+  const scheme = useThemeMode();
+  const isDark = scheme === "dark";
+
+  // Use explicit age if provided, otherwise get from selected child store
+  const [age, setAge] = useState<number | null>(() => {
+    if (childAge !== undefined) return childAge;
+    return getSelectedChildAge();
+  });
+
+  // Subscribe to global child selection changes
+  useEffect(() => {
+    if (childAge !== undefined) {
+      setAge(childAge);
+      return;
+    }
+
+    // Only listen if no explicit age was provided
+    const unsubscribe = onSelectedChildChange(() => {
+      setAge(getSelectedChildAge());
+    });
+
+    return unsubscribe;
+  }, [childAge]);
+
+  const ageGroup: AgeGroup = ageToGroup(age ?? undefined);
 
   // Get age-adaptive colors (falls back to base if no age provided)
   const palette = getAgeAdaptiveColors(scheme, ageGroup);

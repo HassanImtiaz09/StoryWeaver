@@ -4,6 +4,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { loadSelectedChild } from "@/lib/child-context-store";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -30,6 +31,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded) {
+      // Also load the previously selected child for age-based theming
+      loadSelectedChild().catch((err) => {
+        console.warn("Failed to load selected child:", err);
+      });
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);

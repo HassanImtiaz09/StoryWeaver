@@ -17,13 +17,14 @@ const themeColors = {
 // These overlay the base theme for different age groups
 const ageThemes = {
   // Ages 3-5: Soft pastels, larger elements, warm & cozy
+  // Light mode optimized for young eyes with high contrast and warm tones
   toddler: {
     primary:    { light: '#FF9500', dark: '#FFD700' },       // Warm orange (more visible to young eyes)
-    background: { light: '#FFF5EB', dark: '#0D1020' },       // Peach cream
-    surface:    { light: '#FFFFFF', dark: '#1E2750' },
-    foreground: { light: '#2D1B10', dark: '#FFF5EB' },       // Warm dark brown
-    muted:      { light: '#8B7355', dark: '#B0A898' },
-    border:     { light: '#FFE0B2', dark: 'rgba(255,149,0,0.25)' },
+    background: { light: '#FFFDF7', dark: '#0D1020' },       // Clean cream white (better than peach for light mode)
+    surface:    { light: '#FFFFFF', dark: '#1E2750' },       // Pure white cards on light bg
+    foreground: { light: '#2D1B10', dark: '#FFF5EB' },       // Warm dark brown (high contrast for text)
+    muted:      { light: '#A0826D', dark: '#B0A898' },       // Softer brown for secondary text
+    border:     { light: '#F5D4B8', dark: 'rgba(255,149,0,0.25)' },  // Softer peach borders
   },
   // Ages 6-8: Vibrant, energetic, adventure-ready
   child: {
@@ -64,4 +65,39 @@ const storyThemeAccents = {
   garden:    { accent: '#4ADE80', gradient: ['#14532D', '#15803D'] },
 };
 
-module.exports = { themeColors, ageThemes, storyThemeAccents };
+/**
+ * getAgeThemeColors(age, colorScheme)
+ * Applies age-based theme overrides to the base colors.
+ * Returns merged color palette optimized for the child's age group.
+ */
+function getAgeThemeColors(age, colorScheme = 'light') {
+  const baseColors = colorScheme === 'dark' ?
+    Object.fromEntries(Object.entries(themeColors).map(([k, v]) => [k, v.dark])) :
+    Object.fromEntries(Object.entries(themeColors).map(([k, v]) => [k, v.light]));
+
+  // If no age or outside range, return base colors
+  if (age === undefined || age === null) return baseColors;
+
+  let ageTheme = null;
+  if (age >= 3 && age <= 5) {
+    ageTheme = ageThemes.toddler;
+  } else if (age >= 6 && age <= 8) {
+    ageTheme = ageThemes.child;
+  } else if (age >= 9 && age <= 12) {
+    ageTheme = ageThemes.tween;
+  } else {
+    return baseColors;
+  }
+
+  // Merge age theme colors over base colors
+  const merged = { ...baseColors };
+  Object.entries(ageTheme).forEach(([colorName, colorSchemes]) => {
+    if (colorSchemes && colorSchemes[colorScheme]) {
+      merged[colorName] = colorSchemes[colorScheme];
+    }
+  });
+
+  return merged;
+}
+
+module.exports = { themeColors, ageThemes, storyThemeAccents, getAgeThemeColors };

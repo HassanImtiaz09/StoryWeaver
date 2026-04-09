@@ -6,11 +6,14 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  AccessibilityInfo,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { announce } from "@/lib/a11y-helpers";
 import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import { useGamificationStore } from "@/lib/gamification-store";
 import { fetchProgress } from "@/lib/gamification-actions";
@@ -21,6 +24,7 @@ import {
 } from "@/lib/subscription-store";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { IllustratedEmptyState } from "@/components/illustrated-empty-state";
 
 interface FamilyOption {
   id: string;
@@ -70,6 +74,7 @@ const FAMILY_OPTIONS: FamilyOption[] = [
 export default function FamilyScreen() {
   const router = useRouter();
   const colors = useColors();
+  const prefersReducedMotion = useReducedMotion();
   const [children, setChildren] = useState<LocalChild[]>([]);
   const [selectedChild, setSelectedChild] = useState<LocalChild | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +103,7 @@ export default function FamilyScreen() {
   const selectChild = async (child: LocalChild) => {
     setSelectedChild(child);
     await gamificationStore.fetchProgress(child.id);
+    announce(`${child.name} profile selected`);
   };
 
   const handleOptionPress = (option: FamilyOption) => {
@@ -128,22 +134,13 @@ export default function FamilyScreen() {
     return (
       <ScreenContainer>
         <ScrollView contentContainerStyle={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={64} color={colors.muted} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No Child Profile
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Create a child profile first to access family tools
-          </Text>
-          <Pressable
-            onPress={() => router.push("/create-child")}
-            style={({ pressed }) => [
-              styles.emptyButton,
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            <Text style={styles.emptyButtonText}>Create Profile</Text>
-          </Pressable>
+          <IllustratedEmptyState
+            type="no-children"
+            title="No Profiles Yet"
+            subtitle="Create a child profile first to access family tools and personalized features"
+            actionLabel="Create Profile"
+            onAction={() => router.push("/create-child")}
+          />
         </ScrollView>
       </ScreenContainer>
     );
@@ -156,10 +153,15 @@ export default function FamilyScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+        <Animated.View entering={prefersReducedMotion ? undefined : FadeInDown.duration(400)} style={styles.header}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: colors.text }]}>Family</Text>
+              <Text
+                style={[styles.title, { color: colors.text }]}
+                accessibilityRole="header"
+              >
+                Family
+              </Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 Tools and insights for your family
               </Text>
@@ -169,8 +171,12 @@ export default function FamilyScreen() {
             {subState && (
               <Pressable
                 onPress={() => router.push({ pathname: "/paywall" as any, params: { source: "family" } })}
+                accessibilityLabel={`Current subscription: ${subState.plan === "free" ? getRemainingFreeStories(subState) + " free stories remaining" : subState.plan + " plan"}`}
+                accessibilityRole="button"
+                accessibilityHint="Opens subscription and upgrade options"
                 style={({ pressed }) => [
                   styles.subBadge,
+                  { minHeight: 44 },
                   {
                     backgroundColor:
                       subState.plan === "free"
@@ -204,16 +210,25 @@ export default function FamilyScreen() {
         {/* Child Selector */}
         {children.length > 1 && (
           <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
+            entering={prefersReducedMotion ? undefined : FadeInDown.delay(100).duration(400)}
             style={styles.childSelector}
+            accessible={true}
+            accessibilityRole="selectablelist"
+            accessibilityLabel="Child profiles"
+            accessibilityHint="Swipe right to view more profiles"
           >
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {children.map((child) => (
                 <Pressable
                   key={child.id}
                   onPress={() => selectChild(child)}
+                  accessibilityLabel={`${child.name} profile`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: selectedChild?.id === child.id }}
+                  accessibilityHint={selectedChild?.id === child.id ? "Currently selected" : "Double tap to select"}
                   style={[
                     styles.childChip,
+                    { minHeight: 44 },
                     {
                       backgroundColor:
                         selectedChild?.id === child.id
@@ -242,12 +257,20 @@ export default function FamilyScreen() {
         {/* Quick Stats */}
         {selectedChild && childProgress && (
           <Animated.View
-            entering={FadeInDown.delay(150).duration(400)}
+            entering={prefersReducedMotion ? undefined : FadeInDown.delay(150).duration(400)}
             style={styles.statsContainer}
+            accessible={true}
+            accessibilityRole="header"
+            accessibilityLabel={`${selectedChild.name}'s reading progress`}
           >
-            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View
+              style={[styles.statCard, { backgroundColor: colors.card }]}
+              accessible={true}
+              accessibilityRole="text"
+              accessibilityLabel={`Reading streak: ${childProgress.currentStreak} days`}
+            >
               <View style={styles.statContent}>
-                <Ionicons name="flame" size={24} color="#FF6B6B" />
+                <Ionicons name="flame" size={24} color="#FF6B6B" accessibilityElementsHidden={true} />
                 <View>
                   <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                     Reading Streak
@@ -259,9 +282,14 @@ export default function FamilyScreen() {
               </View>
             </View>
 
-            <View style={[styles.statCard, { backgroundColor: colors.card }]}>
+            <View
+              style={[styles.statCard, { backgroundColor: colors.card }]}
+              accessible={true}
+              accessibilityRole="text"
+              accessibilityLabel={`Total points: ${childProgress.totalPoints.toLocaleString()} points`}
+            >
               <View style={styles.statContent}>
-                <Ionicons name="star" size={24} color="#FFD700" />
+                <Ionicons name="star" size={24} color="#FFD700" accessibilityElementsHidden={true} />
                 <View>
                   <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
                     Total Points
@@ -276,28 +304,45 @@ export default function FamilyScreen() {
         )}
 
         {/* Family Options Grid */}
-        <View style={styles.optionsGrid}>
+        <View
+          style={styles.optionsGrid}
+          accessible={true}
+          accessibilityRole="list"
+          accessibilityLabel="Family tools menu"
+        >
           {FAMILY_OPTIONS.map((option, index) => (
             <Animated.View
               key={option.id}
-              entering={FadeInDown.delay(200 + index * 75).duration(400)}
+              entering={prefersReducedMotion ? undefined : FadeInDown.delay(200 + index * 75).duration(400)}
             >
               <Pressable
                 onPress={() => handleOptionPress(option)}
+                accessibilityLabel={option.title}
+                accessibilityRole="button"
+                accessibilityHint={option.description}
                 style={({ pressed }) => [
                   styles.optionCard,
-                  { backgroundColor: colors.card },
-                  pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
+                  { backgroundColor: colors.card, minHeight: 44 },
+                  pressed && { opacity: 0.8, transform: [{ scale: prefersReducedMotion ? 1 : 0.96 }] },
                 ]}
               >
-                <View style={styles.optionIconContainer}>
+                <View
+                  style={styles.optionIconContainer}
+                  accessible={false}
+                  importantForAccessibility="no-hide-descendants"
+                >
                   <LinearGradient
                     colors={[option.color, option.color + "CC"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.optionIconGradient}
                   >
-                    <Ionicons name={option.icon as any} size={28} color="#FFFFFF" />
+                    <Ionicons
+                      name={option.icon as any}
+                      size={28}
+                      color="#FFFFFF"
+                      accessibilityElementsHidden={true}
+                    />
                   </LinearGradient>
                 </View>
 
@@ -310,7 +355,7 @@ export default function FamilyScreen() {
                   </Text>
                 </View>
 
-                <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+                <Ionicons name="chevron-forward" size={20} color={colors.muted} accessibilityElementsHidden={true} />
               </Pressable>
             </Animated.View>
           ))}
@@ -318,11 +363,24 @@ export default function FamilyScreen() {
 
         {/* Info Section */}
         <Animated.View
-          entering={FadeInDown.delay(500).duration(400)}
+          entering={prefersReducedMotion ? undefined : FadeInDown.delay(500).duration(400)}
           style={styles.infoSection}
+          accessible={true}
+          accessibilityRole="text"
+          accessibilityLabel="Parental Controls information"
         >
-          <View style={[styles.infoCard, { backgroundColor: "rgba(72, 201, 176, 0.1)" }]}>
-            <Ionicons name="information-circle-outline" size={20} color="#48C9B0" />
+          <View
+            style={[styles.infoCard, { backgroundColor: "rgba(72, 201, 176, 0.1)" }]}
+            accessible={true}
+            accessibilityLabel="Parental Controls"
+            accessibilityHint="Use Settings to enable parental controls, manage content filters, and customize bedtime preferences"
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={20}
+              color="#48C9B0"
+              accessibilityElementsHidden={true}
+            />
             <View style={styles.infoContent}>
               <Text style={[styles.infoTitle, { color: colors.text }]}>
                 Parental Controls

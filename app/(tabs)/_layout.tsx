@@ -7,6 +7,7 @@ import {
   Text,
   Pressable,
   Platform,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
@@ -21,9 +22,47 @@ import Animated, {
   Easing,
   interpolate,
   cancelAnimation,
+  FadeIn,
+  FadeOut,
 } from "react-native-reanimated";
 import { useColors } from "@/hooks/use-colors";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { getSettings, type AppSettings } from "@/lib/settings-store";
+
+// ─── Animated Tab Icon wrapper ────────────────────────────────
+function AnimatedTabIcon({
+  icon,
+  focused,
+  reduceMotion,
+}: {
+  icon: React.ReactNode;
+  focused: boolean;
+  reduceMotion: boolean;
+}) {
+  const scale = useSharedValue(focused ? 1.15 : 1);
+  const translateY = useSharedValue(focused ? -2 : 0);
+
+  useEffect(() => {
+    if (!reduceMotion) {
+      if (focused) {
+        scale.value = withSpring(1.15, { damping: 10, stiffness: 200, mass: 0.8 });
+        translateY.value = withSpring(-2, { damping: 10, stiffness: 200 });
+      } else {
+        scale.value = withSpring(1, { damping: 10, stiffness: 200, mass: 0.8 });
+        translateY.value = withSpring(0, { damping: 10, stiffness: 200 });
+      }
+    } else {
+      scale.value = focused ? 1.15 : 1;
+      translateY.value = focused ? -2 : 0;
+    }
+  }, [focused, reduceMotion]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+  }));
+
+  return <Animated.View style={animatedStyle}>{icon}</Animated.View>;
+}
 
 // ─── Badge indicator component ─────────────────────────────────
 function TabBadge({ count, colors }: { count: number; colors: any }) {
@@ -107,6 +146,7 @@ function CreateFAB({ colors }: { colors: any }) {
           ]}
           accessibilityLabel="Create a new story"
           accessibilityRole="button"
+          accessibilityHint="Opens the story creation screen"
         >
           <Ionicons name="add" size={32} color="#0A0E1A" />
         </Pressable>
@@ -119,6 +159,7 @@ function CreateFAB({ colors }: { colors: any }) {
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
+  const reduceMotion = useReducedMotion();
   const [navMode, setNavMode] = useState<"parent" | "child">("parent");
   const [libraryBadge, setLibraryBadge] = useState(0);
   const [galleryBadge, setGalleryBadge] = useState(0);
@@ -179,6 +220,9 @@ export default function TabsLayout() {
         },
         headerShown: false,
         tabBarShowLabel: true,
+        // Smooth tab transition animation (fade when switching screens)
+        animation: "shift" as any,
+        lazy: false, // Pre-render all tabs for smoother transitions
       }}
     >
       {/* Home / Stories Tab */}
@@ -186,11 +230,17 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: isChildMode ? "Stories" : "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name="home"
-              color={color}
-              size={isChildMode ? size + 4 : size}
+          tabBarIcon: ({ color, size, focused }) => (
+            <AnimatedTabIcon
+              focused={focused}
+              reduceMotion={reduceMotion}
+              icon={
+                <Ionicons
+                  name="home"
+                  color={color}
+                  size={isChildMode ? size + 4 : size}
+                />
+              }
             />
           ),
           tabBarLabel: isChildMode ? "Stories" : "Home",
@@ -202,11 +252,17 @@ export default function TabsLayout() {
         name="library"
         options={{
           title: "Library",
-          tabBarIcon: ({ color, size }) => (
-            <View>
-              <Ionicons name="book-outline" color={color} size={size} />
-              <TabBadge count={libraryBadge} colors={colors} />
-            </View>
+          tabBarIcon: ({ color, size, focused }) => (
+            <AnimatedTabIcon
+              focused={focused}
+              reduceMotion={reduceMotion}
+              icon={
+                <View>
+                  <Ionicons name="book-outline" color={color} size={size} />
+                  <TabBadge count={libraryBadge} colors={colors} />
+                </View>
+              }
+            />
           ),
           tabBarLabel: "Library",
           ...(isChildMode
@@ -235,10 +291,16 @@ export default function TabsLayout() {
           title: "Create",
           tabBarIcon: ({ color, focused }) =>
             isChildMode ? (
-              <Ionicons
-                name={focused ? "add-circle" : "add-circle-outline"}
-                color={color}
-                size={32}
+              <AnimatedTabIcon
+                focused={focused}
+                reduceMotion={reduceMotion}
+                icon={
+                  <Ionicons
+                    name={focused ? "add-circle" : "add-circle-outline"}
+                    color={color}
+                    size={32}
+                  />
+                }
               />
             ) : null,
           tabBarLabel: isChildMode ? "Create" : () => null,
@@ -255,11 +317,17 @@ export default function TabsLayout() {
         name="gallery"
         options={{
           title: "Gallery",
-          tabBarIcon: ({ color, size }) => (
-            <View>
-              <Ionicons name="images-outline" color={color} size={size} />
-              <TabBadge count={galleryBadge} colors={colors} />
-            </View>
+          tabBarIcon: ({ color, size, focused }) => (
+            <AnimatedTabIcon
+              focused={focused}
+              reduceMotion={reduceMotion}
+              icon={
+                <View>
+                  <Ionicons name="images-outline" color={color} size={size} />
+                  <TabBadge count={galleryBadge} colors={colors} />
+                </View>
+              }
+            />
           ),
           tabBarLabel: "Gallery",
           ...(isChildMode
@@ -285,11 +353,17 @@ export default function TabsLayout() {
         name="family"
         options={{
           title: isChildMode ? "Me" : "Family",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons
-              name={isChildMode ? "person" : "people-outline"}
-              color={color}
-              size={isChildMode ? size + 4 : size}
+          tabBarIcon: ({ color, size, focused }) => (
+            <AnimatedTabIcon
+              focused={focused}
+              reduceMotion={reduceMotion}
+              icon={
+                <Ionicons
+                  name={isChildMode ? "person" : "people-outline"}
+                  color={color}
+                  size={isChildMode ? size + 4 : size}
+                />
+              }
             />
           ),
           tabBarLabel: isChildMode ? "Me" : "Family",

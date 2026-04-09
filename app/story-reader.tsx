@@ -25,13 +25,17 @@ import Animated, {
   withSpring,
   Easing,
   interpolate,
+  runOnJS,
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 
 import { trpc } from '@/lib/trpc';
 import { useColors } from '@/hooks/use-colors';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { announce } from '@/lib/a11y-helpers';
 import { StoryNarrative, StoryTitle, CaptionText } from '@/components/styled-text';
 import { WordHighlighter } from '@/components/word-highlighter';
 import { IllustrationShimmer } from '@/components/illustration-shimmer';
@@ -142,7 +146,8 @@ function InteractOverlay({
               borderRadius: zone.radius,
             },
           ]}
-          accessibilityLabel={`Tap to hear: ${zone.label}`}
+          accessibilityLabel={`Interactive element: ${zone.label}`}
+          accessibilityHint="Double-tap to interact"
           accessibilityRole="button"
         >
           <View style={styles.interactDot}>
@@ -187,7 +192,11 @@ function PageProgressBar({
   const progress = totalPages > 0 ? (currentPage + 1) / totalPages : 0;
 
   return (
-    <View style={styles.pageProgressContainer}>
+    <View
+      style={styles.pageProgressContainer}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: totalPages, now: currentPage + 1 }}
+    >
       <View style={[styles.pageProgressTrack, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
         <View
           style={[
@@ -217,6 +226,7 @@ export default function StoryReaderScreen() {
   }>();
 
   const colors = useColors();
+  const reducedMotion = useReducedMotion();
 
   // Page state
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -259,16 +269,42 @@ export default function StoryReaderScreen() {
   const nextPageOpacity = useSharedValue(0);
   const isTransitioning = useRef(false);
 
+  // Book curl animation values
+  const curlProgress = useSharedValue(0);
+  const shadowOpacity = useSharedValue(0);
+  const behindPageOffset = useSharedValue(0);
+  const gestureActive = useSharedValue(false);
+  const gestureTranslationX = useSharedValue(0);
+
   // Golden shimmer values
   const shimmerPosition = useSharedValue(-1);
   const goldenOverlayOpacity = useSharedValue(0);
 
   // Animated styles for book flip
-  const currentPageStyle = useAnimatedStyle(() => ({
-    opacity: flipOpacity.value,
+  const currentPageStyle = useAnimatedStyle(() => {
+    const progress = curlProgress.value;
+    const skewAmount = interpolate(progress, [0, 0.5, 1], [0, -3, 0]);
+    const scaleZ = interpolate(progress, [0, 1], [1, 1.02]);
+    const rotY = flipRotation.value + interpolate(progress, [0, 1], [0, 0]);
+
+    return {
+      opacity: flipOpacity.value,
+      transform: [
+        { perspective: 1200 },
+        { scale: scaleZ },
+        { rotateY: `${rotY}deg` },
+        { skewY: `${skewAmount}deg` },
+      ],
+    };
+  });
+
+  const curlShadowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(shadowOpacity.value, [0, 1], [0, 0.6]),
+  }));
+
+  const behindPageStyle = useAnimatedStyle(() => ({
     transform: [
-      { perspective: 1200 },
-      { rotateY: `${flipRotation.value}deg` },
+      { translateX: behindPageOffset.value },
     ],
   }));
 
@@ -357,13 +393,16 @@ export default function StoryReaderScreen() {
     const generateImage = async () => {
       if (generatingImages.has(currentPage.id)) return;
       setGeneratingImages((prev) => new Set(prev).add(currentPage.id));
+      announce('Illustrating page...');
       try {
         await generateImageMutation.mutateAsync({
           pageId: currentPage.id,
           prompt: currentPage.imagePrompt || currentPage.sceneDescription || 'A magical scene',
         });
+        announce('Page illustration ready');
       } catch (error) {
         console.error('Failed to generate page image:', error);
+        announce('Failed to generate page illustration');
       } finally {
         setGeneratingImages((prev) => {
           const next = new Set(prev);
@@ -416,6 +455,7 @@ export default function StoryReaderScreen() {
         if (progressUpdateIntervalRef.current) clearInterval(progressUpdateIntervalRef.current);
         setIsNarrating(false);
         setCurrentWordIndex(-1);
+        announce('Narration paused');
       } catch (error) {
         console.error('Error pausing audio:', error);
       }
@@ -423,6 +463,7 @@ export default function StoryReaderScreen() {
     }
 
     try {
+      announce('Generating narration...');
       setGeneratingAudio(true);
       if (!episode?.fullAudioUrl) {
         await generateFullAudioMutation.mutateAsync({
@@ -434,6 +475,7 @@ export default function StoryReaderScreen() {
       if (!fullAudioUrl) {
         Alert.alert('Error', 'No audio available for this episode');
         setGeneratingAudio(false);
+        announce('Failed to generate narration');
         return;
       }
       await cleanupAudio();
@@ -462,6 +504,7 @@ export default function StoryReaderScreen() {
       }
 
       setIsNarrating(true);
+      announce('Narration playing');
 
       // Progress + word highlighting update loop
       progressUpdateIntervalRef.current = setInterval(async () => {
@@ -519,73 +562,124 @@ export default function StoryReaderScreen() {
     }
   }, [isLastPage]);
 
-  // ─── Page turn with book flip animation ─────────────────────
+  // ─── Page turn with book curl animation ─────────────────────
   const handlePageChange = useCallback((index: number) => {
     if (index === currentPageIndex || isTransitioning.current) return;
     if (index < 0 || index >= pages.length) return;
     Haptics.selectionAsync();
 
+    // Announce page change for screen reader users
+    announce(`Page ${index + 1} of ${pages.length}`);
+
     isTransitioning.current = true;
     const isForward = index > currentPageIndex;
 
-    // Phase 1: Book flip - rotate current page away
-    flipRotation.value = withTiming(isForward ? -90 : 90, {
-      duration: 250,
-      easing: Easing.out(Easing.cubic),
-    });
-    flipOpacity.value = withTiming(0, {
-      duration: 200,
-      easing: Easing.out(Easing.ease),
-    });
+    if (!reducedMotion) {
+      // Phase 1: Book curl animation - page lifts and curls
+      curlProgress.value = withTiming(1, {
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+      });
 
-    // Golden shimmer flash during transition
-    goldenOverlayOpacity.value = withSequence(
-      withDelay(100, withTiming(0.3, { duration: 120 })),
-      withTiming(0, { duration: 200 })
-    );
-    shimmerPosition.value = -1;
-    shimmerPosition.value = withDelay(
-      80,
-      withTiming(1, { duration: 350, easing: Easing.inOut(Easing.ease) })
-    );
+      // Curl shadow appears as page folds
+      shadowOpacity.value = withSequence(
+        withTiming(1, { duration: 150 }),
+        withTiming(0.4, { duration: 100 })
+      );
 
-    // Phase 2: Switch content and flip new page in
-    setTimeout(() => {
+      // Behind page slides in slightly
+      behindPageOffset.value = withTiming(-20, {
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+      });
+
+      // Golden shimmer flash during transition
+      goldenOverlayOpacity.value = withSequence(
+        withDelay(100, withTiming(0.4, { duration: 120 })),
+        withTiming(0, { duration: 200 })
+      );
+      shimmerPosition.value = -1;
+      shimmerPosition.value = withDelay(
+        80,
+        withTiming(1, { duration: 350, easing: Easing.inOut(Easing.ease) })
+      );
+
+      // Page flip rotate during curl
+      flipRotation.value = withTiming(isForward ? -90 : 90, {
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+      });
+      flipOpacity.value = withTiming(0, {
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+      });
+
+      // Phase 2: Switch content and spring page back in
+      setTimeout(() => {
+        setCurrentPageIndex(index);
+        setCurrentWordIndex(-1);
+        setActiveTooltip(null);
+        flatListRef.current?.scrollToIndex({ index, animated: false });
+
+        // Reset curl and behind page, spring flip rotation in
+        curlProgress.value = withSpring(0, {
+          damping: 14,
+          stiffness: 100,
+          mass: 0.6,
+        });
+        behindPageOffset.value = withSpring(0, {
+          damping: 14,
+          stiffness: 100,
+          mass: 0.6,
+        });
+        shadowOpacity.value = withTiming(0, { duration: 150 });
+
+        flipRotation.value = isForward ? 90 : -90;
+        flipRotation.value = withSpring(0, {
+          damping: 14,
+          stiffness: 100,
+          mass: 0.6,
+        });
+        flipOpacity.value = withTiming(1, {
+          duration: 220,
+          easing: Easing.in(Easing.ease),
+        });
+
+        setTimeout(() => {
+          isTransitioning.current = false;
+        }, 300);
+      }, 260);
+    } else {
+      // Reduced motion: instantly switch page without animation
       setCurrentPageIndex(index);
       setCurrentWordIndex(-1);
       setActiveTooltip(null);
       flatListRef.current?.scrollToIndex({ index, animated: false });
-
-      // Reset rotation from the opposite side and spring in
-      flipRotation.value = isForward ? 90 : -90;
-      flipRotation.value = withSpring(0, {
-        damping: 14,
-        stiffness: 100,
-        mass: 0.6,
-      });
-      flipOpacity.value = withTiming(1, {
-        duration: 220,
-        easing: Easing.in(Easing.ease),
-      });
-
-      setTimeout(() => {
-        isTransitioning.current = false;
-      }, 300);
-    }, 260);
-  }, [currentPageIndex, pages.length]);
+      flipRotation.value = 0;
+      flipOpacity.value = 1;
+      goldenOverlayOpacity.value = 0;
+      curlProgress.value = 0;
+      shadowOpacity.value = 0;
+      behindPageOffset.value = 0;
+      isTransitioning.current = false;
+    }
+  }, [currentPageIndex, pages.length, reducedMotion]);
 
   // ─── Music controls ─────────────────────────────────────────
   const handleGenerateMusic = useCallback(async () => {
     try {
+      announce('Generating background music...');
       setGeneratingMusic(true);
       await generateMusicMutation.mutateAsync({
         episodeId,
         mood: currentPage?.mood || 'calm',
       });
       setIsMusicEnabled(true);
+      announce('Background music ready');
     } catch (error) {
       console.error('Error generating music:', error);
       Alert.alert('Error', 'Failed to generate music');
+      announce('Failed to generate background music');
     } finally {
       setGeneratingMusic(false);
     }
@@ -595,9 +689,15 @@ export default function StoryReaderScreen() {
     Haptics.selectionAsync();
     setIsMusicEnabled(!isMusicEnabled);
     if (!isMusicEnabled && musicSoundRef.current) {
-      try { musicSoundRef.current.playAsync(); } catch (_e) {}
+      try {
+        musicSoundRef.current.playAsync();
+        announce('Background music enabled');
+      } catch (_e) {}
     } else if (isMusicEnabled && musicSoundRef.current) {
-      try { musicSoundRef.current.pauseAsync(); } catch (_e) {}
+      try {
+        musicSoundRef.current.pauseAsync();
+        announce('Background music disabled');
+      } catch (_e) {}
     }
   }, [isMusicEnabled]);
 
@@ -616,6 +716,54 @@ export default function StoryReaderScreen() {
     // In production this would use expo-speech or a sound bank
     // For now we provide haptic + visual feedback
   }, []);
+
+  // ─── Swipe gesture for page turning ──────────────────────────
+  const panGesture = useMemo(() => {
+    return Gesture.Pan()
+      .onUpdate((event) => {
+        gestureTranslationX.value = event.translationX;
+        gestureActive.value = true;
+
+        // Partial curl preview during drag
+        const threshold = 80;
+        const progress = Math.min(Math.abs(event.translationX) / threshold, 1);
+        curlProgress.value = progress * 0.3; // Only preview up to 30% curl
+        shadowOpacity.value = progress * 0.3;
+
+        // Disable FlatList scroll during gesture
+        flatListRef.current?.setNativeProps?.({ scrollEnabled: false });
+      })
+      .onEnd((event) => {
+        gestureActive.value = false;
+        const threshold = 80;
+        const isSwipeRight = event.translationX > threshold;
+        const isSwipeLeft = event.translationX < -threshold;
+
+        if (isSwipeRight && currentPageIndex > 0) {
+          // Previous page
+          runOnJS(handlePageChange)(currentPageIndex - 1);
+        } else if (isSwipeLeft && currentPageIndex < pages.length - 1) {
+          // Next page
+          runOnJS(handlePageChange)(currentPageIndex + 1);
+        } else {
+          // Spring back to flat
+          curlProgress.value = withSpring(0, {
+            damping: 14,
+            stiffness: 100,
+            mass: 0.6,
+          });
+          shadowOpacity.value = withSpring(0, {
+            damping: 14,
+            stiffness: 100,
+            mass: 0.6,
+          });
+        }
+
+        // Re-enable FlatList scroll
+        flatListRef.current?.setNativeProps?.({ scrollEnabled: !isNarrating });
+        gestureTranslationX.value = 0;
+      });
+  }, [currentPageIndex, pages.length, handlePageChange, isNarrating]);
 
   // ─── Feedback handlers ──────────────────────────────────────
   const handleFeedbackSubmit = useCallback((rating: number) => {
@@ -718,7 +866,12 @@ export default function StoryReaderScreen() {
         <>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Go back">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              accessibilityLabel="Close story"
+              accessibilityHint="Returns to the previous screen"
+              accessibilityRole="button"
+            >
               <Ionicons name="chevron-back" size={28} color={colors.foreground} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
@@ -758,6 +911,16 @@ export default function StoryReaderScreen() {
                 style={styles.imageBackground}
               />
             )}
+
+            {/* Curl shadow overlay (fold edge shadow) */}
+            <Animated.View style={[styles.curlShadowOverlay, curlShadowStyle]} pointerEvents="none">
+              <LinearGradient
+                colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.15)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </Animated.View>
 
             {/* Golden shimmer overlay for page turns */}
             <Animated.View style={[styles.goldenOverlay, goldenOverlayStyle]} pointerEvents="none">
@@ -799,45 +962,52 @@ export default function StoryReaderScreen() {
             )}
           </Animated.View>
 
-          {/* Story text area with word highlighting */}
-          <View style={[styles.textContainer, { backgroundColor: colors.background }]}>
-            <FlatList
-              ref={flatListRef}
-              data={pages}
-              renderItem={({ item, index }) => (
-                <View style={styles.pageContent}>
-                  {index === currentPageIndex && isNarrating && currentWordIndex >= 0 ? (
-                    <WordHighlighter
-                      words={currentWords}
-                      currentWordIndex={currentWordIndex}
-                      baseTextStyle={styles.storyTextBase}
-                      showSyllableBreaks={false}
-                    />
-                  ) : (
-                    <StoryNarrative>{item.storyText}</StoryNarrative>
-                  )}
-                  {item.characters && (item.characters as any[]).length > 0 && (
-                    <CaptionText style={{ marginTop: 12 }}>
-                      Characters: {(item.characters as any[]).map((c: any) =>
-                        typeof c === 'string' ? c : c.name
-                      ).join(', ')}
-                    </CaptionText>
-                  )}
-                </View>
-              )}
-              keyExtractor={(item) => String(item.id)}
-              horizontal
-              pagingEnabled
-              scrollEventThrottle={16}
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(event) => {
-                const contentOffsetX = event.nativeEvent.contentOffset.x;
-                const index = Math.round(contentOffsetX / width);
-                handlePageChange(index);
-              }}
-              scrollEnabled={!isNarrating}
-            />
-          </View>
+          {/* Story text area with word highlighting and swipe gesture */}
+          <GestureDetector gesture={panGesture}>
+            <View
+              style={[styles.textContainer, { backgroundColor: colors.background }]}
+              accessibilityRole="text"
+              accessibilityLabel={`Story text: ${currentPage?.storyText || ''}`}
+              accessibilityHint="Swipe left or right to turn pages"
+            >
+              <FlatList
+                ref={flatListRef}
+                data={pages}
+                renderItem={({ item, index }) => (
+                  <View style={styles.pageContent}>
+                    {index === currentPageIndex && isNarrating ? (
+                      <WordHighlighter
+                        words={currentWords}
+                        currentWordIndex={currentWordIndex}
+                        baseTextStyle={styles.storyTextBase}
+                        showSyllableBreaks={false}
+                      />
+                    ) : (
+                      <StoryNarrative>{item.storyText}</StoryNarrative>
+                    )}
+                    {item.characters && (item.characters as any[]).length > 0 && (
+                      <CaptionText style={{ marginTop: 12 }}>
+                        Characters: {(item.characters as any[]).map((c: any) =>
+                          typeof c === 'string' ? c : c.name
+                        ).join(', ')}
+                      </CaptionText>
+                    )}
+                  </View>
+                )}
+                keyExtractor={(item) => String(item.id)}
+                horizontal
+                pagingEnabled
+                scrollEventThrottle={16}
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(event) => {
+                  const contentOffsetX = event.nativeEvent.contentOffset.x;
+                  const index = Math.round(contentOffsetX / width);
+                  handlePageChange(index);
+                }}
+                scrollEnabled={!isNarrating}
+              />
+            </View>
+          </GestureDetector>
 
           {/* Speaker indicator */}
           {isNarrating && currentSpeaker && (
@@ -929,6 +1099,9 @@ export default function StoryReaderScreen() {
                   onPress={() => { if (currentPageIndex > 0) handlePageChange(currentPageIndex - 1); }}
                   disabled={currentPageIndex === 0}
                   accessibilityLabel="Previous page"
+                  accessibilityHint="Swipe or double-tap to turn page"
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: currentPageIndex === 0 }}
                 >
                   <Ionicons name="chevron-back" size={20} color={colors.foreground} />
                 </TouchableOpacity>
@@ -944,6 +1117,8 @@ export default function StoryReaderScreen() {
                     }
                   }}
                   accessibilityLabel={isLastPage ? 'Finish story' : 'Next page'}
+                  accessibilityHint="Swipe or double-tap to turn page"
+                  accessibilityRole="button"
                 >
                   <Ionicons
                     name={isLastPage ? 'checkmark-circle' : 'chevron-forward'}
@@ -1037,6 +1212,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#333',
+  },
+
+  // Curl shadow (fold edge)
+  curlShadowOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9,
   },
 
   // Golden shimmer
@@ -1193,6 +1374,8 @@ const styles = StyleSheet.create({
   playButton: {
     width: 56,
     height: 56,
+    minHeight: 44,
+    minWidth: 44,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1205,6 +1388,8 @@ const styles = StyleSheet.create({
   controlButton: {
     width: 44,
     height: 44,
+    minHeight: 44,
+    minWidth: 44,
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',

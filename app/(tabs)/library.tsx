@@ -13,14 +13,19 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import { AnimatedPressable, BounceButton } from "@/components/animated-pressable";
+import { announce } from "@/lib/a11y-helpers";
 import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
 import { Image } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { IllustratedEmptyState } from "@/components/illustrated-empty-state";
 
 export default function LibraryScreen() {
   const router = useRouter();
   const colors = useColors();
+  const reduceMotion = useReducedMotion();
   const [children, setChildren] = useState<LocalChild[]>([]);
   const [selectedChild, setSelectedChild] = useState<LocalChild | null>(null);
   const [storyArcs, setStoryArcs] = useState<LocalStoryArc[]>([]);
@@ -67,6 +72,7 @@ export default function LibraryScreen() {
 
   const selectChild = async (child: LocalChild) => {
     setSelectedChild(child);
+    announce(`Selected ${child.name}`);
   };
 
   if (loading) {
@@ -86,22 +92,13 @@ export default function LibraryScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
           }
         >
-          <Ionicons name="book-outline" size={64} color={colors.muted} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No Stories Yet
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Create your first child profile to start building your story library
-          </Text>
-          <Pressable
-            onPress={() => router.push("/create-child")}
-            style={({ pressed }) => [
-              styles.emptyButton,
-              pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
-            ]}
-          >
-            <Text style={styles.emptyButtonText}>Create Child Profile</Text>
-          </Pressable>
+          <IllustratedEmptyState
+            type="no-stories"
+            title="Your Story Library is Empty"
+            subtitle="Every great adventure starts with 'Once upon a time...' Create a child profile to get started."
+            actionLabel="Create Child Profile"
+            onAction={() => router.push("/create-child")}
+          />
         </ScrollView>
       </ScreenContainer>
     );
@@ -117,7 +114,11 @@ export default function LibraryScreen() {
         }
       >
         {/* Header */}
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeInDown.duration(400)}
+          style={styles.header}
+          accessibilityRole="header"
+        >
           <Text style={[styles.title, { color: colors.text }]}>Your Library</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             All your child's stories in one place
@@ -127,7 +128,7 @@ export default function LibraryScreen() {
         {/* Child Selector */}
         {children.length > 1 && (
           <Animated.View
-            entering={FadeInDown.delay(100).duration(400)}
+            entering={reduceMotion ? undefined : FadeInDown.delay(100).duration(400)}
             style={styles.childSelector}
           >
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -135,8 +136,13 @@ export default function LibraryScreen() {
                 <Pressable
                   key={child.id}
                   onPress={() => selectChild(child)}
+                  accessibilityLabel={child.name}
+                  accessibilityRole="button"
+                  accessibilityHint="Tap to select this child's stories"
+                  accessibilityState={{ selected: selectedChild?.id === child.id }}
                   style={[
                     styles.childChip,
+                    { minHeight: 44 },
                     {
                       backgroundColor:
                         selectedChild?.id === child.id
@@ -164,13 +170,21 @@ export default function LibraryScreen() {
 
         {/* Filter Buttons */}
         <Animated.View
-          entering={FadeInDown.delay(150).duration(400)}
+          entering={reduceMotion ? undefined : FadeInDown.delay(150).duration(400)}
           style={styles.filterContainer}
         >
           <Pressable
-            onPress={() => setFilterOffline(false)}
+            onPress={() => {
+              setFilterOffline(false);
+              announce("Showing all stories");
+            }}
+            accessibilityLabel="All Stories"
+            accessibilityRole="button"
+            accessibilityState={{ selected: !filterOffline }}
+            accessibilityHint="Filter to show all stories"
             style={[
               styles.filterButton,
+              { minHeight: 44 },
               {
                 backgroundColor:
                   !filterOffline
@@ -190,9 +204,17 @@ export default function LibraryScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => setFilterOffline(true)}
+            onPress={() => {
+              setFilterOffline(true);
+              announce("Showing offline available stories only");
+            }}
+            accessibilityLabel="Offline Available"
+            accessibilityRole="button"
+            accessibilityState={{ selected: filterOffline }}
+            accessibilityHint="Filter to show only stories available offline"
             style={[
               styles.filterButton,
+              { minHeight: 44 },
               {
                 backgroundColor:
                   filterOffline
@@ -219,29 +241,29 @@ export default function LibraryScreen() {
         </Animated.View>
 
         {/* Story List */}
-        <Animated.View entering={FadeInDown.delay(200).duration(400)}>
+        <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(400)}>
           {storyArcs.length === 0 ? (
-            <View style={styles.noStoriesContainer}>
-              <Ionicons name="layers-outline" size={48} color={colors.muted} />
-              <Text style={[styles.noStoriesText, { color: colors.textSecondary }]}>
-                {filterOffline
-                  ? "No offline stories available"
-                  : "No stories created yet"}
-              </Text>
-              {!filterOffline && (
-                <Pressable
-                  onPress={() => router.push("/(tabs)/create")}
-                  style={styles.createButton}
-                >
-                  <Ionicons name="add-circle" size={20} color="#FFFFFF" />
-                  <Text style={styles.createButtonText}>Create Your First Story</Text>
-                </Pressable>
-              )}
-            </View>
+            <IllustratedEmptyState
+              type="no-downloads"
+              title={filterOffline ? "No Offline Stories" : "No Stories Created Yet"}
+              subtitle={filterOffline
+                ? "Download stories to read anywhere, anytime"
+                : "Complete some stories to see them appear here"}
+              actionLabel={!filterOffline ? "Create Your First Story" : undefined}
+              onAction={!filterOffline ? () => router.push("/(tabs)/create") : undefined}
+              compact
+            />
           ) : (
             <View style={styles.storyGrid}>
-              {storyArcs.map((arc) => (
-                <Pressable
+              {storyArcs.map((arc) => {
+                const progressPercent = arc.totalEpisodes > 0
+                  ? Math.round((arc.currentEpisode / arc.totalEpisodes) * 100)
+                  : 0;
+                const offlineStatus = arc.isOfflineAvailable ? ", available offline" : "";
+                const storyLabel = `${arc.title}, ${arc.currentEpisode} of ${arc.totalEpisodes} episodes, ${progressPercent}% complete${offlineStatus}`;
+
+                return (
+                <AnimatedPressable
                   key={arc.id}
                   onPress={() =>
                     router.push({
@@ -255,7 +277,10 @@ export default function LibraryScreen() {
                       },
                     })
                   }
-                  style={[styles.storyCard, { backgroundColor: colors.card }]}
+                  accessibilityLabel={storyLabel}
+                  accessibilityRole="button"
+                  accessibilityHint="Opens this story to view or continue reading"
+                  style={[styles.storyCard, { backgroundColor: colors.card, minHeight: 44 }]}
                 >
                   {arc.coverImageUrl && (
                     <Image
@@ -306,8 +331,9 @@ export default function LibraryScreen() {
                       </View>
                     )}
                   </View>
-                </Pressable>
-              ))}
+                </AnimatedPressable>
+                );
+              })}
             </View>
           )}
         </Animated.View>

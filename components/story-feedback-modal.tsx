@@ -127,8 +127,9 @@ export function StoryFeedbackModal({
                           ],
                           pressed && { transform: [{ scale: 0.9 }] },
                         ]}
-                        accessibilityLabel={`Rate story: ${option.label}`}
+                        accessibilityLabel={`Rate: ${option.label}, ${option.value} stars`}
                         accessibilityRole="button"
+                        accessibilityState={{ selected: isSelected }}
                       >
                         <Text
                           style={[
@@ -163,6 +164,9 @@ export function StoryFeedbackModal({
                     selectedRating === null && { opacity: 0.4 },
                     pressed && { opacity: 0.8 },
                   ]}
+                  accessibilityLabel="Submit feedback"
+                  accessibilityHint={selectedRating === null ? "Select a rating first" : "Send your rating"}
+                  accessibilityRole="button"
                 >
                   <Ionicons name="checkmark-circle" size={20} color="#0A0E1A" />
                   <Text style={styles.submitText}>Submit</Text>
@@ -174,6 +178,9 @@ export function StoryFeedbackModal({
                     styles.skipButton,
                     pressed && { opacity: 0.6 },
                   ]}
+                  accessibilityLabel="Skip feedback"
+                  accessibilityHint="Close feedback modal without submitting"
+                  accessibilityRole="button"
                 >
                   <Text style={styles.skipText}>Skip</Text>
                 </Pressable>
