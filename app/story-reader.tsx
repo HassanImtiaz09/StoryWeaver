@@ -41,6 +41,7 @@ import {
 import { useReaderAudio } from '@/hooks/use-reader-audio';
 import { useBookmark } from '@/hooks/use-bookmark';
 import { usePageCurl } from '@/hooks/use-page-curl';
+import { useSmartHomeSync } from '@/hooks/use-smart-home-sync';
 
 // ─── Constants ──────────────────────────────────────────────────
 const MOOD_COLORS: Record<string, [string, string]> = {
@@ -215,6 +216,14 @@ export default function StoryReaderScreen() {
       setActiveTooltip(null);
     },
     screenWidth: width,
+  });
+
+  // ─── Smart home mood sync (lighting + ambient sound) ──────────
+  useSmartHomeSync({
+    mood: currentPage?.mood,
+    isNarrating: audio.isNarrating,
+    isActive: !showingEndscreen && !pagesQuery.isLoading,
+    episodeId,
   });
 
   // ─── Auto-generate images ──────────────────────────────────────
