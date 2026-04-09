@@ -28,7 +28,7 @@ export default function FamilyMemberCard({
   avatarUrl,
   onStartStory,
 }: FamilyMemberCardProps) {
-  const { colors } = useColors();
+  const colors = useColors();
   const { fontSize } = useGrandparentStore();
   const { width } = useWindowDimensions();
 

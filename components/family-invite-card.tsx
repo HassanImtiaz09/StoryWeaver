@@ -27,7 +27,7 @@ export default function FamilyInviteCard({
   status,
   onRefresh,
 }: FamilyInviteCardProps) {
-  const { colors } = useColors();
+  const colors = useColors();
   const { fontSize } = useGrandparentStore();
   const [isCopied, setIsCopied] = useState(false);
   const [isSharing, setIsSharing] = useState(false);

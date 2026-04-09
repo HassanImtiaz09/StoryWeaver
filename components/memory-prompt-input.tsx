@@ -40,7 +40,7 @@ export default function MemoryPromptInput({
   onGenerateStory,
   isLoading = false,
 }: MemoryPromptInputProps) {
-  const { colors } = useColors();
+  const colors = useColors();
   const { fontSize } = useGrandparentStore();
   const { width } = useWindowDimensions();
   const [memory, setMemory] = useState("");

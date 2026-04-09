@@ -48,7 +48,7 @@ export default function FamilyArchiveList({
   filterByFamilyMemberId,
   onFilterChange,
 }: FamilyArchiveListProps) {
-  const { colors } = useColors();
+  const colors = useColors();
   const { fontSize } = useGrandparentStore();
   const { width } = useWindowDimensions();
   const [expandedStoryId, setExpandedStoryId] = useState<number | null>(null);

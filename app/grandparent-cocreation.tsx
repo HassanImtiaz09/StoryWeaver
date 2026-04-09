@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useGrandparentStore } from "@/lib/grandparent-store";
 import { trpc } from "@/lib/trpc";
-import ScreenContainer from "@/components/screen-container";
+import { ScreenContainer } from "@/components/screen-container";
 import FamilyInviteCard from "@/components/family-invite-card";
 import FamilyMemberCard from "@/components/family-member-card";
 import MemoryPromptInput from "@/components/memory-prompt-input";

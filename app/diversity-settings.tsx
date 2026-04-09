@@ -13,7 +13,7 @@ import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useDiversityStore } from "@/lib/diversity-store";
-import ScreenContainer from "@/components/screen-container";
+import { ScreenContainer } from "@/components/screen-container";
 import DiversityCategorySelector from "@/components/diversity-category-selector";
 import RepresentationPreview from "@/components/representation-preview";
 import CulturalCalendarCard from "@/components/cultural-calendar-card";

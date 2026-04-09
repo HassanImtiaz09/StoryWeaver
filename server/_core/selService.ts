@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "../db";
-import { selTemplates, selProgress, selResponses, arcs } from "../../drizzle/schema";
+import { selTemplates, selProgress, selResponses } from "../../drizzle/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 

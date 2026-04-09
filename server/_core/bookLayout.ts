@@ -1,4 +1,3 @@
-import { Page, Episode } from "@/drizzle/schema";
 import { PDFDocument, PDFPage, PDFFont, rgb, degrees, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import axios from "axios";

@@ -4,7 +4,7 @@ import {
   familyInvites,
   coCreationSessions,
   memoryPrompts,
-  stories,
+  storyArcs,
 } from "../../drizzle/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";

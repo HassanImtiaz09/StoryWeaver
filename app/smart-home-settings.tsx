@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal, TextInput } from "react-native";
 import { Stack } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
-import ScreenContainer from "@/components/screen-container";
+import { ScreenContainer } from "@/components/screen-container";
 import SmartHomeDeviceCard from "@/components/smart-home-device-card";
 import MoodLightingPreview from "@/components/mood-lighting-preview";
 import AmbientSoundPicker from "@/components/ambient-sound-picker";

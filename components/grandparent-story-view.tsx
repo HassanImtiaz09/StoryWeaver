@@ -32,7 +32,7 @@ export default function GrandparentStoryView({
   isLoading = false,
   highContrast = false,
 }: GrandparentStoryViewProps) {
-  const { colors } = useColors();
+  const colors = useColors();
   const { fontSize } = useGrandparentStore();
   const { width } = useWindowDimensions();
   const [currentPage, setCurrentPage] = useState(0);
