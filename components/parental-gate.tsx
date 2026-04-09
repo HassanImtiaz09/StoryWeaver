@@ -25,6 +25,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/use-colors";
 import { a11yButton, a11yInput, announce } from "@/lib/a11y-helpers";
+import { FocusTrap } from "@/components/focus-trap";
 
 interface ParentalGateProps {
   visible: boolean;
@@ -367,9 +368,11 @@ export function ParentalGate({
       accessibilityRole="dialog"
       accessibilityLabel={title}
       accessibilityHint="Mathematical challenge to verify parent access"
+      accessibilityViewIsModal={true}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <FocusTrap active={visible}>
+          <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerIcon}>
@@ -518,7 +521,8 @@ export function ParentalGate({
           >
             Attempt {attempts} of {maxAttempts}
           </Text>
-        </View>
+          </View>
+        </FocusTrap>
       </View>
     </Modal>
   );

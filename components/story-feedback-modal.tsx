@@ -14,6 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { FocusTrap } from "@/components/focus-trap";
 
 const FEEDBACK_OPTIONS = [
   { emoji: "😍", label: "Loved it!", value: 5 },
@@ -78,12 +79,14 @@ export function StoryFeedbackModal({
       transparent
       animationType="fade"
       statusBarTranslucent
+      accessibilityViewIsModal={true}
     >
       <View style={styles.overlay}>
-        <Animated.View
-          entering={FadeInDown.springify().damping(14)}
-          style={styles.card}
-        >
+        <FocusTrap active={visible}>
+          <Animated.View
+            entering={FadeInDown.springify().damping(14)}
+            style={styles.card}
+          >
           {submitted ? (
             /* Thank you state */
             <Animated.View entering={ZoomIn.springify()} style={styles.thankYouContainer}>
@@ -187,7 +190,8 @@ export function StoryFeedbackModal({
               </View>
             </>
           )}
-        </Animated.View>
+          </Animated.View>
+        </FocusTrap>
       </View>
     </Modal>
   );

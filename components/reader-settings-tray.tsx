@@ -22,6 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { useAccessibilityStore } from '@/lib/accessibility-store';
 import { useColors } from '@/hooks/use-colors';
 import { announce } from '@/lib/a11y-helpers';
+import { FocusTrap } from '@/components/focus-trap';
 
 interface ReaderSettingsTrayProps {
   isOpen: boolean;
@@ -96,15 +97,16 @@ export function ReaderSettingsTray({ isOpen, onClose }: ReaderSettingsTrayProps)
       />
 
       {/* Settings Tray */}
-      <Animated.View
-        style={[
-          styles.tray,
-          { backgroundColor: colors.surface },
-          animatedStyle,
-        ]}
-        accessibilityRole="dialog"
-        accessibilityLabel="Settings tray"
-      >
+      <FocusTrap active={isOpen}>
+        <Animated.View
+          style={[
+            styles.tray,
+            { backgroundColor: colors.surface },
+            animatedStyle,
+          ]}
+          accessibilityRole="dialog"
+          accessibilityLabel="Settings tray"
+        >
         {/* Grab handle */}
         <View style={styles.grabHandleContainer}>
           <View
@@ -244,7 +246,8 @@ export function ReaderSettingsTray({ isOpen, onClose }: ReaderSettingsTrayProps)
             </View>
           </View>
         </View>
-      </Animated.View>
+        </Animated.View>
+      </FocusTrap>
     </>
   );
 }
