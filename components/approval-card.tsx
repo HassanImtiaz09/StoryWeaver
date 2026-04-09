@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/use-colors";
-import { useParentToolsStore } from "@/lib/parent-tools-store";
+import { reviewEpisode } from "@/lib/parent-tools-actions";
 import type { ApprovalQueueItem } from "@/lib/parent-tools-store";
 
 interface ApprovalCardProps {
@@ -26,7 +26,6 @@ export function ApprovalCard({
   onReview,
 }: ApprovalCardProps) {
   const colors = useColors();
-  const reviewEpisode = useParentToolsStore((state) => state.reviewEpisode);
   const [isReviewing, setIsReviewing] = useState(false);
 
   const statusConfig: Record<string, { color: string; label: string; icon: string }> = {

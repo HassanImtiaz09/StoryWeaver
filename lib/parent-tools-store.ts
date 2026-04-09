@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
-import { trpc } from "./trpc";
 
 const PARENT_TOOLS_KEY = "storyweaver_parent_tools";
 
@@ -84,50 +83,37 @@ export interface ParentToolsState {
   isLoading: boolean;
   error: string | null;
 
+  // Pure state setters — no tRPC calls; components orchestrate data fetching
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+
   // Custom Elements
-  fetchCustomElements: (childId: number) => Promise<void>;
-  createCustomElement: (
-    childId: number,
-    elementType: CustomElement["elementType"],
-    name: string,
-    description?: string,
-    imageUrl?: string
-  ) => Promise<void>;
-  updateCustomElement: (
-    elementId: number,
-    updates: {
-      name?: string;
-      description?: string;
-      imageUrl?: string;
-    }
-  ) => Promise<void>;
-  deleteCustomElement: (elementId: number) => Promise<void>;
+  setCustomElements: (childId: number, elements: CustomElement[]) => Promise<void>;
+  addCustomElement: (childId: number, element: CustomElement) => Promise<void>;
+  replaceCustomElement: (elementId: number, updated: CustomElement) => Promise<void>;
+  removeCustomElement: (elementId: number) => Promise<void>;
 
   // Voice Recordings
-  fetchVoiceRecordings: (childId: number) => Promise<void>;
-  createVoiceRecording: (
-    childId: number,
-    voiceName: string,
-    sampleAudioUrl?: string
-  ) => Promise<void>;
-  updateVoiceRecordingStatus: (
+  setVoiceRecordings: (childId: number, recordings: VoiceRecording[]) => Promise<void>;
+  addVoiceRecording: (childId: number, recording: VoiceRecording) => Promise<void>;
+  updateRecordingInStore: (
     recordingId: number,
     status: VoiceRecording["status"],
     voiceModelId?: string
   ) => Promise<void>;
 
   // Approval Queue
-  fetchPendingApprovals: () => Promise<void>;
-  submitEpisodeForApproval: (childId: number, episodeId: number) => Promise<void>;
-  reviewEpisode: (
+  setApprovalQueue: (queue: ApprovalQueueItem[]) => Promise<void>;
+  addToApprovalQueue: (item: ApprovalQueueItem) => Promise<void>;
+  updateApprovalItem: (
     queueId: number,
-    status: "approved" | "rejected" | "edited",
+    status: string,
     parentNotes?: string,
     editedContent?: Record<string, unknown>
   ) => Promise<void>;
 
   // Preferences
-  fetchChildPreferences: (childId: number) => Promise<void>;
+  setChildPreferences: (childId: number, preferences: ChildStoryPreferences) => Promise<void>;
 
   // Utilities
   clearError: () => void;
@@ -141,322 +127,183 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
   isLoading: false,
   error: null,
 
+  setLoading: (loading: boolean) => {
+    set({ isLoading: loading });
+  },
+
+  setError: (error: string | null) => {
+    set({ error, isLoading: false });
+  },
+
   // ─── Custom Elements ───────────────────────────────────────
-  fetchCustomElements: async (childId: number) => {
-    set({ isLoading: true, error: null });
-    try {
-      const elements = await trpc.parentTools.getCustomElements.query({
-        childId,
-      });
+  setCustomElements: async (childId: number, elements: CustomElement[]) => {
+    set((state) => {
+      const newMap = new Map(state.customElements);
+      newMap.set(childId, elements);
+      return { customElements: newMap, isLoading: false };
+    });
 
-      set((state) => {
-        const newMap = new Map(state.customElements);
-        newMap.set(childId, elements);
-        return { customElements: newMap, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      const cacheData = Array.from(state.customElements.entries());
-      await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to fetch custom elements";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    const cacheData = Array.from(state.customElements.entries());
+    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
   },
 
-  createCustomElement: async (
-    childId,
-    elementType,
-    name,
-    description,
-    imageUrl
-  ) => {
-    set({ isLoading: true, error: null });
-    try {
-      const newElement = await trpc.parentTools.createCustomElement.mutate({
-        childId,
-        elementType,
-        name,
-        description,
-        imageUrl,
-      });
+  addCustomElement: async (childId: number, element: CustomElement) => {
+    set((state) => {
+      const newMap = new Map(state.customElements);
+      const currentElements = newMap.get(childId) || [];
+      newMap.set(childId, [...currentElements, element]);
+      return { customElements: newMap, isLoading: false };
+    });
 
-      set((state) => {
-        const newMap = new Map(state.customElements);
-        const currentElements = newMap.get(childId) || [];
-        newMap.set(childId, [...currentElements, newElement as CustomElement]);
-        return { customElements: newMap, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      const cacheData = Array.from(state.customElements.entries());
-      await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to create custom element";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    const cacheData = Array.from(state.customElements.entries());
+    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
   },
 
-  updateCustomElement: async (elementId, updates) => {
-    set({ isLoading: true, error: null });
-    try {
-      const updated = await trpc.parentTools.updateCustomElement.mutate({
-        elementId,
-        ...updates,
+  replaceCustomElement: async (elementId: number, updated: CustomElement) => {
+    set((state) => {
+      const newMap = new Map(state.customElements);
+      newMap.forEach((elements, childId) => {
+        const idx = elements.findIndex((e) => e.id === elementId);
+        if (idx >= 0) {
+          const newElements = [...elements];
+          newElements[idx] = updated;
+          newMap.set(childId, newElements);
+        }
       });
+      return { customElements: newMap, isLoading: false };
+    });
 
-      set((state) => {
-        const newMap = new Map(state.customElements);
-        newMap.forEach((elements, childId) => {
-          const idx = elements.findIndex((e) => e.id === elementId);
-          if (idx >= 0) {
-            const newElements = [...elements];
-            newElements[idx] = updated as CustomElement;
-            newMap.set(childId, newElements);
-          }
-        });
-        return { customElements: newMap, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      const cacheData = Array.from(state.customElements.entries());
-      await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to update custom element";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    const cacheData = Array.from(state.customElements.entries());
+    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
   },
 
-  deleteCustomElement: async (elementId) => {
-    set({ isLoading: true, error: null });
-    try {
-      await trpc.parentTools.deleteCustomElement.mutate({ elementId });
-
-      set((state) => {
-        const newMap = new Map(state.customElements);
-        newMap.forEach((elements, childId) => {
-          const filtered = elements.filter((e) => e.id !== elementId);
-          newMap.set(childId, filtered);
-        });
-        return { customElements: newMap, isLoading: false };
+  removeCustomElement: async (elementId: number) => {
+    set((state) => {
+      const newMap = new Map(state.customElements);
+      newMap.forEach((elements, childId) => {
+        const filtered = elements.filter((e) => e.id !== elementId);
+        newMap.set(childId, filtered);
       });
+      return { customElements: newMap, isLoading: false };
+    });
 
-      // Cache to AsyncStorage
-      const state = get();
-      const cacheData = Array.from(state.customElements.entries());
-      await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to delete custom element";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    const cacheData = Array.from(state.customElements.entries());
+    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
   },
 
   // ─── Voice Recordings ──────────────────────────────────────
-  fetchVoiceRecordings: async (childId: number) => {
-    set({ isLoading: true, error: null });
-    try {
-      const recordings = await trpc.parentTools.getVoiceRecordings.query({
-        childId,
-      });
+  setVoiceRecordings: async (childId: number, recordings: VoiceRecording[]) => {
+    set((state) => {
+      const newMap = new Map(state.voiceRecordings);
+      newMap.set(childId, recordings);
+      return { voiceRecordings: newMap, isLoading: false };
+    });
 
-      set((state) => {
-        const newMap = new Map(state.voiceRecordings);
-        newMap.set(childId, recordings);
-        return { voiceRecordings: newMap, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      const cacheData = Array.from(state.voiceRecordings.entries());
-      await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to fetch voice recordings";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    const cacheData = Array.from(state.voiceRecordings.entries());
+    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
   },
 
-  createVoiceRecording: async (childId, voiceName, sampleAudioUrl) => {
-    set({ isLoading: true, error: null });
-    try {
-      const newRecording = await trpc.parentTools.createVoiceRecording.mutate({
-        childId,
-        voiceName,
-        sampleAudioUrl,
-      });
+  addVoiceRecording: async (childId: number, recording: VoiceRecording) => {
+    set((state) => {
+      const newMap = new Map(state.voiceRecordings);
+      const currentRecordings = newMap.get(childId) || [];
+      newMap.set(childId, [...currentRecordings, recording]);
+      return { voiceRecordings: newMap, isLoading: false };
+    });
 
-      set((state) => {
-        const newMap = new Map(state.voiceRecordings);
-        const currentRecordings = newMap.get(childId) || [];
-        newMap.set(childId, [...currentRecordings, newRecording as VoiceRecording]);
-        return { voiceRecordings: newMap, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      const cacheData = Array.from(state.voiceRecordings.entries());
-      await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to create voice recording";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    const cacheData = Array.from(state.voiceRecordings.entries());
+    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
   },
 
-  updateVoiceRecordingStatus: async (recordingId, status, voiceModelId) => {
-    set({ isLoading: true, error: null });
-    try {
-      await trpc.parentTools.updateVoiceRecordingStatus.mutate({
-        recordingId,
-        status,
-        voiceModelId,
+  updateRecordingInStore: async (recordingId, status, voiceModelId) => {
+    set((state) => {
+      const newMap = new Map(state.voiceRecordings);
+      newMap.forEach((recordings, childId) => {
+        const idx = recordings.findIndex((r) => r.id === recordingId);
+        if (idx >= 0) {
+          const newRecordings = [...recordings];
+          newRecordings[idx] = {
+            ...newRecordings[idx],
+            status,
+            voiceModelId: voiceModelId || newRecordings[idx].voiceModelId,
+          };
+          newMap.set(childId, newRecordings);
+        }
       });
+      return { voiceRecordings: newMap, isLoading: false };
+    });
 
-      set((state) => {
-        const newMap = new Map(state.voiceRecordings);
-        newMap.forEach((recordings, childId) => {
-          const idx = recordings.findIndex((r) => r.id === recordingId);
-          if (idx >= 0) {
-            const newRecordings = [...recordings];
-            newRecordings[idx] = {
-              ...newRecordings[idx],
-              status,
-              voiceModelId: voiceModelId || newRecordings[idx].voiceModelId,
-            };
-            newMap.set(childId, newRecordings);
-          }
-        });
-        return { voiceRecordings: newMap, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      const cacheData = Array.from(state.voiceRecordings.entries());
-      await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to update voice recording";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    const cacheData = Array.from(state.voiceRecordings.entries());
+    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
   },
 
   // ─── Approval Queue ────────────────────────────────────────
-  fetchPendingApprovals: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const queue = await trpc.parentTools.getPendingApprovals.query();
-      set({ approvalQueue: queue, isLoading: false });
-
-      // Cache to AsyncStorage
-      await AsyncStorage.setItem(
-        PARENT_TOOLS_KEY,
-        JSON.stringify({ approvalQueue: queue })
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to fetch pending approvals";
-      set({ error: message, isLoading: false });
-    }
+  setApprovalQueue: async (queue: ApprovalQueueItem[]) => {
+    set({ approvalQueue: queue, isLoading: false });
+    await AsyncStorage.setItem(
+      PARENT_TOOLS_KEY,
+      JSON.stringify({ approvalQueue: queue })
+    );
   },
 
-  submitEpisodeForApproval: async (childId, episodeId) => {
-    set({ isLoading: true, error: null });
-    try {
-      const queueItem = await trpc.parentTools.submitForApproval.mutate({
-        childId,
-        episodeId,
-      });
+  addToApprovalQueue: async (item: ApprovalQueueItem) => {
+    set((state) => {
+      const newQueue = [...state.approvalQueue];
+      const exists = newQueue.some((q) => q.episodeId === item.episodeId);
+      if (!exists) {
+        newQueue.push(item);
+      }
+      return { approvalQueue: newQueue, isLoading: false };
+    });
 
-      set((state) => {
-        const newQueue = [...state.approvalQueue];
-        const exists = newQueue.some((item) => item.episodeId === episodeId);
-        if (!exists) {
-          newQueue.push(queueItem as ApprovalQueueItem);
-        }
-        return { approvalQueue: newQueue, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      await AsyncStorage.setItem(
-        PARENT_TOOLS_KEY,
-        JSON.stringify({ approvalQueue: state.approvalQueue })
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to submit episode for approval";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    await AsyncStorage.setItem(
+      PARENT_TOOLS_KEY,
+      JSON.stringify({ approvalQueue: state.approvalQueue })
+    );
   },
 
-  reviewEpisode: async (queueId, status, parentNotes, editedContent) => {
-    set({ isLoading: true, error: null });
-    try {
-      await trpc.parentTools.reviewEpisode.mutate({
-        queueId,
-        status,
-        parentNotes,
-        editedContent,
-      });
+  updateApprovalItem: async (queueId, status, parentNotes, editedContent) => {
+    set((state) => {
+      const newQueue = [...state.approvalQueue];
+      const idx = newQueue.findIndex((item) => item.id === queueId);
+      if (idx >= 0) {
+        newQueue[idx] = {
+          ...newQueue[idx],
+          status: status as ApprovalQueueItem["status"],
+          parentNotes: parentNotes || newQueue[idx].parentNotes,
+          editedContent: editedContent || newQueue[idx].editedContent,
+          reviewedAt: new Date(),
+        };
+      }
+      return { approvalQueue: newQueue, isLoading: false };
+    });
 
-      set((state) => {
-        const newQueue = [...state.approvalQueue];
-        const idx = newQueue.findIndex((item) => item.id === queueId);
-        if (idx >= 0) {
-          newQueue[idx] = {
-            ...newQueue[idx],
-            status,
-            parentNotes: parentNotes || newQueue[idx].parentNotes,
-            editedContent: editedContent || newQueue[idx].editedContent,
-            reviewedAt: new Date(),
-          };
-        }
-        return { approvalQueue: newQueue, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      await AsyncStorage.setItem(
-        PARENT_TOOLS_KEY,
-        JSON.stringify({ approvalQueue: state.approvalQueue })
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to review episode";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    await AsyncStorage.setItem(
+      PARENT_TOOLS_KEY,
+      JSON.stringify({ approvalQueue: state.approvalQueue })
+    );
   },
 
   // ─── Preferences ──────────────────────────────────────────
-  fetchChildPreferences: async (childId: number) => {
-    set({ isLoading: true, error: null });
-    try {
-      const preferences = await trpc.parentTools.getChildStoryPreferences.query({
-        childId,
-      });
+  setChildPreferences: async (childId: number, preferences: ChildStoryPreferences) => {
+    set((state) => {
+      const newMap = new Map(state.childPreferences);
+      newMap.set(childId, preferences);
+      return { childPreferences: newMap, isLoading: false };
+    });
 
-      set((state) => {
-        const newMap = new Map(state.childPreferences);
-        newMap.set(childId, preferences as ChildStoryPreferences);
-        return { childPreferences: newMap, isLoading: false };
-      });
-
-      // Cache to AsyncStorage
-      const state = get();
-      const cacheData = Array.from(state.childPreferences.entries());
-      await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to fetch preferences";
-      set({ error: message, isLoading: false });
-    }
+    const state = get();
+    const cacheData = Array.from(state.childPreferences.entries());
+    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
   },
 
   // ─── Utilities ────────────────────────────────────────────

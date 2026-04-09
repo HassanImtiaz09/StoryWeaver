@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/use-colors";
 import { useParentToolsStore } from "@/lib/parent-tools-store";
+import { createCustomElement, updateCustomElement } from "@/lib/parent-tools-actions";
 import type { CustomElement } from "@/lib/parent-tools-store";
 
 interface CustomElementFormProps {
@@ -36,12 +37,6 @@ export function CustomElementForm({
   const [imageUrl, setImageUrl] = useState(element?.imageUrl || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const createCustomElement = useParentToolsStore(
-    (state) => state.createCustomElement
-  );
-  const updateCustomElement = useParentToolsStore(
-    (state) => state.updateCustomElement
-  );
   const storeIsLoading = useParentToolsStore((state) => state.isLoading);
 
   const elementTypeEmoji: Record<string, string> = {

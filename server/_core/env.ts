@@ -25,6 +25,48 @@ export const ENV = {
   redisUrl: process.env.REDIS_URL ?? "",
 };
 
+// ─── Required Environment Variable Validation ────────────────────
+// These variables are essential for the server to function. If any are
+// missing the server should refuse to start, rather than failing at
+// runtime with confusing errors (e.g. a database connection to "").
+
+interface RequiredVar {
+  envKey: string;
+  envObjKey: keyof typeof ENV;
+  label: string;
+}
+
+const REQUIRED_VARS: RequiredVar[] = [
+  { envKey: "DATABASE_URL", envObjKey: "databaseUrl", label: "Database connection URL" },
+  { envKey: "JWT_SECRET", envObjKey: "cookieSecret", label: "JWT signing secret" },
+  { envKey: "ANTHROPIC_API_KEY", envObjKey: "anthropicApiKey", label: "Anthropic API key (story generation)" },
+];
+
+/**
+ * Validate that all required environment variables are present.
+ * Call this once at server startup BEFORE any services are initialised.
+ * Throws an error listing every missing variable so the operator can
+ * fix them all in one pass rather than discovering them one at a time.
+ */
+export function validateRequiredEnvVars(): void {
+  const missing = REQUIRED_VARS.filter((v) => !ENV[v.envObjKey]);
+
+  if (missing.length > 0) {
+    const details = missing
+      .map((v) => `  - ${v.envKey}: ${v.label}`)
+      .join("\n");
+
+    const message =
+      `[StoryWeaver] Server cannot start — ${missing.length} required environment ` +
+      `variable${missing.length > 1 ? "s are" : " is"} missing:\n${details}\n` +
+      `Set ${missing.length > 1 ? "them" : "it"} in your .env file or environment and try again.`;
+
+    // In production, throw so the process crashes with a clear message.
+    // In development, also throw — silent empty-string fallbacks are never safe.
+    throw new Error(message);
+  }
+}
+
 // Service configuration validation
 // Logs warnings for unconfigured optional services but allows app to run
 export function validateServiceConfiguration(): void {

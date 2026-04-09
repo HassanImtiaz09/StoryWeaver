@@ -4,10 +4,213 @@
  */
 
 import { db } from "../db";
-import { storyArcs, episodes } from "../../drizzle/schema";
+import { storyArcs, episodes, narrativeMilestones } from "../../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { cache, CACHE_CONFIG } from "./cache";
 import { storyEngine } from "./storyEngine";
+
+// ─── Narrative Phase System ────────────────────────────────────
+// 5-phase arc mapped to episode ranges. For a 5-episode arc each episode
+// gets one phase. For 7 episodes, some phases span two episodes.
+
+export type NarrativePhase =
+  | "introduction"
+  | "rising_action"
+  | "midpoint_escalation"
+  | "climax_approach"
+  | "resolution";
+
+export const PHASE_ORDER: NarrativePhase[] = [
+  "introduction",
+  "rising_action",
+  "midpoint_escalation",
+  "climax_approach",
+  "resolution",
+];
+
+export const PHASE_GOALS: Record<NarrativePhase, string[]> = {
+  introduction: [
+    "Introduce protagonist and setting",
+    "Establish the story world rules",
+    "Present the initial situation or problem",
+    "Hook the reader with an intriguing element",
+  ],
+  rising_action: [
+    "Introduce complications or obstacles",
+    "Deepen character relationships",
+    "Build tension and stakes",
+    "Introduce or develop the antagonist/challenge",
+  ],
+  midpoint_escalation: [
+    "Major turning point or revelation",
+    "Raise the stakes significantly",
+    "Character faces a difficult choice",
+    "Shift in the story direction",
+  ],
+  climax_approach: [
+    "Build to the climax",
+    "All story threads converge",
+    "Character demonstrates growth",
+    "Highest tension point",
+  ],
+  resolution: [
+    "Resolve the main conflict",
+    "Show character transformation",
+    "Tie up story threads",
+    "End with emotional satisfaction and calm for bedtime",
+  ],
+};
+
+/**
+ * Determine which narrative phase an episode should be in based on
+ * episode number and total episode count.
+ */
+export function getPhaseForEpisode(episodeNumber: number, totalEpisodes: number): NarrativePhase {
+  if (totalEpisodes <= 5) {
+    // 1:1 mapping — each episode = one phase
+    const idx = Math.min(episodeNumber - 1, 4);
+    return PHASE_ORDER[idx];
+  }
+
+  // For longer arcs (6-7 episodes), distribute phases:
+  // Introduction: episode 1
+  // Rising Action: episodes 2-3
+  // Midpoint: episode 4 (or 3-4 for 7)
+  // Climax Approach: episode 5-6 (or 5 for 6)
+  // Resolution: final episode
+  const ratio = (episodeNumber - 1) / (totalEpisodes - 1); // 0.0 to 1.0
+
+  if (ratio <= 0.15) return "introduction";
+  if (ratio <= 0.4) return "rising_action";
+  if (ratio <= 0.6) return "midpoint_escalation";
+  if (ratio <= 0.85) return "climax_approach";
+  return "resolution";
+}
+
+/**
+ * Create a milestone record when an episode is generated
+ */
+export async function createMilestone(
+  arcId: number,
+  episodeId: number,
+  episodeNumber: number,
+  totalEpisodes: number
+): Promise<typeof narrativeMilestones.$inferSelect> {
+  const phase = getPhaseForEpisode(episodeNumber, totalEpisodes);
+  const goals = PHASE_GOALS[phase];
+
+  const [milestone] = await db.insert(narrativeMilestones).values({
+    arcId,
+    episodeId,
+    episodeNumber,
+    narrativePhase: phase,
+    phaseGoals: goals,
+  }).$returningId();
+
+  // Invalidate cache
+  await cache.del(`arc_state:${arcId}`);
+  await cache.del(`milestones:${arcId}`);
+
+  const [created] = await db
+    .select()
+    .from(narrativeMilestones)
+    .where(eq(narrativeMilestones.id, milestone.id))
+    .limit(1);
+
+  return created;
+}
+
+/**
+ * Mark a milestone as completed and record what was achieved
+ */
+export async function completeMilestone(
+  arcId: number,
+  episodeNumber: number,
+  outcome: {
+    goalsAchieved: string[];
+    charactersIntroduced?: string[];
+    plotPointsResolved?: string[];
+    cliffhanger?: string;
+  }
+): Promise<void> {
+  await db
+    .update(narrativeMilestones)
+    .set({
+      isCompleted: true,
+      phaseOutcome: outcome,
+      completedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(narrativeMilestones.arcId, arcId),
+        eq(narrativeMilestones.episodeNumber, episodeNumber)
+      )
+    );
+
+  await cache.del(`milestones:${arcId}`);
+}
+
+/**
+ * Get all milestones for a story arc, useful for narrative continuity context
+ */
+export async function getArcMilestones(
+  arcId: number
+): Promise<Array<typeof narrativeMilestones.$inferSelect>> {
+  const cacheKey = `milestones:${arcId}`;
+  const cached = await cache.get<Array<typeof narrativeMilestones.$inferSelect>>(cacheKey);
+  if (cached) return cached;
+
+  const milestones = await db
+    .select()
+    .from(narrativeMilestones)
+    .where(eq(narrativeMilestones.arcId, arcId))
+    .orderBy(narrativeMilestones.episodeNumber);
+
+  await cache.set(cacheKey, milestones, CACHE_CONFIG.storyTemplates.ttl);
+  return milestones;
+}
+
+/**
+ * Build narrative context string for prompt injection.
+ * Includes completed milestones, current phase, and upcoming goals.
+ */
+export async function buildNarrativePhaseContext(
+  arcId: number,
+  episodeNumber: number,
+  totalEpisodes: number
+): Promise<string> {
+  const milestones = await getArcMilestones(arcId);
+  const currentPhase = getPhaseForEpisode(episodeNumber, totalEpisodes);
+  const goals = PHASE_GOALS[currentPhase];
+
+  const completedPhases = milestones
+    .filter((m) => m.isCompleted && m.phaseOutcome)
+    .map((m) => {
+      const outcome = m.phaseOutcome as {
+        goalsAchieved: string[];
+        cliffhanger?: string;
+      };
+      return `Episode ${m.episodeNumber} (${m.narrativePhase}): ${outcome.goalsAchieved.join(", ")}${outcome.cliffhanger ? ` — Cliffhanger: ${outcome.cliffhanger}` : ""}`;
+    });
+
+  let context = `\n=== NARRATIVE PHASE TRACKING ===\n`;
+  context += `Current Phase: ${currentPhase.replace(/_/g, " ").toUpperCase()} (Episode ${episodeNumber}/${totalEpisodes})\n`;
+  context += `Phase Goals:\n${goals.map((g) => `  - ${g}`).join("\n")}\n`;
+
+  if (completedPhases.length > 0) {
+    context += `\nCompleted Phases:\n${completedPhases.map((p) => `  ${p}`).join("\n")}\n`;
+  }
+
+  // Add upcoming phase preview for continuity
+  if (episodeNumber < totalEpisodes) {
+    const nextPhase = getPhaseForEpisode(episodeNumber + 1, totalEpisodes);
+    context += `\nNext Phase: ${nextPhase.replace(/_/g, " ")} — prepare a transition that leads naturally into this.\n`;
+  }
+
+  context += `=== END NARRATIVE PHASE ===\n`;
+
+  return context;
+}
 
 /**
  * Story arc state tracking

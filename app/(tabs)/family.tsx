@@ -13,6 +13,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import { useGamificationStore } from "@/lib/gamification-store";
+import { fetchProgress } from "@/lib/gamification-actions";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -75,10 +76,10 @@ export default function FamilyScreen() {
     if (kids.length > 0) {
       const child = kids[0];
       setSelectedChild(child);
-      await gamificationStore.fetchProgress(child.id);
+      await fetchProgress(child.id);
     }
     setLoading(false);
-  }, [gamificationStore]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {

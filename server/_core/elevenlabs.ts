@@ -12,8 +12,27 @@
  */
 import { storagePut } from "../storage";
 import { ENV } from "./env";
+import { SUPPORTED_LANGUAGES } from "./languageService";
 
 const ELEVENLABS_BASE_URL = "https://api.elevenlabs.io/v1";
+
+/**
+ * Validates that a language is supported for TTS.
+ * Returns the language code if supported, or null if not.
+ * If the language is unsupported, callers should skip TTS rather than fail silently.
+ */
+export function validateTTSLanguage(languageCode?: string): { supported: boolean; reason?: string } {
+  if (!languageCode) return { supported: true }; // Default (English) is always supported
+
+  const lang = SUPPORTED_LANGUAGES[languageCode];
+  if (!lang) {
+    return { supported: false, reason: `Unknown language code: ${languageCode}` };
+  }
+  if (!lang.ttsSupported) {
+    return { supported: false, reason: `TTS is not supported for ${lang.name} (${languageCode}). ElevenLabs eleven_multilingual_v2 does not support this language.` };
+  }
+  return { supported: true };
+}
 
 // Voice Configuration
 // Pre-mapped ElevenLabs voices optimized for children's storytelling.
@@ -328,6 +347,52 @@ export function processNarrationMarkup(
   return { processedText: processed, adjustedConfig: config };
 }
 
+// ─── Segment Batching ──────────────────────────────────────────
+// Combines consecutive segments with the same voice to reduce API calls.
+// A 12-page story with 30+ segments can be reduced to ~10-15 API calls.
+
+export function batchSegments(segments: StorySegment[]): Array<{ segments: StorySegment[]; combinedText: string; voiceKey: string }> {
+  if (segments.length === 0) return [];
+
+  const batches: Array<{ segments: StorySegment[]; combinedText: string; voiceKey: string }> = [];
+  let currentBatch: StorySegment[] = [segments[0]];
+  let currentKey = getSegmentVoiceKey(segments[0]);
+
+  for (let i = 1; i < segments.length; i++) {
+    const segKey = getSegmentVoiceKey(segments[i]);
+
+    if (segKey === currentKey) {
+      // Same voice — merge into current batch
+      currentBatch.push(segments[i]);
+    } else {
+      // Different voice — flush current batch and start new one
+      batches.push({
+        segments: currentBatch,
+        combinedText: currentBatch.map((s) => s.text).join(" "),
+        voiceKey: currentKey,
+      });
+      currentBatch = [segments[i]];
+      currentKey = segKey;
+    }
+  }
+
+  // Flush final batch
+  batches.push({
+    segments: currentBatch,
+    combinedText: currentBatch.map((s) => s.text).join(" "),
+    voiceKey: currentKey,
+  });
+
+  return batches;
+}
+
+export function getSegmentVoiceKey(segment: StorySegment): string {
+  if (segment.type === "dialogue" && segment.character) {
+    return `char:${segment.character.toUpperCase()}`;
+  }
+  return `role:${segment.voiceRole || "narrator"}`;
+}
+
 // ─── Generate a short silence buffer for pauses ─────────────────
 
 function generateSilence(durationMs: number): Buffer {
@@ -390,6 +455,12 @@ export async function generatePageAudio(
   language?: string,
   voiceRegistry?: CharacterVoiceRegistry
 ): Promise<PageAudioResult> {
+  // Validate language TTS support before making any API calls
+  const ttsCheck = validateTTSLanguage(language);
+  if (!ttsCheck.supported) {
+    throw new Error(`Cannot generate audio: ${ttsCheck.reason}`);
+  }
+
   const segments = parseStorySegments(pageText, characters);
   const audioBuffers: Buffer[] = [];
   const segmentMeta: PageAudioResult["segments"] = [];
@@ -398,35 +469,39 @@ export async function generatePageAudio(
   // Use provided registry or create a temporary one for this page
   const registry = voiceRegistry || new CharacterVoiceRegistry(characters);
 
-  for (const segment of segments) {
+  // Batch consecutive same-voice segments to reduce API calls
+  const batches = batchSegments(segments);
+
+  for (const batch of batches) {
+    const firstSeg = batch.segments[0];
     let voiceConfig = VOICE_PRESETS["narrator"];
     let voiceRole: VoiceRole = "narrator";
 
-    if (segment.type === "dialogue" && segment.character) {
-      const voiceAssignment = registry.getVoice(segment.character);
+    if (firstSeg.type === "dialogue" && firstSeg.character) {
+      const voiceAssignment = registry.getVoice(firstSeg.character);
       voiceRole = voiceAssignment.voiceRole;
       voiceConfig = voiceAssignment.voiceConfig;
-    } else if (segment.voiceRole) {
-      voiceRole = segment.voiceRole;
+    } else if (firstSeg.voiceRole) {
+      voiceRole = firstSeg.voiceRole;
       voiceConfig = VOICE_PRESETS[voiceRole];
     }
 
-    const enhancedText = addVocalQuirks(segment.text, segment.characterTraits || "", voiceRole);
+    const enhancedText = addVocalQuirks(batch.combinedText, firstSeg.characterTraits || "", voiceRole);
     const { processedText, adjustedConfig } = processNarrationMarkup(enhancedText, voiceConfig);
     const audioBuffer = await generateSpeech({ text: processedText, voiceConfig: adjustedConfig, language });
     const estimatedDurationMs = Math.round((audioBuffer.length / 16000) * 1000);
 
     audioBuffers.push(audioBuffer);
     segmentMeta.push({
-      character: segment.character || null,
+      character: firstSeg.character || null,
       voiceRole,
       startMs: currentMs,
       endMs: currentMs + estimatedDurationMs,
     });
     currentMs += estimatedDurationMs;
 
-    // Add a short pause between segments for natural pacing
-    const pauseMs = segment.type === "narration" ? 400 : 250;
+    // Add a short pause between batches for natural pacing
+    const pauseMs = firstSeg.type === "narration" ? 400 : 250;
     audioBuffers.push(generateSilence(pauseMs));
     currentMs += pauseMs;
   }
@@ -455,6 +530,12 @@ export async function generateEpisodeAudio(
   episodeId: number | string,
   language?: string
 ): Promise<EpisodeAudioResult> {
+  // Validate language TTS support before making any API calls
+  const ttsCheck = validateTTSLanguage(language);
+  if (!ttsCheck.supported) {
+    throw new Error(`Cannot generate episode audio: ${ttsCheck.reason}`);
+  }
+
   const allBuffers: Buffer[] = [];
   const pageTimings: EpisodeAudioResult["pageTimings"] = [];
   const allSegments: EpisodeAudioResult["segments"] = [];
@@ -480,12 +561,16 @@ export async function generateEpisodeAudio(
     const pageStartMs = currentMs;
     const segments = parseStorySegments(page.storyText, page.characters);
 
-    for (const segment of segments) {
+    // Batch consecutive same-voice segments to reduce API calls
+    const batches = batchSegments(segments);
+
+    for (const batch of batches) {
+      const firstSeg = batch.segments[0];
       let voiceConfig: CharacterVoiceConfig;
       let voiceRole: VoiceRole;
 
-      if (segment.type === "dialogue" && segment.character) {
-        const voiceAssignment = voiceRegistry.getVoice(segment.character);
+      if (firstSeg.type === "dialogue" && firstSeg.character) {
+        const voiceAssignment = voiceRegistry.getVoice(firstSeg.character);
         voiceRole = voiceAssignment.voiceRole;
         voiceConfig = { ...voiceAssignment.voiceConfig };
       } else {
@@ -507,14 +592,14 @@ export async function generateEpisodeAudio(
         voiceConfig.style = 0.15;
       }
 
-      const enhancedText = addVocalQuirks(segment.text, segment.characterTraits || "", voiceRole);
+      const enhancedText = addVocalQuirks(batch.combinedText, firstSeg.characterTraits || "", voiceRole);
       const { processedText, adjustedConfig } = processNarrationMarkup(enhancedText, voiceConfig);
       const audioBuffer = await generateSpeech({ text: processedText, voiceConfig: adjustedConfig, language });
       const estimatedDurationMs = Math.round((audioBuffer.length / 16000) * 1000);
 
       allBuffers.push(audioBuffer);
       allSegments.push({
-        character: segment.character || null,
+        character: firstSeg.character || null,
         voiceRole,
         startMs: currentMs,
         endMs: currentMs + estimatedDurationMs,
@@ -522,8 +607,8 @@ export async function generateEpisodeAudio(
       });
       currentMs += estimatedDurationMs;
 
-      // Natural pause between segments within a page
-      const intraPagePause = segment.type === "narration" ? 350 : 200;
+      // Natural pause between batches within a page
+      const intraPagePause = firstSeg.type === "narration" ? 350 : 200;
       allBuffers.push(generateSilence(intraPagePause));
       currentMs += intraPagePause;
     }

@@ -137,24 +137,102 @@ const NOTO_FONT_URLS: Record<ScriptType, { regular: string; bold: string }> = {
   },
 };
 
-// Font cache to avoid re-downloading
-const fontCache = new Map<string, Buffer>();
+// ─── Persistent Font Cache ──────────────────────────────────────
+// Two-tier cache: in-memory (fast) + disk (survives restarts).
+// Fonts are typically 2-8 MB and rarely change, so disk caching is critical.
+
+const FONT_CACHE_DIR = path.join(process.cwd(), ".font-cache");
+const fontMemoryCache = new Map<string, Buffer>();
+
+function getFontCachePath(url: string): string {
+  // Create a safe filename from the URL
+  const hash = url.replace(/[^a-zA-Z0-9]/g, "_").slice(-80);
+  return path.join(FONT_CACHE_DIR, `${hash}.ttf`);
+}
 
 /**
- * Download and cache a font file
+ * Download and cache a font file with two-tier caching:
+ * 1. In-memory Map (zero latency, cleared on restart)
+ * 2. Disk cache in .font-cache/ (persists across restarts)
+ * 3. CDN download as last resort
  */
 async function downloadFont(url: string): Promise<Buffer> {
-  if (fontCache.has(url)) return fontCache.get(url)!;
+  // Tier 1: In-memory cache
+  if (fontMemoryCache.has(url)) return fontMemoryCache.get(url)!;
 
+  // Tier 2: Disk cache
+  const diskPath = getFontCachePath(url);
+  try {
+    if (fs.existsSync(diskPath)) {
+      const buffer = fs.readFileSync(diskPath);
+      fontMemoryCache.set(url, buffer); // Promote to memory
+      return buffer;
+    }
+  } catch {
+    // Disk read failed, continue to download
+  }
+
+  // Tier 3: CDN download
   try {
     const response = await axios.get(url, { responseType: "arraybuffer", timeout: 30000 });
     const buffer = Buffer.from(response.data);
-    fontCache.set(url, buffer);
+
+    // Write to both caches
+    fontMemoryCache.set(url, buffer);
+
+    // Write to disk asynchronously (don't block on I/O)
+    try {
+      if (!fs.existsSync(FONT_CACHE_DIR)) {
+        fs.mkdirSync(FONT_CACHE_DIR, { recursive: true });
+      }
+      fs.writeFileSync(diskPath, buffer);
+    } catch (diskErr) {
+      console.warn(`[BookLayout] Could not write font to disk cache: ${diskErr}`);
+    }
+
     return buffer;
   } catch (error) {
     console.warn(`[BookLayout] Failed to download font from ${url}, will use standard font`);
     throw error;
   }
+}
+
+/**
+ * Pre-warm the font cache at server startup.
+ * Downloads all Noto Sans font variants to disk so PDF generation
+ * never blocks on network I/O during user requests.
+ *
+ * Call this once during server initialization.
+ */
+export async function prewarmFontCache(): Promise<void> {
+  console.log("[BookLayout] Pre-warming font cache...");
+  const scripts = Object.keys(NOTO_FONT_URLS) as ScriptType[];
+  const urls = new Set<string>();
+
+  for (const script of scripts) {
+    urls.add(NOTO_FONT_URLS[script].regular);
+    urls.add(NOTO_FONT_URLS[script].bold);
+  }
+
+  let cached = 0;
+  let downloaded = 0;
+
+  for (const url of urls) {
+    const diskPath = getFontCachePath(url);
+    if (fs.existsSync(diskPath)) {
+      cached++;
+      continue;
+    }
+
+    try {
+      await downloadFont(url);
+      downloaded++;
+    } catch {
+      console.warn(`[BookLayout] Failed to pre-cache font: ${url}`);
+    }
+  }
+
+  console.log(`[BookLayout] Font cache ready: ${cached} cached, ${downloaded} downloaded, ${urls.size} total`);
 }
 
 /**

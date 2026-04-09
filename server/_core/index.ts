@@ -20,6 +20,8 @@ import {
 } from "./requestMiddleware";
 import { errorHandler, asyncHandler } from "./errorHandler";
 import { getDb } from "../db";
+import { prewarmFontCache } from "./bookLayout";
+import { validateRequiredEnvVars, validateServiceConfiguration } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -41,6 +43,11 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  // Fail fast if required env vars are missing — before any services initialise
+  validateRequiredEnvVars();
+  // Log warnings for optional services that aren't configured
+  validateServiceConfiguration();
+
   const app = express();
   const server = createServer(app);
 
@@ -134,6 +141,11 @@ async function startServer() {
 
   server.listen(port, () => {
     logger.info(`Server listening`, { port, nodeEnv: process.env.NODE_ENV });
+
+    // Pre-warm font cache in background after server starts accepting requests
+    prewarmFontCache().catch((err) => {
+      logger.warn("Font cache pre-warming failed (non-fatal)", err);
+    });
   });
 }
 

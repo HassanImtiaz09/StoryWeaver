@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useGamificationStore } from "@/lib/gamification-store";
+import { fetchProgress } from "@/lib/gamification-actions";
 import { AchievementsGallery } from "@/components/achievements-gallery";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
@@ -26,10 +27,10 @@ export default function AchievementsScreen() {
 
   const loadAchievements = useCallback(async () => {
     if (childId) {
-      await gamificationStore.fetchProgress(childId);
+      await fetchProgress(childId);
     }
     setLoading(false);
-  }, [childId, gamificationStore]);
+  }, [childId]);
 
   useFocusEffect(
     useCallback(() => {

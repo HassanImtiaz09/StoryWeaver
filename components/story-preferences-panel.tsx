@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/use-colors";
 import { useParentToolsStore } from "@/lib/parent-tools-store";
+import { fetchCustomElements } from "@/lib/parent-tools-actions";
 import { CustomElementCard } from "./custom-element-card";
 
 interface StoryPreferencesPanelProps {
@@ -31,9 +32,6 @@ export function StoryPreferencesPanel({
 
   const customElements = useParentToolsStore(
     (state) => state.customElements.get(childId) || []
-  );
-  const fetchCustomElements = useParentToolsStore(
-    (state) => state.fetchCustomElements
   );
   const isLoading = useParentToolsStore((state) => state.isLoading);
 

@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/use-colors";
 import { useParentToolsStore } from "@/lib/parent-tools-store";
+import { deleteCustomElement } from "@/lib/parent-tools-actions";
 import type { CustomElement } from "@/lib/parent-tools-store";
 
 interface CustomElementCardProps {
@@ -25,9 +26,6 @@ export function CustomElementCard({
   onDelete,
 }: CustomElementCardProps) {
   const colors = useColors();
-  const deleteCustomElement = useParentToolsStore(
-    (state) => state.deleteCustomElement
-  );
   const isLoading = useParentToolsStore((state) => state.isLoading);
   const [isDeleting, setIsDeleting] = useState(false);
 

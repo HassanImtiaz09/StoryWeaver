@@ -746,6 +746,34 @@ export const diversityProfiles = mysqlTable("diversity_profiles", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ─── Narrative Milestones ──────────────────────────────────────
+// Tracks narrative phase progression for each episode within a story arc
+// Ensures consistency: each episode maps to a specific narrative phase
+
+export const narrativeMilestones = mysqlTable("narrative_milestones", {
+  id: int("id").primaryKey().autoincrement(),
+  arcId: int("arc_id").notNull(),
+  episodeId: int("episode_id").notNull(),
+  episodeNumber: int("episode_number").notNull(),
+  narrativePhase: mysqlEnum("narrative_phase", [
+    "introduction",
+    "rising_action",
+    "midpoint_escalation",
+    "climax_approach",
+    "resolution",
+  ]).notNull(),
+  phaseGoals: json("phase_goals").$type<string[]>().notNull(), // What this phase should accomplish
+  phaseOutcome: json("phase_outcome").$type<{
+    goalsAchieved: string[];
+    charactersIntroduced?: string[];
+    plotPointsResolved?: string[];
+    cliffhanger?: string;
+  }>(),
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Type Exports ──────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -789,3 +817,4 @@ export type SelResponse = typeof selResponses.$inferSelect;
 export type SmartHomeConfig = typeof smartHomeConfigs.$inferSelect;
 export type BedtimeRoutine = typeof bedtimeRoutines.$inferSelect;
 export type DiversityProfile = typeof diversityProfiles.$inferSelect;
+export type NarrativeMilestone = typeof narrativeMilestones.$inferSelect;

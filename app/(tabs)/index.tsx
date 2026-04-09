@@ -33,6 +33,7 @@ import {
   type BedtimeState,
 } from "@/lib/bedtime-mode";
 import { useGamificationStore } from "@/lib/gamification-store";
+import { fetchProgress as fetchGamificationProgress } from "@/lib/gamification-actions";
 import { StreakCounter } from "@/components/streak-counter";
 import { PointsDisplay } from "@/components/points-display";
 import { AchievementToast } from "@/components/achievement-toast";
@@ -80,7 +81,7 @@ export default function TonightScreen() {
       setActiveArcs(arcs.filter((a) => a.childId === child.id && a.status === "active"));
 
       // Load gamification progress
-      await gamificationStore.fetchProgress(child.id);
+      await fetchGamificationProgress(child.id);
     } else {
       setSelectedChild(null);
       setActiveArcs([]);

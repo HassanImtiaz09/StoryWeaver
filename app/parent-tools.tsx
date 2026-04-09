@@ -16,6 +16,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useParentToolsStore } from "@/lib/parent-tools-store";
+import {
+  fetchCustomElements,
+  fetchPendingApprovals,
+  fetchVoiceRecordings,
+} from "@/lib/parent-tools-actions";
 import { CustomElementForm } from "@/components/custom-element-form";
 import { CustomElementCard } from "@/components/custom-element-card";
 import { ApprovalCard } from "@/components/approval-card";
@@ -43,16 +48,6 @@ export default function ParentToolsScreen() {
   const approvalQueue = useParentToolsStore((state) => state.approvalQueue);
   const voiceRecordings = useParentToolsStore(
     (state) => state.voiceRecordings.get(childId) || []
-  );
-
-  const fetchCustomElements = useParentToolsStore(
-    (state) => state.fetchCustomElements
-  );
-  const fetchPendingApprovals = useParentToolsStore(
-    (state) => state.fetchPendingApprovals
-  );
-  const fetchVoiceRecordings = useParentToolsStore(
-    (state) => state.fetchVoiceRecordings
   );
 
   const isLoading = useParentToolsStore((state) => state.isLoading);
