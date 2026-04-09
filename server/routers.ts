@@ -2,6 +2,37 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure, coppaProtectedProcedure, adminProcedure } from "./_core/trpc";
 import { db } from "./db";
+
+/**
+ * Sanitizes user prompts to prevent prompt injection attacks.
+ * Removes common injection patterns and excessive special characters.
+ */
+function sanitizePrompt(input: string | undefined): string | undefined {
+  if (!input) return input;
+
+  let sanitized = input;
+
+  // Remove prompt injection patterns (case-insensitive)
+  const injectionPatterns = [
+    /ignore\s+previous/gi,
+    /ignore\s+instructions/gi,
+    /system\s*:/gi,
+    /assistant\s*:/gi,
+    /you\s+are\s+now/gi,
+    /pretend\s+to\s+be/gi,
+    /forget\s+your\s+rules/gi,
+  ];
+
+  injectionPatterns.forEach(pattern => {
+    sanitized = sanitized.replace(pattern, '');
+  });
+
+  // Remove excessive special characters and control sequences
+  sanitized = sanitized.replace(/[\x00-\x1F\x7F]/g, '');
+
+  // Truncate to 200 characters
+  return sanitized.slice(0, 200);
+}
 import { eq, and, desc, isNull, asc, sql, lt, inArray } from "drizzle-orm";
 import {
   users,
@@ -641,6 +672,49 @@ export const appRouter = router({
       }),
   }),
 
+  // ─── Helper Functions ───────────────────────────────────────
+
+  /**
+   * Shared helper function to create a story arc and update user story count
+   * Eliminates duplication between create and generate mutations
+   */
+  async function createStoryArcHelper(
+    userId: number,
+    childId: number,
+    theme: string,
+    educationalValue: string,
+    totalEpisodes: number,
+    arcData: Awaited<ReturnType<typeof generateStoryArcWithClaude>>
+  ) {
+    const result = await db
+      .insert(storyArcs)
+      .values({
+        userId,
+        childId,
+        theme,
+        title: arcData.title,
+        synopsis: arcData.synopsis,
+        educationalValue,
+        totalEpisodes,
+      })
+      .$returningId();
+    const newId = result[0].id;
+
+    // Atomic check-and-increment: prevents race condition where concurrent requests bypass story limit
+    await db
+      .update(users)
+      .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
+      .where(
+        and(
+          eq(users.id, userId),
+          sql`${users.storiesUsed} < COALESCE((SELECT CASE ${users.subscriptionPlan} WHEN 'free' THEN 5 WHEN 'monthly' THEN 50 WHEN 'yearly' THEN 50 WHEN 'family' THEN 200 ELSE 5 END), 5)`
+        )
+      );
+
+    const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
+    return newArc;
+  }
+
   storyArcs: router({
     list: coppaProtectedProcedure
       .input(z.object({
@@ -721,35 +795,10 @@ export const appRouter = router({
           const childProfile = toChildProfile(child);
           const educationalValue = input.educationalValue ?? "general learning";
           const totalEpisodes = input.totalEpisodes ?? 5;
+          const sanitizedCustomPrompt = input.customPrompt ? sanitizePrompt(input.customPrompt) : undefined;
           const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
 
-          const result = await db
-            .insert(storyArcs)
-            .values({
-              userId: ctx.user.id,
-              childId: input.childId,
-              theme: input.theme,
-              title: arcData.title,
-              synopsis: arcData.synopsis,
-              educationalValue,
-              totalEpisodes,
-            })
-            .$returningId();
-          const newId = result[0].id;
-
-          // Atomic check-and-increment: prevents race condition where concurrent requests bypass story limit
-          const updateResult = await db
-            .update(users)
-            .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
-            .where(
-              and(
-                eq(users.id, ctx.user.id),
-                sql`${users.storiesUsed} < COALESCE((SELECT CASE ${users.subscriptionPlan} WHEN 'free' THEN 5 WHEN 'monthly' THEN 50 WHEN 'yearly' THEN 50 WHEN 'family' THEN 200 ELSE 5 END), 5)`
-              )
-            );
-
-          const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
-          return newArc;
+          return await createStoryArcHelper(ctx.user.id, input.childId, input.theme, educationalValue, totalEpisodes, arcData);
         } catch (error) {
           if (error instanceof TRPCError) throw error;
           console.error("[storyArcs.create] Unexpected error:", error);
@@ -789,35 +838,10 @@ export const appRouter = router({
           const childProfile = toChildProfile(child);
           const educationalValue = input.educationalValue ?? "general learning";
           const totalEpisodes = input.totalEpisodes ?? 5;
+          const sanitizedCustomPrompt = input.customPrompt ? sanitizePrompt(input.customPrompt) : undefined;
           const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
 
-          const result = await db
-            .insert(storyArcs)
-            .values({
-              userId: ctx.user.id,
-              childId: input.childId,
-              theme: input.theme,
-              title: arcData.title,
-              synopsis: arcData.synopsis,
-              educationalValue,
-              totalEpisodes,
-            })
-            .$returningId();
-          const newId = result[0].id;
-
-          // Atomic check-and-increment: prevents race condition where concurrent requests bypass story limit
-          const updateResult = await db
-            .update(users)
-            .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
-            .where(
-              and(
-                eq(users.id, ctx.user.id),
-                sql`${users.storiesUsed} < COALESCE((SELECT CASE ${users.subscriptionPlan} WHEN 'free' THEN 5 WHEN 'monthly' THEN 50 WHEN 'yearly' THEN 50 WHEN 'family' THEN 200 ELSE 5 END), 5)`
-              )
-            );
-
-          const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
-          return newArc;
+          return await createStoryArcHelper(ctx.user.id, input.childId, input.theme, educationalValue, totalEpisodes, arcData);
         } catch (error) {
           if (error instanceof TRPCError) throw error;
           console.error("[storyArcs.generate] Unexpected error:", error);
