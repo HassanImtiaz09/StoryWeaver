@@ -526,8 +526,8 @@ export const vocabularyBank = mysqlTable("vocabulary_bank", {
 
 export const sharedStories = mysqlTable("shared_stories", {
   id: int("id").primaryKey().autoincrement(),
-  arcId: int("arc_id").notNull(),
-  userId: int("user_id").notNull(),
+  arcId: int("arc_id").notNull().references(() => storyArcs.id, { onDelete: "cascade" }),
+  userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   shareCode: varchar("share_code", { length: 10 }).notNull().unique(), // unique shareable link identifier
   privacyLevel: mysqlEnum("privacy_level", ["private", "link_only", "public"]).default("private").notNull(),
   isPublished: boolean("is_published").default(false).notNull(),
@@ -546,7 +546,7 @@ export const sharedStories = mysqlTable("shared_stories", {
 
 export const storyLikes = mysqlTable("story_likes", {
   id: int("id").primaryKey().autoincrement(),
-  sharedStoryId: int("shared_story_id").notNull(),
+  sharedStoryId: int("shared_story_id").notNull().references(() => sharedStories.id, { onDelete: "cascade" }),
   userId: int("user_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
@@ -555,7 +555,7 @@ export const storyLikes = mysqlTable("story_likes", {
 
 export const storyReports = mysqlTable("story_reports", {
   id: int("id").primaryKey().autoincrement(),
-  sharedStoryId: int("shared_story_id").notNull(),
+  sharedStoryId: int("shared_story_id").notNull().references(() => sharedStories.id, { onDelete: "cascade" }),
   userId: int("user_id").notNull(),
   reason: varchar("reason", { length: 255 }).notNull(), // e.g., "inappropriate", "spam", "copyright"
   reportStatus: mysqlEnum("report_status", ["pending", "reviewed", "dismissed"]).default("pending").notNull(),
