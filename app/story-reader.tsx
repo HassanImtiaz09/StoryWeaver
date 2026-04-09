@@ -11,6 +11,7 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  AsyncStorage,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Audio } from 'expo-av';
@@ -118,6 +119,40 @@ function buildInteractZones(page: any): InteractZone[] {
     }
   }
   return zones;
+}
+
+// ─── Bookmark/Resume Utilities ──────────────────────────────────
+interface Bookmark {
+  pageIndex: number;
+  timestamp: number;
+}
+
+async function saveBookmark(episodeId: number, pageIndex: number): Promise<void> {
+  try {
+    const bookmark: Bookmark = { pageIndex, timestamp: Date.now() };
+    await AsyncStorage.setItem(`sw_bookmark_${episodeId}`, JSON.stringify(bookmark));
+  } catch (error) {
+    console.error('Failed to save bookmark:', error);
+  }
+}
+
+async function getBookmark(episodeId: number): Promise<Bookmark | null> {
+  try {
+    const stored = await AsyncStorage.getItem(`sw_bookmark_${episodeId}`);
+    if (!stored) return null;
+    return JSON.parse(stored) as Bookmark;
+  } catch (error) {
+    console.error('Failed to retrieve bookmark:', error);
+    return null;
+  }
+}
+
+async function clearBookmark(episodeId: number): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(`sw_bookmark_${episodeId}`);
+  } catch (error) {
+    console.error('Failed to clear bookmark:', error);
+  }
 }
 
 // ─── Interact Zone Overlay ──────────────────────────────────────
@@ -260,6 +295,12 @@ export default function StoryReaderScreen() {
   const [textAreaLayout, setTextAreaLayout] = useState({ height: 0, y: 0 });
   const accessibility = useAccessibilityStore();
 
+  // Bookmark/resume state
+  const [showBookmarkBanner, setShowBookmarkBanner] = useState(false);
+  const [savedPageIndex, setSavedPageIndex] = useState(0);
+  const bookmarkSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bookmarkDismissTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Refs
   const narratorSoundRef = useRef<Audio.Sound | null>(null);
   const musicSoundRef = useRef<Audio.Sound | null>(null);
@@ -378,8 +419,14 @@ export default function StoryReaderScreen() {
       if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
       if (progressUpdateIntervalRef.current) clearInterval(progressUpdateIntervalRef.current);
       if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
+      if (bookmarkSaveTimeoutRef.current) clearTimeout(bookmarkSaveTimeoutRef.current);
+      if (bookmarkDismissTimeoutRef.current) clearTimeout(bookmarkDismissTimeoutRef.current);
+      // Save current position on unmount
+      if (currentPageIndex > 0) {
+        saveBookmark(episodeId, currentPageIndex);
+      }
     };
-  }, []);
+  }, [episodeId, currentPageIndex]);
 
   useEffect(() => {
     const initAudio = async () => {
@@ -395,6 +442,48 @@ export default function StoryReaderScreen() {
     };
     initAudio();
   }, []);
+
+  // Restore bookmark position on mount
+  useEffect(() => {
+    const restoreBookmark = async () => {
+      if (!episodeId || !pages.length) return;
+      const bookmark = await getBookmark(episodeId);
+      if (bookmark && bookmark.pageIndex > 0 && bookmark.pageIndex < pages.length) {
+        setSavedPageIndex(bookmark.pageIndex);
+        setShowBookmarkBanner(true);
+        // Auto-dismiss after 5 seconds if no action
+        bookmarkDismissTimeoutRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            setShowBookmarkBanner(false);
+          }
+        }, 5000);
+      }
+    };
+    restoreBookmark();
+    return () => {
+      if (bookmarkDismissTimeoutRef.current) clearTimeout(bookmarkDismissTimeoutRef.current);
+    };
+  }, [episodeId, pages.length]);
+
+  // Debounced bookmark save on page change
+  useEffect(() => {
+    // Only save if we've moved away from the first page
+    if (currentPageIndex === 0) return;
+
+    // Clear existing timeout
+    if (bookmarkSaveTimeoutRef.current) clearTimeout(bookmarkSaveTimeoutRef.current);
+
+    // Debounce save for 500ms
+    bookmarkSaveTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current && episodeId) {
+        saveBookmark(episodeId, currentPageIndex);
+      }
+    }, 500);
+
+    return () => {
+      if (bookmarkSaveTimeoutRef.current) clearTimeout(bookmarkSaveTimeoutRef.current);
+    };
+  }, [currentPageIndex, episodeId]);
 
   // Auto-generate images for pages without them
   useEffect(() => {
@@ -780,14 +869,36 @@ export default function StoryReaderScreen() {
     console.log(`Story feedback: ${rating}/5 for episode ${episodeId}`);
   }, [episodeId]);
 
-  const handleFeedbackDismiss = useCallback(() => {
+  const handleFeedbackDismiss = useCallback(async () => {
     setShowFeedback(false);
     setShowingEndscreen(true);
-  }, []);
+    // Clear bookmark when story is completed
+    if (episodeId) {
+      await clearBookmark(episodeId);
+    }
+  }, [episodeId]);
 
   const handlePrintBook = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert('Print Book', 'Opening print options...');
+  }, []);
+
+  const handleResumeBookmark = useCallback(() => {
+    if (bookmarkDismissTimeoutRef.current) clearTimeout(bookmarkDismissTimeoutRef.current);
+    setShowBookmarkBanner(false);
+    Haptics.selectionAsync();
+    announce(`Resuming from page ${savedPageIndex + 1}`);
+    flatListRef.current?.scrollToIndex({ index: savedPageIndex, animated: true });
+    setTimeout(() => {
+      setCurrentPageIndex(savedPageIndex);
+    }, 100);
+  }, [savedPageIndex]);
+
+  const handleStartOver = useCallback(() => {
+    if (bookmarkDismissTimeoutRef.current) clearTimeout(bookmarkDismissTimeoutRef.current);
+    setShowBookmarkBanner(false);
+    Haptics.selectionAsync();
+    announce('Starting story from the beginning');
   }, []);
 
   // ─── Loading state ──────────────────────────────────────────
@@ -850,6 +961,57 @@ export default function StoryReaderScreen() {
         isOpen={showSettingsTray}
         onClose={() => setShowSettingsTray(false)}
       />
+
+      {/* Resume Bookmark Banner */}
+      {showBookmarkBanner && (
+        <Animated.View
+          entering={FadeInDown.springify()}
+          style={[
+            styles.bookmarkBanner,
+            {
+              backgroundColor: `${colors.surface}dd`,
+              borderTopColor: colors.primary,
+            },
+          ]}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+        >
+          <View style={styles.bookmarkContent}>
+            <Text
+              style={[styles.bookmarkText, { color: colors.foreground }]}
+              accessibilityLabel={`Continue reading from page ${savedPageIndex + 1} out of ${pages.length}`}
+            >
+              Continue from page {savedPageIndex + 1}?
+            </Text>
+            <View style={styles.bookmarkButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.bookmarkButton,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleResumeBookmark}
+                accessibilityLabel="Resume reading"
+                accessibilityHint="Continues story from saved position"
+              >
+                <Text style={styles.bookmarkButtonText}>Resume</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.bookmarkButton,
+                  { backgroundColor: `${colors.primary}40` },
+                ]}
+                onPress={handleStartOver}
+                accessibilityLabel="Start over"
+                accessibilityHint="Begins story from the first page"
+              >
+                <Text style={[styles.bookmarkButtonText, { color: colors.primary }]}>
+                  Start Over
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Animated.View>
+      )}
 
       {showingEndscreen ? (
         <Animated.View entering={FadeIn} style={styles.flex}>
@@ -1503,5 +1665,41 @@ const styles = StyleSheet.create({
   endscreenButtonText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  // Bookmark banner
+  bookmarkBanner: {
+    borderTopWidth: 2,
+    borderTopColor: '#FFD700',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 0,
+    marginTop: 0,
+  },
+  bookmarkContent: {
+    gap: 12,
+  },
+  bookmarkText: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  bookmarkButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'flex-start',
+  },
+  bookmarkButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  bookmarkButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
