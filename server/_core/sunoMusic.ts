@@ -164,31 +164,47 @@ async function callSunoGenerate(prompt: string, durationSeconds: number): Promis
   // Poll for completion (max 120 seconds)
   let audioUrl = "";
   let actualDurationMs = durationSeconds * 1000;
+  let consecutiveErrors = 0;
   for (let attempt = 0; attempt < 40; attempt++) {
     await new Promise((r) => setTimeout(r, 3000));
 
-    const statusResp = await fetch(`${SUNO_BASE_URL}/feed/${generationId}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    try {
+      const statusResp = await fetch(`${SUNO_BASE_URL}/feed/${generationId}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
 
-    if (!statusResp.ok) continue;
+      if (!statusResp.ok) {
+        consecutiveErrors++;
+        if (consecutiveErrors >= 5) {
+          throw new Error(`Suno polling failed after ${consecutiveErrors} consecutive HTTP errors (last: ${statusResp.status})`);
+        }
+        continue;
+      }
+      consecutiveErrors = 0;
 
-    const statusData = (await statusResp.json()) as Array<{
-      id: string;
-      status: string;
-      audio_url?: string;
-      duration?: number;
-    }>;
+      const statusData = (await statusResp.json()) as Array<{
+        id: string;
+        status: string;
+        audio_url?: string;
+        duration?: number;
+      }>;
 
-    const item = statusData.find((s) => s.id === generationId);
-    if (item?.status === "complete" && item.audio_url) {
-      audioUrl = item.audio_url;
-      actualDurationMs = (item.duration ?? durationSeconds) * 1000;
-      break;
-    }
+      const item = statusData.find((s) => s.id === generationId);
+      if (item?.status === "complete" && item.audio_url) {
+        audioUrl = item.audio_url;
+        actualDurationMs = (item.duration ?? durationSeconds) * 1000;
+        break;
+      }
 
-    if (item?.status === "error") {
-      throw new Error("Suno music generation failed");
+      if (item?.status === "error") {
+        throw new Error("Suno music generation failed");
+      }
+    } catch (pollError) {
+      if (pollError instanceof Error && pollError.message.includes("Suno")) throw pollError;
+      consecutiveErrors++;
+      if (consecutiveErrors >= 5) {
+        throw new Error(`Suno polling failed: network error after ${consecutiveErrors} retries`);
+      }
     }
   }
 
@@ -231,27 +247,47 @@ async function callSunoSoundEffect(description: string, durationSeconds: number 
   // Poll for completion
   let audioUrl = "";
   let actualDurationMs = durationSeconds * 1000;
+  let sfxConsecutiveErrors = 0;
   for (let attempt = 0; attempt < 20; attempt++) {
     await new Promise((r) => setTimeout(r, 2000));
 
-    const statusResp = await fetch(`${SUNO_BASE_URL}/feed/${data.id}`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    try {
+      const statusResp = await fetch(`${SUNO_BASE_URL}/feed/${data.id}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
 
-    if (!statusResp.ok) continue;
+      if (!statusResp.ok) {
+        sfxConsecutiveErrors++;
+        if (sfxConsecutiveErrors >= 5) {
+          throw new Error(`Suno SFX polling failed after ${sfxConsecutiveErrors} consecutive errors`);
+        }
+        continue;
+      }
+      sfxConsecutiveErrors = 0;
 
-    const statusData = (await statusResp.json()) as Array<{
-      id: string;
-      status: string;
-      audio_url?: string;
-      duration?: number;
-    }>;
+      const statusData = (await statusResp.json()) as Array<{
+        id: string;
+        status: string;
+        audio_url?: string;
+        duration?: number;
+      }>;
 
-    const item = statusData.find((s) => s.id === data.id);
-    if (item?.status === "complete" && item.audio_url) {
-      audioUrl = item.audio_url;
-      actualDurationMs = (item.duration ?? durationSeconds) * 1000;
-      break;
+      const item = statusData.find((s) => s.id === data.id);
+      if (item?.status === "complete" && item.audio_url) {
+        audioUrl = item.audio_url;
+        actualDurationMs = (item.duration ?? durationSeconds) * 1000;
+        break;
+      }
+
+      if (item?.status === "error") {
+        throw new Error("Suno sound effect generation failed");
+      }
+    } catch (pollError) {
+      if (pollError instanceof Error && pollError.message.includes("Suno")) throw pollError;
+      sfxConsecutiveErrors++;
+      if (sfxConsecutiveErrors >= 5) {
+        throw new Error(`Suno SFX polling failed: network error after ${sfxConsecutiveErrors} retries`);
+      }
     }
   }
 

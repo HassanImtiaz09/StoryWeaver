@@ -437,7 +437,12 @@ export async function generateEpisodeWithClaude(
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Failed to parse episode JSON from Claude response");
 
-  const parsed = JSON.parse(jsonMatch[0]) as GeneratedEpisode;
+  let parsed: GeneratedEpisode;
+  try {
+    parsed = JSON.parse(jsonMatch[0]) as GeneratedEpisode;
+  } catch (parseError) {
+    throw new Error(`Failed to parse episode JSON: invalid JSON structure in Claude response`);
+  }
 
   // Validate minimum page count and content length
   if (parsed.pages.length < 6) {
@@ -488,7 +493,11 @@ Return JSON: { "title": "creative story arc title", "synopsis": "2-3 sentence sy
   const raw = await callClaudeAPI(prompt);
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Failed to parse arc JSON");
-  return JSON.parse(jsonMatch[0]);
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch (parseError) {
+    throw new Error("Failed to parse arc JSON: invalid JSON structure in Claude response");
+  }
 }
 
 export async function generateRecommendations(
@@ -499,7 +508,11 @@ export async function generateRecommendations(
 
   const jsonMatch = raw.match(/\[[\s\S]*\]/);
   if (!jsonMatch) throw new Error("Failed to parse recommendations JSON");
-  return JSON.parse(jsonMatch[0]);
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch (parseError) {
+    throw new Error("Failed to parse recommendations JSON: invalid JSON structure in Claude response");
+  }
 }
 
 export async function generatePageImagePrompt(

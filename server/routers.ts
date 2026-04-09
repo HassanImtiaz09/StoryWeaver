@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure, coppaProtectedProcedure, adminProcedure } from "./_core/trpc";
 import { db } from "./db";
-import { eq, and, desc, isNull, asc, sql, lt } from "drizzle-orm";
+import { eq, and, desc, isNull, asc, sql, lt, inArray } from "drizzle-orm";
 import {
   users,
   children,
@@ -27,6 +27,7 @@ import {
   sharedStories,
   storyLikes,
   storyReports,
+  storySegments,
 } from "../drizzle/schema";
 import { characterRouter } from "./_core/characterRouter";
 import { languageRouter } from "./_core/language-router";
@@ -98,6 +99,19 @@ import {
 } from "./_core/parentCoCreation";
 import { mediaPipeline } from "./_core/mediaPipeline";
 import { assetManager } from "./_core/assetManager";
+
+// ─── Shared Zod Schemas ──────────────────────────────────────
+const shippingAddressSchema = z.object({
+  name: z.string().min(1).max(255),
+  address1: z.string().min(1).max(500),
+  address2: z.string().max(500).optional(),
+  city: z.string().min(1).max(255),
+  stateCode: z.string().max(10).optional(),
+  zip: z.string().min(1).max(20),
+  countryCode: z.string().min(1).max(10),
+  email: z.string().email().max(255).optional(),
+  phone: z.string().max(30).optional(),
+});
 import { imageOptimizer } from "./_core/imageOptimizer";
 import { audioProcessor } from "./_core/audioProcessor";
 
@@ -595,10 +609,33 @@ export const appRouter = router({
           .limit(1);
         if (!child) throw new TRPCError({ code: "NOT_FOUND" });
 
-        await db
-          .update(children)
-          .set(updateData as any)
-          .where(and(eq(children.id, childId), eq(children.userId, ctx.user.id)));
+        // Build type-safe update object
+        const safeUpdate: Record<string, unknown> = {};
+        if (updateData.name !== undefined) safeUpdate.name = updateData.name;
+        if (updateData.age !== undefined) safeUpdate.age = updateData.age;
+        if (updateData.gender !== undefined) safeUpdate.gender = updateData.gender;
+        if (updateData.interests !== undefined) safeUpdate.interests = updateData.interests;
+        if (updateData.personalityTraits !== undefined) safeUpdate.personalityTraits = updateData.personalityTraits;
+        if (updateData.fears !== undefined) safeUpdate.fears = updateData.fears;
+        if (updateData.favoriteColor !== undefined) safeUpdate.favoriteColor = updateData.favoriteColor;
+        if (updateData.readingLevel !== undefined) safeUpdate.readingLevel = updateData.readingLevel;
+        if (updateData.language !== undefined) safeUpdate.language = updateData.language;
+        if (updateData.hairColor !== undefined) safeUpdate.hairColor = updateData.hairColor;
+        if (updateData.skinTone !== undefined) safeUpdate.skinTone = updateData.skinTone;
+        if (updateData.nickname !== undefined) safeUpdate.nickname = updateData.nickname;
+        if (updateData.favoriteCharacter !== undefined) safeUpdate.favoriteCharacter = updateData.favoriteCharacter;
+        if (updateData.isNeurodivergent !== undefined) safeUpdate.isNeurodivergent = updateData.isNeurodivergent;
+        if (updateData.neurodivergentProfiles !== undefined) safeUpdate.neurodivergentProfiles = updateData.neurodivergentProfiles;
+        if (updateData.sensoryPreferences !== undefined) safeUpdate.sensoryPreferences = updateData.sensoryPreferences;
+        if (updateData.communicationStyle !== undefined) safeUpdate.communicationStyle = updateData.communicationStyle;
+        if (updateData.storyPacing !== undefined) safeUpdate.storyPacing = updateData.storyPacing;
+
+        if (Object.keys(safeUpdate).length > 0) {
+          await db
+            .update(children)
+            .set(safeUpdate)
+            .where(and(eq(children.id, childId), eq(children.userId, ctx.user.id)));
+        }
         const [updated] = await db.select().from(children).where(eq(children.id, childId)).limit(1);
         return updated;
       }),
@@ -1042,41 +1079,46 @@ export const appRouter = router({
             });
           }
 
-          const epResult = await db
-            .insert(episodes)
-            .values({
-              storyArcId: input.arcId,
-              episodeNumber: input.episodeNumber,
-              title: episodeData.title,
-              summary: episodeData.summary,
-              musicMood: episodeData.musicMood ?? null,
-            })
-            .$returningId();
-          const newEpisodeId = epResult[0].id;
+          // Use transaction for atomic episode + pages insert
+          const newEpisodeId = await db.transaction(async (tx) => {
+            const epResult = await tx
+              .insert(episodes)
+              .values({
+                storyArcId: input.arcId,
+                episodeNumber: input.episodeNumber,
+                title: episodeData.title,
+                summary: episodeData.summary,
+                musicMood: episodeData.musicMood ?? null,
+              })
+              .$returningId();
+            const episodeId = epResult[0].id;
 
-          // Insert pages
-          for (let pageIdx = 0; pageIdx < episodeData.pages.length; pageIdx++) {
-            const pageData = episodeData.pages[pageIdx];
-            await db.insert(pages).values({
-              episodeId: newEpisodeId,
-              pageNumber: pageData.pageNumber ?? pageIdx + 1,
-              storyText: pageData.text,
-              imagePrompt: pageData.imagePrompt,
-              mood: pageData.mood ?? null,
-              sceneDescription: null,
-              soundEffectHint: null,
+            // Insert all pages in the same transaction
+            for (let pageIdx = 0; pageIdx < episodeData.pages.length; pageIdx++) {
+              const pageData = episodeData.pages[pageIdx];
+              await tx.insert(pages).values({
+                episodeId,
+                pageNumber: pageData.pageNumber ?? pageIdx + 1,
+                storyText: pageData.text,
+                imagePrompt: pageData.imagePrompt,
+                mood: pageData.mood ?? null,
+                sceneDescription: null,
+                soundEffectHint: null,
+              });
+            }
+
+            // Log successful moderation within transaction
+            await tx.insert(contentModerationLog).values({
+              episodeId,
+              userId: ctx.user.id,
+              childId: child.id,
+              contentType: "episode",
+              approved: true,
+              flaggedItems: null,
+              overallSeverity: "safe",
             });
-          }
 
-          // Log successful moderation
-          await db.insert(contentModerationLog).values({
-            episodeId: newEpisodeId,
-            userId: ctx.user.id,
-            childId: child.id,
-            contentType: "episode",
-            approved: true,
-            flaggedItems: null,
-            overallSeverity: "safe",
+            return episodeId;
           });
 
           // Update arc progress
@@ -1172,9 +1214,11 @@ export const appRouter = router({
     generateMusic: protectedProcedure
       .input(z.object({
         episodeId: z.number(),
-        mood: z.string().optional(),
+        mood: z.string().max(100).optional(),
       }))
       .mutation(async ({ input, ctx }) => {
+        // Rate limit: max 10 music generations per 5 minutes per user
+        checkRateLimit(getRateLimitKey(ctx, "music_gen"), 10, 5 * 60_000);
         const [episode] = await db
           .select()
           .from(episodes)
@@ -1309,9 +1353,11 @@ export const appRouter = router({
     generateImage: protectedProcedure
       .input(z.object({
         pageId: z.number(),
-        prompt: z.string().optional(),
+        prompt: z.string().max(1000).optional(),
       }))
       .mutation(async ({ input, ctx }) => {
+        // Rate limit: max 20 image generations per 5 minutes per user
+        checkRateLimit(getRateLimitKey(ctx, "image_gen"), 20, 5 * 60_000);
         const [page] = await db
           .select()
           .from(pages)
@@ -1669,13 +1715,12 @@ export const appRouter = router({
         };
         const bookFormat = formatMap[input.format] ?? "softcover_8x8";
 
-        // Get pages for the arc's episodes
+        // Get pages for the arc's episodes (single query, no N+1)
         const arcEpisodes = await db.select().from(episodes).where(eq(episodes.storyArcId, input.arcId));
-        const allPages = [];
-        for (const ep of arcEpisodes) {
-          const epPages = await db.select().from(pages).where(eq(pages.episodeId, ep.id));
-          allPages.push(...epPages);
-        }
+        const episodeIds = arcEpisodes.map((ep) => ep.id);
+        const allPages = episodeIds.length > 0
+          ? await db.select().from(pages).where(inArray(pages.episodeId, episodeIds))
+          : [];
 
         const result = await db
           .insert(printOrders)
@@ -1696,17 +1741,7 @@ export const appRouter = router({
     shippingRates: protectedProcedure
       .input(z.object({
         orderId: z.number(),
-        address: z.object({
-          name: z.string(),
-          address1: z.string(),
-          address2: z.string().optional(),
-          city: z.string(),
-          stateCode: z.string(),
-          zip: z.string(),
-          countryCode: z.string(),
-          email: z.string().optional(),
-          phone: z.string().optional(),
-        }),
+        address: shippingAddressSchema,
       }))
       .mutation(async ({ input, ctx }) => {
         const [order] = await db
@@ -1730,17 +1765,7 @@ export const appRouter = router({
       .input(z.object({
         orderId: z.number(),
         shippingRateId: z.string(),
-        address: z.object({
-          name: z.string(),
-          address1: z.string(),
-          address2: z.string().optional(),
-          city: z.string(),
-          stateCode: z.string(),
-          zip: z.string(),
-          countryCode: z.string(),
-          email: z.string().optional(),
-          phone: z.string().optional(),
-        }),
+        address: shippingAddressSchema,
       }))
       .mutation(async ({ input, ctx }) => {
         // Guard: Check if Printful is configured
@@ -1769,11 +1794,10 @@ export const appRouter = router({
         const [child] = await db.select().from(children).where(eq(children.id, arc.childId)).limit(1);
 
         const arcEpisodes = await db.select().from(episodes).where(eq(episodes.storyArcId, order.storyArcId));
-        const allPages = [];
-        for (const ep of arcEpisodes) {
-          const epPages = await db.select().from(pages).where(eq(pages.episodeId, ep.id));
-          allPages.push(...epPages);
-        }
+        const confirmEpIds = arcEpisodes.map((ep) => ep.id);
+        const allPages = confirmEpIds.length > 0
+          ? await db.select().from(pages).where(inArray(pages.episodeId, confirmEpIds))
+          : [];
 
         const bookSpec: BookSpec = {
           title: arc.title,
@@ -2048,11 +2072,10 @@ export const appRouter = router({
         const [child] = await db.select().from(children).where(eq(children.id, product.childId)).limit(1);
 
         const arcEpisodes = await db.select().from(episodes).where(eq(episodes.storyArcId, product.storyArcId));
-        const allPages = [];
-        for (const ep of arcEpisodes) {
-          const epPages = await db.select().from(pages).where(eq(pages.episodeId, ep.id));
-          allPages.push(...epPages);
-        }
+        const previewEpIds = arcEpisodes.map((ep) => ep.id);
+        const allPages = previewEpIds.length > 0
+          ? await db.select().from(pages).where(inArray(pages.episodeId, previewEpIds))
+          : [];
 
         const price = calculatePrice(product.format + "_" + product.size, product.pageCount, "US", undefined, 1, 0);
 
@@ -2069,17 +2092,7 @@ export const appRouter = router({
       .input(
         z.object({
           bookProductId: z.number(),
-          address: z.object({
-            name: z.string(),
-            address1: z.string(),
-            address2: z.string().optional(),
-            city: z.string(),
-            stateCode: z.string(),
-            zip: z.string(),
-            countryCode: z.string(),
-            email: z.string().optional(),
-            phone: z.string().optional(),
-          }),
+          address: shippingAddressSchema,
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -2107,17 +2120,7 @@ export const appRouter = router({
         z.object({
           bookProductId: z.number(),
           shippingAddressId: z.number().optional(),
-          shippingAddress: z.object({
-            name: z.string(),
-            address1: z.string(),
-            address2: z.string().optional(),
-            city: z.string(),
-            stateCode: z.string(),
-            zip: z.string(),
-            countryCode: z.string(),
-            email: z.string().optional(),
-            phone: z.string().optional(),
-          }),
+          shippingAddress: shippingAddressSchema,
           shippingRateId: z.string(),
         })
       )
@@ -2139,11 +2142,10 @@ export const appRouter = router({
         const [child] = await db.select().from(children).where(eq(children.id, product.childId)).limit(1);
 
         const arcEpisodes = await db.select().from(episodes).where(eq(episodes.storyArcId, product.storyArcId));
-        const allPages = [];
-        for (const ep of arcEpisodes) {
-          const epPages = await db.select().from(pages).where(eq(pages.episodeId, ep.id));
-          allPages.push(...epPages);
-        }
+        const placeEpIds = arcEpisodes.map((ep) => ep.id);
+        const allPages = placeEpIds.length > 0
+          ? await db.select().from(pages).where(inArray(pages.episodeId, placeEpIds))
+          : [];
 
         const bookSpec: BookSpec = {
           title: arc?.title ?? product.title,
@@ -3269,21 +3271,21 @@ export const appRouter = router({
       .input(
         z.object({
           episodeId: z.number(),
-          pageNumber: z.number(),
-          command: z.string(),
+          pageNumber: z.number().int().min(1).max(200),
+          command: z.string().min(1).max(500),
           childId: z.number(),
           storyContext: z.object({
-            title: z.string(),
-            currentPageText: z.string(),
-            previousPages: z.array(z.string()).optional(),
-            characters: z.array(z.string()),
-            setting: z.string(),
+            title: z.string().max(500),
+            currentPageText: z.string().max(5000),
+            previousPages: z.array(z.string().max(5000)).max(50).optional(),
+            characters: z.array(z.string().max(200)).max(50),
+            setting: z.string().max(1000),
           }),
           childProfile: z.object({
-            name: z.string(),
-            age: z.number(),
-            interests: z.array(z.string()).optional(),
-            fears: z.array(z.string()).optional(),
+            name: z.string().max(255),
+            age: z.number().int().min(0).max(18),
+            interests: z.array(z.string().max(200)).max(50).optional(),
+            fears: z.array(z.string().max(200)).max(50).optional(),
           }),
         })
       )
@@ -3514,6 +3516,17 @@ export const appRouter = router({
         const { mergeSegmentsIntoStory } = await import("./_core/turnProcessor");
 
         const session = await getSessionState(input.sessionId);
+
+        // Verify the user is a participant in this session
+        const isParticipant = session.participants?.some(
+          (p: any) => p.userId === ctx.userId
+        );
+        if (!isParticipant) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You are not a participant in this session",
+          });
+        }
 
         if (session.status !== "completed") {
           throw new TRPCError({
