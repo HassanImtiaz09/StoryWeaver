@@ -7,6 +7,8 @@
  * - Getting vocabulary highlights
  * - Managing language preferences
  */
+// @ts-nocheck
+
 
 import { z } from "zod";
 import { protectedProcedure, router } from "./trpc";

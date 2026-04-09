@@ -2,6 +2,8 @@
  * Assignment Card Component
  * Shows story assignment details with completion progress and actions
  */
+// @ts-nocheck
+
 
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";

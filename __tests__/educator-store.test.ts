@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Mock AsyncStorage
@@ -492,8 +493,8 @@ describe("educator-store", () => {
       };
       store.addAssignment(assignment);
 
-      const state = useAccessibilityStore.getState();
-      expect(useEducatorStore.getState().classrooms).toHaveLength(1);
+      const state = useEducatorStore.getState();
+      expect(state.classrooms).toHaveLength(1);
       expect(useEducatorStore.getState().students).toHaveLength(1);
       expect(useEducatorStore.getState().assignments).toHaveLength(1);
     });

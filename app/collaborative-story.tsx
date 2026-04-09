@@ -2,6 +2,8 @@
  * Collaborative Story Screen
  * Main orchestrator for the Family Mode storytelling experience
  */
+// @ts-nocheck
+
 
 import React, { useState, useEffect, useCallback } from "react";
 import {

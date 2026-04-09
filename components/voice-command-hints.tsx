@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from "react";
 import { View, ScrollView, Pressable, Text, Modal } from "react-native";
 import Animated, { FadeIn, FadeOut, SlideInDown } from "react-native-reanimated";

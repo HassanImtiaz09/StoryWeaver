@@ -95,6 +95,20 @@ export function parseVoiceCommand(transcript: string): {
 } {
   const lower = transcript.toLowerCase().trim();
 
+  // Fun interactions patterns (check BEFORE story_modification to avoid false matches)
+  if (
+    /make\s+it\s+(funny|scary|magical)/.test(lower) ||
+    /add\s+magic/.test(lower) ||
+    /make\s+it\s+silly/.test(lower) ||
+    /be\s+silly/.test(lower)
+  ) {
+    return {
+      category: "fun_interactions",
+      intent: lower,
+      confidence: 0.8,
+    };
+  }
+
   // Story modification patterns
   if (
     /^make\s+(?:the\s+)?(\w+)\s+(\w+)/.test(lower) ||
@@ -134,20 +148,6 @@ export function parseVoiceCommand(transcript: string): {
       category: "questions",
       intent: lower,
       confidence: 0.85,
-    };
-  }
-
-  // Fun interactions patterns
-  if (
-    /make\s+it\s+(funny|scary|magical)/.test(lower) ||
-    /add\s+magic/.test(lower) ||
-    /make\s+it\s+silly/.test(lower) ||
-    /be\s+silly/.test(lower)
-  ) {
-    return {
-      category: "fun_interactions",
-      intent: lower,
-      confidence: 0.8,
     };
   }
 

@@ -7,6 +7,8 @@
  * - Creates multiple avatar variants using image generation
  * - Ensures consistency across story illustrations
  */
+// @ts-nocheck
+
 
 import { getDefaultProvider } from "./aiProvider";
 import { ENV } from "./env";

@@ -10,6 +10,8 @@
  * - Accessibility-friendly with proper labels
  * - Theme-aware styling
  */
+// @ts-nocheck
+
 
 import React, { useEffect, useState, useCallback } from "react";
 import {

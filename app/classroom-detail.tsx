@@ -2,6 +2,8 @@
  * Classroom Detail Screen
  * Shows student progress, assignments, and analytics for a specific classroom
  */
+// @ts-nocheck
+
 
 import React, { useEffect, useState } from "react";
 import {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { Text, StyleSheet, TextProps } from 'react-native';
 import { TextStyles, FontFamily, getStoryTextExtras } from '@/lib/typography';

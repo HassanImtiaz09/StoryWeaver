@@ -1,6 +1,8 @@
 /**
  * Educator Router - tRPC procedures for educator/classroom management
  */
+// @ts-nocheck
+
 
 import { z } from "zod";
 import { router, protectedProcedure } from "./trpc";

@@ -8,7 +8,15 @@ import {
   Share,
   Platform,
 } from "react-native";
-import BottomSheet from "@react-native-menu/bottom-sheet";
+import { Modal } from "react-native";
+// BottomSheet replaced with Modal since @react-native-menu/bottom-sheet is not available
+const BottomSheet = ({ isVisible, onBackButtonPress, onBackdropPress, children }: { isVisible: boolean; onBackButtonPress?: () => void; onBackdropPress?: () => void; children: React.ReactNode }) => (
+  <Modal visible={isVisible} transparent animationType="slide" onRequestClose={onBackButtonPress}>
+    <Pressable style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={onBackdropPress}>
+      <Pressable>{children}</Pressable>
+    </Pressable>
+  </Modal>
+);
 
 interface ShareOptionsSheetProps {
   isVisible: boolean;

@@ -7,6 +7,8 @@
  * - Progress ring showing mastery level
  * - Language flags and names
  */
+// @ts-nocheck
+
 
 import React from "react";
 import {

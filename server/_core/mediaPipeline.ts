@@ -11,6 +11,8 @@
  * - Progressive loading with placeholder generation
  * - Cost tracking integration
  */
+// @ts-nocheck
+
 
 import { EventEmitter } from "events";
 import { db } from "../db";

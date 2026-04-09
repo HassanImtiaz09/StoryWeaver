@@ -4,7 +4,8 @@
  */
 
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Share } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Share,
+  StyleSheet} from "react-native";
 import { useCollaborativeStore } from "../lib/collaborative-store";
 
 interface SessionLobbyProps {
@@ -159,7 +160,7 @@ export const SessionLobby: React.FC<SessionLobbyProps> = ({ onStartSession, onCa
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F5F7FA",
@@ -348,4 +349,4 @@ const styles = {
     textAlign: "center",
     marginTop: 20,
   },
-};
+});

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  StyleSheet,
 } from "react-native";
 import { useCollaborativeStore } from "../lib/collaborative-store";
 
@@ -227,7 +228,7 @@ export const TurnIndicator: React.FC<TurnIndicatorProps> = ({ onSkipTurn }) => {
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
@@ -361,7 +362,6 @@ const styles = {
     paddingHorizontal: 16,
     backgroundColor: "#F9FAFB",
     borderRadius: 8,
-    marginHorizontal: -16,
     marginHorizontal: 0,
   },
   statItem: {
@@ -378,4 +378,4 @@ const styles = {
     fontWeight: "700",
     color: "#1F2937",
   },
-};
+});

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import { useCollaborativeStore } from "../lib/collaborative-store";
 import { useColors } from "@/hooks/use-colors";
@@ -259,7 +260,7 @@ export const TurnInput: React.FC<TurnInputProps> = ({
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F5F7FA",
@@ -308,7 +309,7 @@ const styles = {
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#E5E7EB",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -440,4 +441,4 @@ const styles = {
     color: "#6B7280",
     textAlign: "center",
   },
-};
+});

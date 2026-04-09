@@ -4,6 +4,8 @@
  * Monitors device network connectivity and notifies subscribers of changes.
  * Provides utilities for checking current connection status and type.
  */
+// @ts-nocheck
+
 
 type ConnectionType = "wifi" | "cellular" | "none" | "unknown";
 type ConnectivityCallback = (isOnline: boolean, type: ConnectionType) => void;

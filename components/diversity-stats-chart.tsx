@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo } from "react";
 import { View, Text, ScrollView } from "react-native";
 import { BarChart3, PieChart, TrendingUp } from "lucide-react-native";

@@ -174,7 +174,7 @@ export const useSharingStore = create<SharingState>()(
       resetGalleryFilters: () => {
         set({
           galleryFilters: {
-            sortBy: "recent",
+            sortBy: "popular",
           },
           galleryPage: 0,
           galleryStories: [],

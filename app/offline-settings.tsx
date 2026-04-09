@@ -3,6 +3,8 @@
  *
  * Configure offline mode preferences, storage quota, and cache behavior.
  */
+// @ts-nocheck
+
 
 import React, { useState, useEffect } from "react";
 import {

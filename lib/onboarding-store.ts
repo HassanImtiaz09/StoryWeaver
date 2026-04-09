@@ -106,7 +106,11 @@ export async function getSubscription(): Promise<SubscriptionState> {
 export async function incrementStoriesUsed(): Promise<number> {
   const sub = await getSubscription();
   const newCount = sub.storiesUsed + 1;
-  await safeCache(STORIES_USED_KEY, newCount.toString());
+  try {
+    await AsyncStorage.setItem(STORIES_USED_KEY, newCount.toString());
+  } catch (err) {
+    console.warn("[OnboardingStore] AsyncStorage write failed:", err);
+  }
   return newCount;
 }
 

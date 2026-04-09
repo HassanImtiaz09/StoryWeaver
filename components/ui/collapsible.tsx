@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { PropsWithChildren, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 

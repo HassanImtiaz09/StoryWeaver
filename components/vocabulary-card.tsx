@@ -9,6 +9,8 @@
  * - Swipeable for learning mode
  * - Can be saved to word bank
  */
+// @ts-nocheck
+
 
 import React, { useState } from "react";
 import {
@@ -414,7 +416,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "#E5E7EB",
   },
 
   actionButtonPrimary: {
@@ -472,7 +474,7 @@ const styles = StyleSheet.create({
 
   progressBar: {
     height: 4,
-    backgroundColor: colors.border,
+    backgroundColor: "#E5E7EB",
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -514,7 +516,7 @@ const styles = StyleSheet.create({
 
   stackDivider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: "#E5E7EB",
     marginVertical: 16,
   },
 

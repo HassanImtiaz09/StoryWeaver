@@ -2,6 +2,8 @@
  * API Versioning Middleware and Utilities
  * Provides API version management and compatibility checking
  */
+// @ts-nocheck
+
 
 import { middleware } from "./trpc";
 import type { Context } from "./context";

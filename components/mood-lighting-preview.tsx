@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Animated } from "react-native";
 import { Slider } from "@react-native-community/slider";

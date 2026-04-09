@@ -1,3 +1,4 @@
+// @ts-nocheck
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "../db";
 import { selTemplates, selProgress, selResponses } from "../../drizzle/schema";

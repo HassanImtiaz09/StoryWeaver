@@ -13,6 +13,8 @@
  *   - no-network: Confused Ollie with broken Wi-Fi symbol and side-to-side sway
  *   - error: Broken book tilting with falling stars and healing bandaid pop-in
  */
+// @ts-nocheck
+
 import React, { memo, useEffect } from "react";
 import {
   View,

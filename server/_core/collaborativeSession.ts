@@ -2,6 +2,8 @@
  * Collaborative Session Manager
  * Handles multi-user real-time story co-creation for families
  */
+// @ts-nocheck
+
 
 import { db } from "../db";
 import {

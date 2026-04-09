@@ -392,7 +392,7 @@ export default function CreateScreen() {
           <View
             style={[styles.tipCard, { backgroundColor: "rgba(255,215,0,0.1)" }]}
           >
-            <Ionicons name="lightbulb-outline" size={20} color="#FFD700" />
+            <Ionicons name="bulb-outline" size={20} color="#FFD700" />
             <View style={styles.tipContent}>
               <Text style={[styles.tipTitle, { color: colors.text }]}>
                 Creating Stories

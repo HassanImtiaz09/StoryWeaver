@@ -11,6 +11,8 @@
  *   - Confetti & sparkle celebration on completion
  *   - Auto-generates a personalized welcome story using child profile
  */
+// @ts-nocheck
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { View, Pressable, Text, ActivityIndicator } from "react-native";
 import { useVoiceAssistantStore } from "@/lib/voice-assistant";

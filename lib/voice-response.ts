@@ -11,6 +11,8 @@
  * - Pre-built response phrases for common interactions
  * - Callbacks for lifecycle events (onStart, onDone, onError)
  */
+// @ts-nocheck
+
 
 import * as Speech from "expo-speech";
 import { getSettings } from "./settings-store";

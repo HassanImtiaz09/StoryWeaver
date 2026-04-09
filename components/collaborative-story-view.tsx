@@ -4,7 +4,8 @@
  */
 
 import React, { useEffect, useRef } from "react";
-import { View, Text, ScrollView, Animated, Image } from "react-native";
+import { View, Text, ScrollView, Animated, Image,
+  StyleSheet} from "react-native";
 import { useCollaborativeStore } from "../lib/collaborative-store";
 
 interface CollaborativeStoryViewProps {
@@ -144,7 +145,7 @@ const SegmentCard: React.FC<SegmentCardProps> = ({
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F5F7FA",
@@ -257,4 +258,4 @@ const styles = {
   bottomSpacing: {
     height: 40,
   },
-};
+});

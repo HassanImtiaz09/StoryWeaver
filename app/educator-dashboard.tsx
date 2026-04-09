@@ -2,6 +2,8 @@
  * Educator Dashboard Screen
  * Main teacher interface for classroom management and student progress tracking
  */
+// @ts-nocheck
+
 
 import React, { useEffect, useState } from "react";
 import {

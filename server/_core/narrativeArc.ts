@@ -66,9 +66,16 @@ export const PHASE_GOALS: Record<NarrativePhase, string[]> = {
  * episode number and total episode count.
  */
 export function getPhaseForEpisode(episodeNumber: number, totalEpisodes: number): NarrativePhase {
+  // Single episode arc
+  if (totalEpisodes === 1) return "introduction";
+  
+  // Last episode is always resolution (for arcs > 1)
+  if (episodeNumber >= totalEpisodes) return "resolution";
+  
   if (totalEpisodes <= 5) {
     // 1:1 mapping — each episode = one phase
-    const idx = Math.min(episodeNumber - 1, 4);
+    // Clamp to the last phase that fits the total episodes count
+    const idx = Math.min(episodeNumber - 1, totalEpisodes - 1);
     return PHASE_ORDER[idx];
   }
 

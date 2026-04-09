@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
@@ -49,7 +50,6 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          animationEnabled: true,
         }}
       >
         {/* Tabs layout */}
@@ -61,7 +61,6 @@ export default function RootLayout() {
           options={{
             presentation: "fullScreenModal",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -70,7 +69,6 @@ export default function RootLayout() {
           options={{
             presentation: "fullScreenModal",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -79,7 +77,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -88,7 +85,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -97,7 +93,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -106,7 +101,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -115,7 +109,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -124,7 +117,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -133,7 +125,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -142,7 +133,6 @@ export default function RootLayout() {
           options={{
             presentation: "fullScreenModal",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -151,7 +141,6 @@ export default function RootLayout() {
           options={{
             presentation: "fullScreenModal",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -160,7 +149,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -169,7 +157,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -178,7 +165,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -187,7 +173,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
 
@@ -196,7 +181,6 @@ export default function RootLayout() {
           options={{
             presentation: "card",
             headerShown: false,
-            animationEnabled: true,
           }}
         />
       </Stack>

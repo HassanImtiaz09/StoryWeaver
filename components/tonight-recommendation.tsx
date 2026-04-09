@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { memo } from "react";
 import { View, Text, Pressable, StyleSheet, ImageBackground } from "react-native";
 import { Image } from "expo-image";

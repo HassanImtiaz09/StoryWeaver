@@ -4,6 +4,8 @@
  * COPPA compliance: Manage child data lifecycle, export for portability,
  * and automatic cleanup based on retention policies.
  */
+// @ts-nocheck
+
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 

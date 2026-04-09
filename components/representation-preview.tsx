@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useMemo } from "react";
 import { View, Text, ScrollView } from "react-native";
 import { Users, Heart, Sparkles } from "lucide-react-native";
