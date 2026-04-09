@@ -14,6 +14,11 @@ import { useColors } from "@/hooks/use-colors";
 import { getLocalChildren, type LocalChild } from "@/lib/onboarding-store";
 import { useGamificationStore } from "@/lib/gamification-store";
 import { fetchProgress } from "@/lib/gamification-actions";
+import {
+  getSubscriptionState,
+  getRemainingFreeStories,
+  type SubscriptionState,
+} from "@/lib/subscription-store";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -68,6 +73,7 @@ export default function FamilyScreen() {
   const [children, setChildren] = useState<LocalChild[]>([]);
   const [selectedChild, setSelectedChild] = useState<LocalChild | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subState, setSubState] = useState<SubscriptionState | null>(null);
   const gamificationStore = useGamificationStore();
 
   const loadData = useCallback(async () => {
@@ -78,6 +84,8 @@ export default function FamilyScreen() {
       setSelectedChild(child);
       await fetchProgress(child.id);
     }
+    const sub = await getSubscriptionState();
+    setSubState(sub);
     setLoading(false);
   }, []);
 
@@ -149,10 +157,48 @@ export default function FamilyScreen() {
       >
         {/* Header */}
         <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Family</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Tools and insights for your family
-          </Text>
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { color: colors.text }]}>Family</Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                Tools and insights for your family
+              </Text>
+            </View>
+
+            {/* Subscription badge (moved from home screen) */}
+            {subState && (
+              <Pressable
+                onPress={() => router.push({ pathname: "/paywall" as any, params: { source: "family" } })}
+                style={({ pressed }) => [
+                  styles.subBadge,
+                  {
+                    backgroundColor:
+                      subState.plan === "free"
+                        ? "rgba(255,215,0,0.15)"
+                        : "rgba(34,197,94,0.15)",
+                  },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={styles.subBadgeEmoji}>
+                  {subState.plan === "free" ? "⭐" : "👑"}
+                </Text>
+                <Text
+                  style={[
+                    styles.subBadgeText,
+                    {
+                      color:
+                        subState.plan === "free" ? "#D97706" : "#16A34A",
+                    },
+                  ]}
+                >
+                  {subState.plan === "free"
+                    ? `${getRemainingFreeStories(subState)} free`
+                    : subState.plan.charAt(0).toUpperCase() + subState.plan.slice(1)}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </Animated.View>
 
         {/* Child Selector */}
@@ -302,6 +348,11 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 20,
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
   title: {
     fontSize: 28,
     fontWeight: "800",
@@ -309,6 +360,22 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
+  },
+  subBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+    marginTop: 4,
+  },
+  subBadgeEmoji: {
+    fontSize: 14,
+  },
+  subBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   childSelector: {
     marginBottom: 20,
