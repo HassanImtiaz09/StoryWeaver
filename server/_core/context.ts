@@ -7,7 +7,6 @@
  *   2. Session cookie → extracted from express-session middleware
  *   3. No auth → userId remains null (public endpoints only)
  */
-// @ts-nocheck
 
 
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
@@ -81,7 +80,9 @@ export async function createContext({
   }
 
   // ── 2. Session cookie ────────────────────────────────────────
+  // @ts-expect-error - type mismatch from schema
   if (!userId && req.session) {
+    // @ts-expect-error - type mismatch from schema
     const sessionData = req.session as Record<string, any>;
     userId = sessionData.userId || sessionData.user?.id || null;
     userEmail = sessionData.user?.email || null;

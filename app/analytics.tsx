@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -30,6 +29,7 @@ export default function AnalyticsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Get current user and children
+  // @ts-expect-error - type mismatch from schema
   const { data: userChildren } = trpc.children.getChildren.useQuery();
 
   // Select first child if none selected
@@ -80,7 +80,7 @@ export default function AnalyticsScreen() {
   }
 
   const selectedChildName =
-    userChildren?.find((c) => c.id === analyticsStore.selectedChild)?.name ||
+    userChildren?.find((c: any) => c.id === analyticsStore.selectedChild)?.name ||
     "My Child";
 
   return (
@@ -220,7 +220,7 @@ export default function AnalyticsScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.childSelectorContent}
           >
-            {userChildren.map((child) => (
+            {userChildren.map((child: any) => (
               <TouchableOpacity
                 key={child.id}
                 style={[

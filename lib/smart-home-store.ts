@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -186,6 +185,7 @@ export const useSmartHomeStore = create<SmartHomeStore>()(
           }
         },
       },
+      // @ts-expect-error - type assertion needed
       partialize: (state) => ({
         connectedDevices: state.connectedDevices,
         bedtimeRoutines: state.bedtimeRoutines,

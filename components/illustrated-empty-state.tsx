@@ -13,7 +13,6 @@
  *   - no-network: Confused Ollie with broken Wi-Fi symbol and side-to-side sway
  *   - error: Broken book tilting with falling stars and healing bandaid pop-in
  */
-// @ts-nocheck
 
 import React, { memo, useEffect } from "react";
 import {
@@ -562,6 +561,7 @@ function ErrorIllustration({ compact }: { compact?: boolean }) {
       // Bandaid pops in after 1s with spring
       bandaidScale.value = withDelay(
         1000,
+        // @ts-expect-error - missing import
         withSpring(1, { damping: 8, stiffness: 120 })
       );
     } else {

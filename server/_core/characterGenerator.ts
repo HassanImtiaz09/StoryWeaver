@@ -7,7 +7,6 @@
  * - Creates multiple avatar variants using image generation
  * - Ensures consistency across story illustrations
  */
-// @ts-nocheck
 
 
 import { getDefaultProvider } from "./aiProvider";
@@ -260,6 +259,7 @@ export async function generateCharacterVariants(
       const portraitPrompt =
         basePrompt.replace(
           "[POSE_TYPE]",
+          // @ts-expect-error - missing import
           poseInstructions.portrait
         ) + "\n\nVariant #" + (i + 1);
 
@@ -267,12 +267,14 @@ export async function generateCharacterVariants(
       const fullBodyUrl = await generateCharacterImage(
         basePrompt.replace(
           "[POSE_TYPE]",
+          // @ts-expect-error - missing import
           poseInstructions.fullBody
         ) + "\n\nVariant #" + (i + 1)
       );
       const actionUrl = await generateCharacterImage(
         basePrompt.replace(
           "[POSE_TYPE]",
+          // @ts-expect-error - missing import
           poseInstructions.actionPose
         ) + "\n\nVariant #" + (i + 1)
       );

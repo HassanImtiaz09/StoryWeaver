@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from "react";
 import {
   View,
@@ -66,6 +65,7 @@ export function CharacterPreview({
       <View style={[styles.previewCard, { backgroundColor: colors.surface }]}>
         <View style={styles.portraitContainer}>
           <Image
+            // @ts-expect-error - type mismatch from schema
             source={{ uri: avatar.variants.portrait }}
             style={styles.portraitImage}
           />
@@ -140,6 +140,7 @@ export function CharacterPreview({
         <View style={styles.posesGrid}>
           <View style={styles.poseItem}>
             <Image
+              // @ts-expect-error - type mismatch from schema
               source={{ uri: avatar.variants.portrait }}
               style={[styles.poseImage, { borderColor: colors.border }]}
             />
@@ -150,6 +151,7 @@ export function CharacterPreview({
 
           <View style={styles.poseItem}>
             <Image
+              // @ts-expect-error - type mismatch from schema
               source={{ uri: avatar.variants.fullBody }}
               style={[styles.poseImage, { borderColor: colors.border }]}
             />
@@ -160,6 +162,7 @@ export function CharacterPreview({
 
           <View style={styles.poseItem}>
             <Image
+              // @ts-expect-error - type mismatch from schema
               source={{ uri: avatar.variants.actionPose }}
               style={[styles.poseImage, { borderColor: colors.border }]}
             />

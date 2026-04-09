@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import {
   View,
@@ -113,6 +112,7 @@ export const ContentReviewPanel = memo(function ContentReviewPanel() {
         <View
           key={item.id}
           style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          // @ts-expect-error - overload mismatch
           accessibilityRole="article"
           accessibilityLabel={`Review item with safety score ${item.safetyScore}`}
         >
@@ -154,6 +154,7 @@ export const ContentReviewPanel = memo(function ContentReviewPanel() {
               <Text style={styles.actionText}>Approve</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              // @ts-expect-error - type mismatch from schema
               style={[styles.actionButton, { backgroundColor: colors.error }]}
               onPress={() => handleReject(item.id)}
               accessibilityLabel="Reject this content"

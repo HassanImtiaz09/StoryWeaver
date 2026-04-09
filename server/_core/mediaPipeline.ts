@@ -11,7 +11,6 @@
  * - Progressive loading with placeholder generation
  * - Cost tracking integration
  */
-// @ts-nocheck
 
 
 import { EventEmitter } from "events";
@@ -326,12 +325,14 @@ export class MediaPipeline extends EventEmitter {
         timeout,
       ]);
 
+      // @ts-expect-error - type mismatch from schema
       if (!imageResult.url) {
         throw new Error("No image URL returned");
       }
 
       job.status = "completed";
       job.output = {
+        // @ts-expect-error - type mismatch from schema
         url: imageResult.url,
         format: "jpeg",
         size: 0, // Will be updated after optimization

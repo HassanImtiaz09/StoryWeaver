@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from "react";
 import { View, ScrollView, Pressable, Text, Modal } from "react-native";
 import Animated, { FadeIn, FadeOut, SlideInDown } from "react-native-reanimated";
@@ -98,6 +97,7 @@ export function VoiceCommandHints({
               </Text>
               <Pressable onPress={() => setShowHints(false)}>
                 <IconSymbol
+                  // @ts-expect-error - type assertion needed
                   name="xmark.circle.fill"
                   size={28}
                   color="#999999"
@@ -173,7 +173,8 @@ function HintChip({
       </View>
 
       {/* Arrow icon */}
-      <IconSymbol name="chevron.right" size={16} color="#999999" />
+      // @ts-expect-error - type assertion needed
+      <IconSymbol name="chevron-forward" size={16} color="#999999" />
     </Pressable>
   );
 }

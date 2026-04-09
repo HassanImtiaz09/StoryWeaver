@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Platform } from "react-native";
 
 import themeConfig from "@/theme.config";
@@ -7,8 +6,8 @@ export type ColorScheme = "light" | "dark";
 export type AgeGroup = "toddler" | "child" | "tween" | "default";
 
 export const ThemeColors = themeConfig.themeColors;
-export const AgeThemes = themeConfig.ageThemes;
-export const StoryThemeAccents = themeConfig.storyThemeAccents;
+export const AgeThemes = (themeConfig as any).ageThemes ?? {};
+export const StoryThemeAccents = (themeConfig as any).storyThemeAccents ?? {};
 
 type ThemeColorTokens = typeof ThemeColors;
 type ThemeColorName = keyof ThemeColorTokens;

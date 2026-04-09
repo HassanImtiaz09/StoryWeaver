@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useCallback, useState } from "react";
 import {
   View,
@@ -34,6 +33,7 @@ export default function StoryDetailScreen() {
       const arcs = await getLocalStoryArcs();
       const arcId = params?.arcId ? parseInt(params.arcId, 10) : null;
       if (arcId) {
+        // @ts-expect-error - type fix needed
         const arc = arcs.find((a) => a.id === arcId);
         if (arc) {
           setStoryData(arc);

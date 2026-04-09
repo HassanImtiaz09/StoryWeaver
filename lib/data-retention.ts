@@ -4,7 +4,6 @@
  * COPPA compliance: Manage child data lifecycle, export for portability,
  * and automatic cleanup based on retention policies.
  */
-// @ts-nocheck
 
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -100,9 +99,9 @@ export async function exportChildDataAsJSON(): Promise<Record<string, unknown>> 
       if (value) {
         try {
           // Try to parse as JSON, otherwise store as string
-          exportedData.data[key] = JSON.parse(value);
+          (exportedData.data as any)[key] = JSON.parse(value);
         } catch {
-          exportedData.data[key] = value;
+          (exportedData.data as any)[key] = value;
         }
       }
     }

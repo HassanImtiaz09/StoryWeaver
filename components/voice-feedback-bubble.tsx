@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import Animated, {
@@ -145,6 +144,7 @@ export function VoiceFeedbackBubble({
           {isSpeaking ? (
             <Animated.View style={waveAnimatedStyle}>
               <IconSymbol
+                // @ts-expect-error - type assertion needed
                 name="speaker.wave.2"
                 size={20}
                 color={getIconColor()}
@@ -153,6 +153,7 @@ export function VoiceFeedbackBubble({
             </Animated.View>
           ) : (
             <IconSymbol
+              // @ts-expect-error - type assertion needed
               name={getIconName()}
               size={20}
               color={getIconColor()}
@@ -194,9 +195,10 @@ export function VoiceFeedbackBubble({
           className="ml-2 mt-0.5"
         >
           <IconSymbol
-            name={isSpeaking ? "speaker.slash.fill" : "xmark"}
+            name={isSpeaking ? "volume-mute" : "close"}
             size={16}
             color={getIconColor()}
+            // @ts-expect-error - type assertion needed
             weight="semibold"
           />
         </Pressable>

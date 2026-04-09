@@ -11,7 +11,6 @@
  *   5. WiggleEmoji — Playful emoji wiggle animation
  *   6. TypewriterText — Character-by-character text reveal
  */
-// @ts-nocheck
 
 
 import React, { memo, useEffect, useState, useCallback } from "react";
@@ -400,7 +399,7 @@ export const LoadingBook = memo(function LoadingBook({ size = 64, message = "Loa
       accessibilityLabel={message}
     >
       {/* Book */}
-      <Animated.View style={[bookStyle, { perspective: 1000 }]}>
+      <Animated.View style={[bookStyle, { perspective: 1000 }] as any}>
         <View style={styles.bookSpine} />
         <View
           style={[

@@ -7,7 +7,6 @@
  * - Progress ring showing mastery level
  * - Language flags and names
  */
-// @ts-nocheck
 
 
 import React from "react";
@@ -138,6 +137,7 @@ export function LanguageAvailabilityBadge({
               styles.languageFlag,
               lang === primaryLanguage && styles.primaryLanguageFlag,
             ]}
+            // @ts-expect-error - overload mismatch
             title={SUPPORTED_LANGUAGES[lang]?.name}
           >
             <Text style={styles.flagEmoji}>{getLanguageFlag(lang)}</Text>

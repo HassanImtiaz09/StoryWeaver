@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { router, protectedProcedure } from "./trpc";
 import { z } from "zod";
 import {
@@ -26,12 +25,14 @@ const DiversityProfileSchema = z.object({
 
 export const diversityRouter = router({
   getProfile: protectedProcedure.query(async ({ ctx }) => {
+    // @ts-expect-error - argument type mismatch
     return getDiversityProfile(ctx.userId);
   }),
 
   updateProfile: protectedProcedure
     .input(DiversityProfileSchema)
     .mutation(async ({ ctx, input }) => {
+      // @ts-expect-error - argument type mismatch
       return updateDiversityProfile(ctx.userId, input as DiversityProfile);
     }),
 
@@ -42,6 +43,7 @@ export const diversityRouter = router({
   getPromptInjection: protectedProcedure
     .input(z.object({ childId: z.number().optional() }))
     .query(async ({ ctx, input }) => {
+      // @ts-expect-error - argument type mismatch
       const profile = await getDiversityProfile(ctx.userId);
       return generateDiversityPromptInjection(profile, input.childId);
     }),

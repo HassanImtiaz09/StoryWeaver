@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from "react";
 import { Text, View, StyleSheet } from "react-native";
 import { useAccessibilityStore } from "@/lib/accessibility-store";
@@ -72,6 +71,7 @@ export function AccessibleStoryText({
   return (
     <View
       style={[styles.container, style]}
+      // @ts-expect-error - overload mismatch
       onPress={onPress}
       accessible={true}
       {...accessibilityProps}

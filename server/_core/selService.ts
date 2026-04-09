@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Anthropic from "@anthropic-ai/sdk";
 import { db } from "../db";
 import { selTemplates, selProgress, selResponses } from "../../drizzle/schema";
@@ -381,6 +380,7 @@ export async function getSelTemplates(
     if (ageRange) {
       filtered = filtered.filter(
         (t) =>
+          // @ts-expect-error - possibly null
           t.ageRangeMin <= ageRange.max && t.ageRangeMax >= ageRange.min
       );
     }
@@ -514,6 +514,7 @@ Remember: Make it a story, not a lesson. Let the child discover the emotional sk
       competency: template.competency,
       emotionalGoals: template.emotionalGoals,
       content: storyContent,
+      // @ts-expect-error - possibly null
       ageAppropriate: template.ageRangeMin <= childAge && childAge <= template.ageRangeMax,
     };
   } catch (error) {
@@ -542,6 +543,7 @@ export async function assessEmotionalResponse(
     });
 
     return {
+      // @ts-expect-error - type mismatch from schema
       id: result.insertId,
       childId,
       templateId,
@@ -622,6 +624,7 @@ export async function getRecommendedTemplates(
     // Get templates from least-explored competencies
     const allTemplates = await getSelTemplates();
     const ageAppropriate = allTemplates.filter(
+      // @ts-expect-error - possibly null
       (t) => t.ageRangeMin <= childAge && t.ageRangeMax >= childAge
     );
 
@@ -674,6 +677,7 @@ export async function createCustomSelTemplate(
     });
 
     return {
+      // @ts-expect-error - type mismatch from schema
       id: result.insertId,
       ...template,
       isBuiltIn: false,
@@ -709,6 +713,7 @@ export async function getSelInsights(childId: number) {
     // Calculate average intensity
     const avgIntensity =
       responses.length > 0
+        // @ts-expect-error - possibly null
         ? responses.reduce((sum, r) => sum + r.emotionIntensity, 0) /
           responses.length
         : 0;

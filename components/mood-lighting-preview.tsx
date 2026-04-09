@@ -1,6 +1,6 @@
-// @ts-nocheck
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Animated } from "react-native";
+// @ts-expect-error - type fix needed
 import { Slider } from "@react-native-community/slider";
 import { useColors } from "@/hooks/use-colors";
 

@@ -1,7 +1,6 @@
 /**
  * Educator Router - tRPC procedures for educator/classroom management
  */
-// @ts-nocheck
 
 
 import { z } from "zod";
@@ -180,10 +179,12 @@ export const educatorRouter = router({
     .input(
       z.object({
         assessmentId: z.number(),
+        // @ts-expect-error - argument count mismatch
         answers: z.record(z.string()),
       })
     )
     .mutation(async ({ input }) => {
+      // @ts-expect-error - argument type mismatch
       return await gradeAssessment(input.assessmentId, input.answers);
     }),
 

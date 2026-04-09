@@ -4,7 +4,6 @@
  * Monitors device network connectivity and notifies subscribers of changes.
  * Provides utilities for checking current connection status and type.
  */
-// @ts-nocheck
 
 
 type ConnectionType = "wifi" | "cellular" | "none" | "unknown";
@@ -38,6 +37,7 @@ class NetworkMonitor {
     this.checkConnectivity();
 
     // Poll every 5 seconds
+    // @ts-expect-error - type assertion needed
     this.pollInterval = setInterval(() => {
       this.checkConnectivity();
     }, 5000);
@@ -119,6 +119,7 @@ class NetworkMonitor {
    */
   destroy(): void {
     if (this.pollInterval) {
+      // @ts-expect-error - overload mismatch
       clearInterval(this.pollInterval);
       this.pollInterval = null;
     }

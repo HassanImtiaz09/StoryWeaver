@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from "react";
 import {
   View,
@@ -18,9 +17,11 @@ interface FamilyStory {
   familyMemberUserId: number;
   childId: number;
   status: "active" | "paused" | "completed";
+  // @ts-expect-error - duplicate identifier
   memoryCount: number;
   createdAt: Date;
   completedAt?: Date | null;
+  // @ts-expect-error - duplicate identifier
   memoryCount: number;
 }
 

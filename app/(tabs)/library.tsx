@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
@@ -22,6 +21,8 @@ import { getLocalStoryArcs, type LocalStoryArc } from "@/lib/story-store";
 import { Image } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { IllustratedEmptyState } from "@/components/illustrated-empty-state";
+import { useTooltip } from "@/hooks/use-tooltip";
+import { InlineTooltip } from "@/components/tooltip-overlay";
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -33,6 +34,13 @@ export default function LibraryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filterOffline, setFilterOffline] = useState(false);
+
+  // First-time user tooltip
+  const { activeTooltip, dismiss: dismissTooltip } = useTooltip(
+    "library",
+    { hasChildren: children.length > 0, hasStories: storyArcs.length > 0 },
+    !loading
+  );
 
   const loadData = useCallback(async () => {
     const kids = await getLocalChildren();
@@ -47,7 +55,8 @@ export default function LibraryScreen() {
 
       const arcs = await getLocalStoryArcs();
       const filteredArcs = filterOffline
-        ? arcs.filter((a) => a.childId === child.id && a.isOfflineAvailable)
+        // @ts-expect-error - type mismatch from schema
+        ? arcs.filter((a) => a.childId === child.id && a?.isOfflineAvailable)
         : arcs.filter((a) => a.childId === child.id);
 
       setStoryArcs(filteredArcs);
@@ -114,6 +123,15 @@ export default function LibraryScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
         }
       >
+        {/* First-time tooltip */}
+        {activeTooltip && (
+          <InlineTooltip
+            message={activeTooltip.message}
+            emoji={activeTooltip.emoji}
+            onDismiss={dismissTooltip}
+          />
+        )}
+
         {/* Header */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.duration(400)}
@@ -260,7 +278,8 @@ export default function LibraryScreen() {
                 const progressPercent = arc.totalEpisodes > 0
                   ? Math.round((arc.currentEpisode / arc.totalEpisodes) * 100)
                   : 0;
-                const offlineStatus = arc.isOfflineAvailable ? ", available offline" : "";
+                // @ts-expect-error - type mismatch from schema
+                const offlineStatus = arc?.isOfflineAvailable ? ", available offline" : "";
                 const storyLabel = `${arc.title}, ${arc.currentEpisode} of ${arc.totalEpisodes} episodes, ${progressPercent}% complete${offlineStatus}`;
 
                 return (
@@ -325,7 +344,7 @@ export default function LibraryScreen() {
                     </View>
 
                     {/* Offline Badge */}
-                    {arc.isOfflineAvailable && (
+                    {(arc as any)?.isOfflineAvailable && (
                       <View style={styles.offlineBadge}>
                         <Ionicons name="cloud-done" size={12} color="#10B981" />
                         <Text style={styles.offlineBadgeText}>Offline</Text>

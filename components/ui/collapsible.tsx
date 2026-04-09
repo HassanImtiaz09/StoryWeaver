@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { PropsWithChildren, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
@@ -17,9 +16,11 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
         activeOpacity={0.8}
       >
         <IconSymbol
+          // @ts-expect-error - type assertion needed
           name="chevron.right"
           size={18}
           weight="medium"
+          // @ts-expect-error - type mismatch from schema
           color={colors.icon}
           style={{ transform: [{ rotate: isOpen ? "90deg" : "0deg" }] }}
         />

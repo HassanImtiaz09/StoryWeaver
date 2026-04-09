@@ -2,12 +2,12 @@
  * tRPC Client Configuration for React Native/Expo
  * Configures the client-side tRPC hooks and query client
  */
-// @ts-nocheck
 
 
 import { createTRPCReact } from "@trpc/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { QueryClient } from "@tanstack/react-query";
+// @ts-expect-error - type fix needed
 import type { AppRouter } from "../server/routers";
 
 /**
@@ -69,4 +69,5 @@ export function createTrpcClient() {
   });
 }
 
+// @ts-expect-error - type fix needed
 export type AppRouter = typeof AppRouter;

@@ -1,8 +1,7 @@
-// @ts-nocheck
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import { ImageBackground } from 'react-native';
-import Animated, { FadeIn, AnimatedStyleProp } from 'react-native-reanimated';
+import Animated, { FadeIn, AnimatedStyle } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { IllustrationShimmer } from '@/components/illustration-shimmer';
@@ -27,10 +26,10 @@ interface ReaderIllustrationProps {
   generatingImages: Set<number>;
   activeTooltip: InteractZone | null;
   onInteractTap: (zone: InteractZone) => void;
-  currentPageStyle: AnimatedStyleProp<any>;
-  curlShadowStyle: AnimatedStyleProp<any>;
-  goldenOverlayStyle: AnimatedStyleProp<any>;
-  goldenShimmerStyle: AnimatedStyleProp<any>;
+  currentPageStyle: AnimatedStyle<any>;
+  curlShadowStyle: AnimatedStyle<any>;
+  goldenOverlayStyle: AnimatedStyle<any>;
+  goldenShimmerStyle: AnimatedStyle<any>;
 }
 
 function InteractOverlay({ zones, containerWidth, containerHeight, onTap }: {

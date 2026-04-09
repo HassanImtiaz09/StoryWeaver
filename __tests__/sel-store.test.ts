@@ -20,7 +20,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 import {
   useSelStore,
   type SelTemplate,
-  type Competency,
+  type SelCompetency,
   type EmotionalCheckIn,
   type SelInsights,
 } from "../lib/sel-store";
@@ -344,7 +344,7 @@ describe("sel-store", () => {
 
     it("tracks all competencies", () => {
       const store = useSelStore.getState();
-      const competencies: Competency[] = [
+      const competencies: SelCompetency[] = [
         "self_awareness",
         "self_management",
         "social_awareness",
@@ -388,14 +388,14 @@ describe("sel-store", () => {
     it("sets competencies with metadata", () => {
       const competencies = [
         {
-          id: "self_awareness" as Competency,
+          id: "self_awareness" as SelCompetency,
           name: "Self Awareness",
           description: "Understanding your own emotions",
           emoji: "🧠",
           color: "#FF6B6B",
         },
         {
-          id: "self_management" as Competency,
+          id: "self_management" as SelCompetency,
           name: "Self Management",
           description: "Managing your emotions",
           emoji: "💪",
@@ -412,7 +412,7 @@ describe("sel-store", () => {
     it("sets child progress", () => {
       const progress = [
         {
-          competency: "self_awareness" as Competency,
+          competency: "self_awareness" as SelCompetency,
           name: "Self Awareness",
           storiesRead: 5,
           emoji: "🧠",
@@ -427,7 +427,7 @@ describe("sel-store", () => {
     it("tracks progress for multiple children", () => {
       const progress1 = [
         {
-          competency: "self_awareness" as Competency,
+          competency: "self_awareness" as SelCompetency,
           name: "Self Awareness",
           storiesRead: 5,
           emoji: "🧠",
@@ -436,7 +436,7 @@ describe("sel-store", () => {
       ];
       const progress2 = [
         {
-          competency: "self_management" as Competency,
+          competency: "self_management" as SelCompetency,
           name: "Self Management",
           storiesRead: 3,
           emoji: "💪",

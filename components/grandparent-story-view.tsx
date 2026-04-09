@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -241,6 +240,7 @@ export default function GrandparentStoryView({
                 paddingVertical: 12,
                 paddingHorizontal: 12,
                 borderRadius: 8,
+                // @ts-expect-error - type mismatch from schema
                 backgroundColor: isRecording ? colors.error : colors.primary,
                 opacity: !currentPageData || isLoading ? 0.5 : 1,
               }}
@@ -273,6 +273,7 @@ export default function GrandparentStoryView({
               paddingVertical: 14,
               paddingHorizontal: 12,
               borderRadius: 8,
+              // @ts-expect-error - type mismatch from schema
               backgroundColor: isFirstPage ? colors.disabled : colors.primary,
               opacity: isFirstPage ? 0.5 : 1,
             }}
@@ -297,6 +298,7 @@ export default function GrandparentStoryView({
               paddingVertical: 14,
               paddingHorizontal: 12,
               borderRadius: 8,
+              // @ts-expect-error - type mismatch from schema
               backgroundColor: isLastPage ? colors.disabled : colors.primary,
               opacity: isLastPage ? 0.5 : 1,
             }}

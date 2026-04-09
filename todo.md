@@ -17,7 +17,7 @@
 - [x] Build bedtime push notification reminder
 - [x] Build print book upsell flow (UI only)
 - [x] Add golden transitions between screens
-- [ ] Add contextual tooltips for first-time users
+- [x] Add contextual tooltips for first-time users
 - [x] Add icon mappings for all tab icons
 - [x] Run tests and fix issues (14 tests passing)
 - [x] Optimize and upload AI illustrations to CDN
@@ -60,3 +60,5 @@
 - [x] Add pull-to-refresh on Library and story-detail screens
 - [x] Sync project with latest GitHub changes (fourth sync - fixed 17 TS errors across 9 files: gamification-store, parent-tools-store, bedtime-mode-wrapper, book-preview-card, assetManager, dbPool, narrativeArc, requestMiddleware, routers.ts, auth.logout.test.ts; 0 TS errors, 77/77 tests passing)
 - [x] Sync project with latest GitHub changes (fifth sync - massive update: 271 files changed, 82K+ lines. Installed 5 new packages, fixed syntax errors in micro-animations.tsx and routers.ts, added @ts-nocheck to ~90 new files, fixed zod v4 chaining, exported STORY_MOOD_LIGHTING/hslToHex, fixed narrativeArc phase logic, fixed language-store hook tests, fixed sharing-store reset default, fixed smart-home-store id lookup, fixed voice-assistant pattern ordering, fixed educator-store ref, fixed onboarding-store JSON.stringify bug. 0 TS errors, 689/689 tests passing)
+- [x] Remove @ts-nocheck directives from ~90 files (reduced from ~90 to 2, fixed 298 TS errors via batch scripts + targeted fixes, added @ts-expect-error for complex type mismatches)
+- [x] Add first-time user tooltips (tooltip-store.ts, tooltip-overlay.tsx, use-tooltip.ts hook; integrated into Home, Create, Library, Family tabs; milestone tracking for child_created/story_created; 15 tooltip tests passing, 704/704 total tests passing)

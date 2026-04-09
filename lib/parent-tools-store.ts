@@ -1,4 +1,3 @@
-// @ts-nocheck
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 
@@ -331,6 +330,7 @@ export async function initializeParentToolsCache() {
           )
         );
         if (elementMap.size > 0) {
+          // @ts-expect-error - type assertion needed
           store.customElements = elementMap;
         }
 
@@ -341,6 +341,7 @@ export async function initializeParentToolsCache() {
           )
         );
         if (recordingMap.size > 0) {
+          // @ts-expect-error - type assertion needed
           store.voiceRecordings = recordingMap;
         }
       } else if (data.approvalQueue) {

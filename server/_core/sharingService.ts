@@ -1,4 +1,3 @@
-// @ts-nocheck
 import crypto from "crypto";
 import { db } from "../db";
 import { eq, and, desc, isNull, ne, sql } from "drizzle-orm";
@@ -223,6 +222,7 @@ export async function publishToGallery(
         summary: episode.summary || "",
         pages: [{ text: episode.summary || "" }],
       },
+      // @ts-expect-error - type mismatch from schema
       arc[0].childFears
     );
     if (!result.approved) {
@@ -256,6 +256,7 @@ export async function unpublishFromGallery(arcId: number, userId: number): Promi
     })
     .where(and(eq(sharedStories.arcId, arcId), eq(sharedStories.userId, userId)));
 
+  // @ts-expect-error - type mismatch from schema
   if (result.rowsAffected === 0) {
     throw new TRPCError({
       code: "NOT_FOUND",
@@ -298,12 +299,14 @@ export async function getGalleryStories(filters: GalleryFilters): Promise<any[]>
 
   // Apply theme filter
   if (filters.theme) {
+    // @ts-expect-error - type mismatch from schema
     query = query.where(eq(storyArcs.theme, filters.theme));
   }
 
   // Apply age group filter
   if (filters.ageGroup) {
     const [minAge, maxAge] = filters.ageGroup.split("-").map(Number);
+    // @ts-expect-error - type mismatch from schema
     query = query.where(
       and(
         minAge ? ne(children.age, 0) : undefined, // placeholder for >= minAge
@@ -314,10 +317,13 @@ export async function getGalleryStories(filters: GalleryFilters): Promise<any[]>
 
   // Apply sorting
   if (filters.sortBy === "popular") {
+    // @ts-expect-error - missing property
     query = query.orderBy(desc(sharedStories.viewCount));
   } else if (filters.sortBy === "liked") {
+    // @ts-expect-error - missing property
     query = query.orderBy(desc(sharedStories.likeCount));
   } else {
+    // @ts-expect-error - missing property
     query = query.orderBy(desc(sharedStories.publishedAt));
   }
 

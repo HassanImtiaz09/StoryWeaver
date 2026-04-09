@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Mock AsyncStorage
@@ -150,6 +149,7 @@ describe("analytics-store", () => {
       const store = useAnalyticsStore.getState();
       // Summary would be set via loadAnalytics
       useAnalyticsStore.setState({ summary: summary as any });
+      // @ts-expect-error - type mismatch from schema
       expect(useAnalyticsStore.getState().summary?.totalStoriesRead).toBe(25);
     });
   });
@@ -364,6 +364,7 @@ describe("analytics-store", () => {
       expect(state.selectedChild).toBe(5);
       expect(state.selectedPeriod).toBe("month");
       expect(state.isLoading).toBe(false);
+      // @ts-expect-error - type mismatch from schema
       expect(state.summary?.totalStoriesRead).toBe(15);
     });
   });
@@ -384,6 +385,7 @@ describe("analytics-store", () => {
         summary: { totalStoriesRead: 18 } as any,
       });
 
+      // @ts-expect-error - type mismatch from schema
       expect(useAnalyticsStore.getState().summary?.totalStoriesRead).toBe(18);
     });
   });

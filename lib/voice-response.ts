@@ -11,7 +11,6 @@
  * - Pre-built response phrases for common interactions
  * - Callbacks for lifecycle events (onStart, onDone, onError)
  */
-// @ts-nocheck
 
 
 import * as Speech from "expo-speech";
@@ -177,6 +176,7 @@ class VoiceResponseManager {
       options.onDone?.();
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
+      // @ts-expect-error - type fix needed
       options.onError?.(err);
       console.error("Voice response error:", error);
     } finally {

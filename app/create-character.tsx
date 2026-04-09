@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useCallback } from "react";
 import {
   View,
@@ -159,8 +158,11 @@ export default function CreateCharacterScreen() {
         description: selectedAvatar.description,
         artStyle: selectedAvatar.artStyle,
         variants: {
+          // @ts-expect-error - type mismatch from schema
           portrait: selectedAvatar.variants.portrait,
+          // @ts-expect-error - type mismatch from schema
           fullBody: selectedAvatar.variants.fullBody,
+          // @ts-expect-error - type mismatch from schema
           actionPose: selectedAvatar.variants.actionPose,
         },
       });
@@ -444,7 +446,7 @@ export default function CreateCharacterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<any>({
   container: {
     flex: 1,
   },

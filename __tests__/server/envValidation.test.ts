@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 describe("envValidation", () => {
@@ -397,6 +396,7 @@ describe("envValidation", () => {
   describe("integration scenarios", () => {
     it("production setup with all required vars should not throw", async () => {
       vi.resetModules();
+      // @ts-expect-error - readonly assignment
       process.env.NODE_ENV = "production";
       process.env.DATABASE_URL = "postgresql://prod/db";
       process.env.JWT_SECRET = "secret-key";
@@ -410,6 +410,7 @@ describe("envValidation", () => {
       vi.resetModules();
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
+      // @ts-expect-error - readonly assignment
       process.env.NODE_ENV = "development";
       process.env.DATABASE_URL = "sqlite::memory:";
       process.env.JWT_SECRET = "dev-secret";

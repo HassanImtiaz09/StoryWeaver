@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState } from 'react';
 import {
   View,
@@ -105,6 +104,7 @@ export function ReaderSettingsTray({ isOpen, onClose }: ReaderSettingsTrayProps)
             { backgroundColor: colors.surface },
             animatedStyle,
           ]}
+          // @ts-expect-error - type assertion needed
           accessibilityRole="dialog"
           accessibilityLabel="Settings tray"
         >

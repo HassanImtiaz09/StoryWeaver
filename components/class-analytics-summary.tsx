@@ -2,7 +2,6 @@
  * Class Analytics Summary Component
  * Displays class-wide analytics and performance metrics
  */
-// @ts-nocheck
 
 
 import React from "react";
@@ -89,6 +88,7 @@ export const ClassAnalyticsSummary: React.FC<ClassAnalyticsSummaryProps> = ({
           <Text style={styles.chartTitle}>Reading Level Distribution</Text>
           <View style={styles.chartContainer}>
             <PieChart
+              // @ts-expect-error - overload mismatch
               data={levelData}
               width={chartWidth}
               height={200}

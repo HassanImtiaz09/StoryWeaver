@@ -8,7 +8,6 @@
  * - Learning progress
  * - Persistent storage via AsyncStorage
  */
-// @ts-nocheck
 
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -166,6 +165,7 @@ export const useLanguageStore = create<LanguageStore>()(
           }
         },
       },
+      // @ts-expect-error - type assertion needed
       partialize: (state) => ({
         primaryLanguage: state.primaryLanguage,
         secondaryLanguage: state.secondaryLanguage,

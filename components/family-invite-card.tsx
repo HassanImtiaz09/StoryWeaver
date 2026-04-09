@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from "react";
 import {
   View,
@@ -69,6 +68,7 @@ export default function FamilyInviteCard({
       case "accepted":
         return colors.success;
       case "expired":
+        // @ts-expect-error - type mismatch from schema
         return colors.error;
       default:
         return colors.primary;
@@ -278,6 +278,7 @@ export default function FamilyInviteCard({
           style={{
             marginTop: 12,
             fontSize: scaledFontSize(12),
+            // @ts-expect-error - type mismatch from schema
             color: colors.error,
             fontStyle: "italic",
           }}

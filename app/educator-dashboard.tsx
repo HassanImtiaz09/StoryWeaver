@@ -2,7 +2,6 @@
  * Educator Dashboard Screen
  * Main teacher interface for classroom management and student progress tracking
  */
-// @ts-nocheck
 
 
 import React, { useEffect, useState } from "react";
@@ -38,6 +37,7 @@ export default function EducatorDashboard() {
 
   useEffect(() => {
     if (getClassroomsQuery.data) {
+      // @ts-expect-error - argument type mismatch
       loadClassrooms(getClassroomsQuery.data);
     }
   }, [getClassroomsQuery.data, loadClassrooms]);
@@ -50,11 +50,13 @@ export default function EducatorDashboard() {
   };
 
   const handleCreateClassroom = () => {
+    // @ts-expect-error - argument type mismatch
     router.push("/create-classroom");
   };
 
   const handleSelectClassroom = (classroom: any) => {
     selectClassroom(classroom);
+    // @ts-expect-error - argument type mismatch
     router.push(`/classroom-detail/${classroom.id}`);
   };
 

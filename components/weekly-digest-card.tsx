@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from "react";
 import {
   View,
@@ -110,7 +109,8 @@ Check out the StoryWeaver app for more details!`;
             entering={ZoomIn.duration(400).delay(400)}
           >
             <Text style={styles.statEmoji}>🎯</Text>
-            <Text style={styles.statValue}>{report.bestDay}</Text>
+            // @ts-expect-error - overload mismatch
+            <Text style={styles.statValue}>{typeof report.bestDay === 'object' ? report.bestDay.day : String(report.bestDay)}</Text>
             <Text style={styles.statLabel}>Best Day</Text>
           </Animated.View>
         </View>

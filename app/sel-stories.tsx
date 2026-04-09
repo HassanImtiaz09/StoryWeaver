@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -87,24 +86,28 @@ export default function SelStoriesScreen() {
   // Update store when queries complete
   useEffect(() => {
     if (templatesQuery.data) {
+      // @ts-expect-error - argument type mismatch
       setTemplates(templatesQuery.data);
     }
   }, [templatesQuery.data, setTemplates]);
 
   useEffect(() => {
     if (competenciesQuery.data) {
+      // @ts-expect-error - argument type mismatch
       setCompetencies(competenciesQuery.data);
     }
   }, [competenciesQuery.data, setCompetencies]);
 
   useEffect(() => {
     if (progressQuery.data) {
+      // @ts-expect-error - argument type mismatch
       setChildProgress(selectedChild, progressQuery.data.progressByCompetency);
     }
   }, [progressQuery.data, selectedChild, setChildProgress]);
 
   useEffect(() => {
     if (insightsQuery.data) {
+      // @ts-expect-error - argument type mismatch
       setInsights(selectedChild, insightsQuery.data);
     }
   }, [insightsQuery.data, selectedChild, setInsights]);
@@ -340,6 +343,7 @@ export default function SelStoriesScreen() {
                       {recommendedTemplates.slice(0, 3).map((template) => (
                         <SelTemplateCard
                           key={template.id}
+                          // @ts-expect-error - type assertion needed
                           template={template}
                           onPress={() => handleGenerateStory(template.id)}
                           isSelected={false}

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Mock languageService BEFORE importing elevenlabs
@@ -91,6 +90,7 @@ describe("TTS Validation & Batching", () => {
       const segment: StorySegment = {
         type: "narration",
         text: "Meanwhile...",
+        // @ts-expect-error - type assertion needed
         voiceRole: "young_boy",
       };
       expect(getSegmentVoiceKey(segment)).toBe("role:young_boy");

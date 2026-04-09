@@ -4,7 +4,6 @@
  * Components should import these functions to trigger server calls.
  * The store itself remains a pure state container with no tRPC dependency.
  */
-// @ts-nocheck
 
 import { trpc } from "./trpc";
 import {
@@ -21,6 +20,7 @@ export async function fetchCustomElements(childId: number): Promise<void> {
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const elements = await trpc.parentTools.getCustomElements.query({ childId });
     await store.setCustomElements(childId, elements);
   } catch (error) {
@@ -40,6 +40,7 @@ export async function createCustomElement(
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const newElement = await trpc.parentTools.createCustomElement.mutate({
       childId,
       elementType,
@@ -62,6 +63,7 @@ export async function updateCustomElement(
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const updated = await trpc.parentTools.updateCustomElement.mutate({
       elementId,
       ...updates,
@@ -78,6 +80,7 @@ export async function deleteCustomElement(elementId: number): Promise<void> {
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     await trpc.parentTools.deleteCustomElement.mutate({ elementId });
     await store.removeCustomElement(elementId);
   } catch (error) {
@@ -93,6 +96,7 @@ export async function fetchVoiceRecordings(childId: number): Promise<void> {
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const recordings = await trpc.parentTools.getVoiceRecordings.query({ childId });
     await store.setVoiceRecordings(childId, recordings);
   } catch (error) {
@@ -110,6 +114,7 @@ export async function createVoiceRecording(
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const newRecording = await trpc.parentTools.createVoiceRecording.mutate({
       childId,
       voiceName,
@@ -131,6 +136,7 @@ export async function updateVoiceRecordingStatus(
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     await trpc.parentTools.updateVoiceRecordingStatus.mutate({
       recordingId,
       status,
@@ -150,6 +156,7 @@ export async function fetchPendingApprovals(): Promise<void> {
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const queue = await trpc.parentTools.getPendingApprovals.query();
     await store.setApprovalQueue(queue);
   } catch (error) {
@@ -166,6 +173,7 @@ export async function submitEpisodeForApproval(
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const queueItem = await trpc.parentTools.submitForApproval.mutate({
       childId,
       episodeId,
@@ -187,6 +195,7 @@ export async function reviewEpisode(
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     await trpc.parentTools.reviewEpisode.mutate({
       queueId,
       status,
@@ -207,6 +216,7 @@ export async function fetchChildPreferences(childId: number): Promise<void> {
   const store = useParentToolsStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const preferences = await trpc.parentTools.getChildStoryPreferences.query({
       childId,
     });

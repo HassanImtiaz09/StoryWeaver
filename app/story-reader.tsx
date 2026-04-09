@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
@@ -210,6 +209,7 @@ export default function StoryReaderScreen() {
     totalPages: pages.length,
     reducedMotion,
     isNarrating: audio.isNarrating,
+    // @ts-expect-error - type assertion needed
     flatListRef,
     onPageChange: (index) => {
       setCurrentPageIndex(index);

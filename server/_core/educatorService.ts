@@ -2,7 +2,6 @@
  * Educator Service - Classroom management and student progress tracking
  * Core logic for teacher-facing features
  */
-// @ts-nocheck
 
 
 import { db } from "../db";
@@ -53,6 +52,7 @@ export async function createClassroom(
   });
 
   return {
+    // @ts-expect-error - type mismatch from schema
     id: result.insertId as unknown as number,
     joinCode,
   };
@@ -151,6 +151,7 @@ export async function assignStory(
     instructions: instructions || undefined,
   });
 
+  // @ts-expect-error - type mismatch from schema
   const assignmentId = result.insertId as unknown as number;
 
   // Initialize progress tracking for all students in classroom
@@ -390,6 +391,7 @@ Respond with ONLY valid JSON in this format:
       answers: {},
     });
 
+    // @ts-expect-error - type mismatch from schema
     return insertResult.insertId as unknown as number;
   } catch (error) {
     console.error("Failed to generate assessment:", error);

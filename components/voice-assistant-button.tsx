@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect } from "react";
 import { View, Pressable, Text, ActivityIndicator } from "react-native";
 import { useVoiceAssistantStore } from "@/lib/voice-assistant";
@@ -130,6 +129,7 @@ export function VoiceAssistantButton({
             <ActivityIndicator size="large" color="white" />
           ) : (
             <IconSymbol
+              // @ts-expect-error - type assertion needed
               name={getIconName()}
               size={24}
               color="white"

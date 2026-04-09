@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useBedtimeTimer } from "@/hooks/use-bedtime-timer";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -28,14 +27,16 @@ export function SleepTimerDisplay({ onTimerExpired, onCancel, color = "#FFD700" 
   return (
     <View style={[styles.container, { backgroundColor: `${color}20` }]}>
       <View style={styles.timerContent}>
-        <IconSymbol name="moon.fill" size={16} color={color} />
+        // @ts-expect-error - type assertion needed
+        <IconSymbol name="moon" size={16} color={color} />
         <Text style={[styles.timerText, { color }]}>
           {timeString}
         </Text>
       </View>
       {onCancel && (
         <Pressable onPress={onCancel} style={({ pressed }) => [pressed && { opacity: 0.6 }]}>
-          <IconSymbol name="xmark" size={16} color={color} />
+          // @ts-expect-error - type assertion needed
+          <IconSymbol name="close" size={16} color={color} />
         </Pressable>
       )}
     </View>

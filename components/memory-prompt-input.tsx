@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from "react";
 import {
   View,
@@ -69,6 +68,7 @@ export default function MemoryPromptInput({
   };
 
   const getCharacterCountColor = () => {
+    // @ts-expect-error - type mismatch from schema
     if (characterCount < MIN_CHARACTERS) return colors.error;
     if (characterCount > MAX_CHARACTERS * 0.9) return colors.warning;
     return colors.success;
@@ -220,6 +220,7 @@ export default function MemoryPromptInput({
             paddingVertical: 14,
             paddingHorizontal: 16,
             borderRadius: 8,
+            // @ts-expect-error - type mismatch from schema
             backgroundColor: canSubmit ? colors.primary : colors.disabled,
             marginBottom: 12,
           }}

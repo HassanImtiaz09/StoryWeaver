@@ -10,7 +10,6 @@
  * - Accessibility-friendly with proper labels
  * - Theme-aware styling
  */
-// @ts-nocheck
 
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -367,6 +366,7 @@ export function ParentalGate({
       transparent
       animationType="fade"
       onRequestClose={onCancel}
+      // @ts-expect-error - overload mismatch
       accessibilityRole="dialog"
       accessibilityLabel={title}
       accessibilityHint="Mathematical challenge to verify parent access"
@@ -405,6 +405,7 @@ export function ParentalGate({
             <Text
               style={styles.problemDisplay}
               accessibilityLabel={`Solve: ${problem.num1} ${problem.operation} ${problem.num2}`}
+              // @ts-expect-error - overload mismatch
               accessibilityRole="staticText"
             >
               {problemString}

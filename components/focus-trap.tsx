@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useRef } from 'react';
 import { View, AccessibilityInfo, findNodeHandle, ViewProps } from 'react-native';
 
@@ -15,6 +14,7 @@ export function FocusTrap({ active = true, children, ...viewProps }: FocusTrapPr
     if (!active) return;
 
     // Store the currently focused element before we trap focus
+    // @ts-expect-error - type mismatch from schema
     AccessibilityInfo.focusableElementsInViewDescendants(containerRef).then(() => {
       // Small delay to ensure the modal content is rendered
       const timer = setTimeout(() => {

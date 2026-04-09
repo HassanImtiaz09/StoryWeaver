@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { router, protectedProcedure } from "./trpc";
 import { z } from "zod";
 import {
@@ -34,6 +33,7 @@ export const grandparentRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       return await createFamilyInvite(
+        // @ts-expect-error - argument type mismatch
         ctx.userId,
         input.familyMemberName,
         input.relationship,
@@ -51,6 +51,7 @@ export const grandparentRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // @ts-expect-error - argument type mismatch
       return await acceptFamilyInvite(input.inviteCode, ctx.userId);
     }),
 
@@ -58,6 +59,7 @@ export const grandparentRouter = router({
    * Get all family members connected to the user
    */
   getFamilyMembers: protectedProcedure.query(async ({ ctx }) => {
+    // @ts-expect-error - argument type mismatch
     return await getFamilyMembers(ctx.userId);
   }),
 
@@ -74,6 +76,7 @@ export const grandparentRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       return await startCoCreationSession(
+        // @ts-expect-error - argument type mismatch
         ctx.userId,
         input.familyMemberId,
         input.childId,
@@ -101,6 +104,7 @@ export const grandparentRouter = router({
     .mutation(async ({ input, ctx }) => {
       return await addMemoryPrompt(
         input.sessionId,
+        // @ts-expect-error - argument type mismatch
         ctx.userId,
         input.memoryText,
         input.category
@@ -137,6 +141,7 @@ export const grandparentRouter = router({
         input.sessionId,
         input.pageNumber,
         input.audioUrl,
+        // @ts-expect-error - argument type mismatch
         ctx.userId
       );
     }),
@@ -151,6 +156,7 @@ export const grandparentRouter = router({
       })
     )
     .query(async ({ input, ctx }) => {
+      // @ts-expect-error - argument type mismatch
       return await getFamilyStoryArchive(ctx.userId, input.familyMemberId);
     }),
 

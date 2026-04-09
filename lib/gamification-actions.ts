@@ -4,7 +4,6 @@
  * Components should import these functions to trigger server calls.
  * The store itself remains a pure state container with no tRPC dependency.
  */
-// @ts-nocheck
 
 import { trpc } from "./trpc";
 import { useGamificationStore, type ChildProgress } from "./gamification-store";
@@ -13,6 +12,7 @@ export async function fetchProgress(childId: number): Promise<void> {
   const store = useGamificationStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const progress = await trpc.gamification.getChildProgress.query({ childId });
     await store.setProgress(childId, progress);
   } catch (error) {
@@ -26,6 +26,7 @@ export async function fetchAchievements(childId: number): Promise<void> {
   const store = useGamificationStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const achievements = await trpc.gamification.getAchievements.query({ childId });
     await store.setAchievements(childId, achievements);
   } catch (error) {
@@ -39,6 +40,7 @@ export async function fetchLeaderboard(): Promise<void> {
   const store = useGamificationStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const leaderboard = await trpc.gamification.getLeaderboard.query();
     await store.setLeaderboard(leaderboard);
   } catch (error) {
@@ -65,6 +67,7 @@ export async function recordReading(
   const store = useGamificationStore.getState();
   store.setLoading(true);
   try {
+    // @ts-expect-error - type mismatch from schema
     const result = await trpc.gamification.recordReading.mutate({
       childId,
       episodeId,

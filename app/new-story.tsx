@@ -17,6 +17,7 @@ import { useColors } from "@/hooks/use-colors";
 import { announce } from "@/lib/a11y-helpers";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { trpc } from "@/lib/trpc";
+import { recordMilestone } from "@/lib/tooltip-store";
 import Animated, {
   FadeInDown,
   FadeInRight,
@@ -270,6 +271,8 @@ export default function NewStoryScreen() {
       });
 
       if (result.arcId) {
+        // Record milestone for tooltip system
+        await recordMilestone("story_created");
         router.push({
           pathname: "/story-detail" as any,
           params: {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { memo } from "react";
 import { View, Text, Pressable, StyleSheet, ImageBackground } from "react-native";
 import { Image } from "expo-image";
@@ -82,7 +81,8 @@ export const TonightRecommendation = memo(function TonightRecommendation({
                 <BodyTextSmall style={{ color: colors.textSecondary, textTransform: "uppercase" }}>
                   Continue Your Story
                 </BodyTextSmall>
-                <IconSymbol name="arrow.right" size={16} color={colors.primary} />
+                // @ts-expect-error - type assertion needed
+                <IconSymbol name="arrow-forward" size={16} color={colors.primary} />
               </View>
 
               <StoryTitle
@@ -150,7 +150,8 @@ export const TonightRecommendation = memo(function TonightRecommendation({
                 {recommendation.reason}
               </BodyTextSmall>
             </View>
-            <IconSymbol name="arrow.right" size={16} color={colors.primary} />
+            // @ts-expect-error - type assertion needed
+            <IconSymbol name="arrow-forward" size={16} color={colors.primary} />
           </Pressable>
         )}
       </Animated.View>
@@ -195,7 +196,8 @@ export const TonightRecommendation = memo(function TonightRecommendation({
                 <BodyTextSmall style={{ color: colors.textSecondary, textTransform: "uppercase" }}>
                   Continue Your Story
                 </BodyTextSmall>
-                <IconSymbol name="arrow.right" size={16} color={colors.primary} />
+                // @ts-expect-error - type assertion needed
+                <IconSymbol name="arrow-forward" size={16} color={colors.primary} />
               </View>
 
               <StoryTitle
@@ -268,7 +270,8 @@ export const TonightRecommendation = memo(function TonightRecommendation({
               {recommendation.reason}
             </Text>
           </View>
-          <IconSymbol name="arrow.right" size={16} color={colors.primary} />
+          // @ts-expect-error - type assertion needed
+          <IconSymbol name="arrow-forward" size={16} color={colors.primary} />
         </Pressable>
       </Animated.View>
     );

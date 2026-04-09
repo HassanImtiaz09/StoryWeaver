@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
@@ -24,6 +23,7 @@ export const ScreenTimeBanner = memo(function ScreenTimeBanner({
   if (!status.message) return null;
 
   const isLimit = status.isLimitReached;
+  // @ts-expect-error - type mismatch from schema
   const bgColor = isLimit ? colors.error : '#F59E0B';
   const icon = isLimit
     ? status.isBedtimePassed ? 'moon' : 'time'

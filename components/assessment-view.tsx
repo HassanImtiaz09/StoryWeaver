@@ -2,7 +2,6 @@
  * Assessment View Component
  * Displays reading comprehension questions and collects student answers
  */
-// @ts-nocheck
 
 
 import React, { useState } from "react";

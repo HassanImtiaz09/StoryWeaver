@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from "react";
 import { SafeAreaView, View, ViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,6 +24,7 @@ export function ScreenContainer({
 
   return (
     <SafeAreaView
+      // @ts-expect-error - overload mismatch
       edges={edges}
       className={containerClassName}
       style={{

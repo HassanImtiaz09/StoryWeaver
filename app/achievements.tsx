@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useCallback, useState } from "react";
 import {
   View,
@@ -122,6 +121,7 @@ export default function AchievementsScreen() {
         <Animated.View entering={FadeInDown.delay(150).duration(400)}>
           {achievements.length > 0 ? (
             <AchievementsGallery
+              // @ts-expect-error - type assertion needed
               achievements={achievements}
               isLoading={loading}
               onAchievementPress={(achievement) => {

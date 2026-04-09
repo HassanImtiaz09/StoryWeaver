@@ -4,7 +4,6 @@
  * Button component for downloading stories for offline access.
  * Shows download progress, status, and allows cancellation.
  */
-// @ts-nocheck
 
 
 import React, { useState, useEffect } from "react";
@@ -216,6 +215,7 @@ export function OfflineDownloadButton({
         )}
 
         {isDownloading && (
+          // @ts-expect-error - overload mismatch
           <View style={[styles.progressBar, { width: (progress / 100) * 100 + "%" }]} />
         )}
       </View>

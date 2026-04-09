@@ -5,7 +5,6 @@
  * Shows language names in both English and native form.
  * Supports search/filter for quick finding.
  */
-// @ts-nocheck
 
 
 import React, { useState, useMemo } from "react";
@@ -227,6 +226,7 @@ function LanguageOption({
       </View>
       {isSelected && <Text style={styles.checkmark}>✓</Text>}
       {!language.ttsSupported && (
+        // @ts-expect-error - overload mismatch
         <Text style={styles.noTTSBadge} title="Text-to-speech not supported">
           no audio
         </Text>

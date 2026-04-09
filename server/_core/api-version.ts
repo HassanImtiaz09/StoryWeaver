@@ -2,7 +2,6 @@
  * API Versioning Middleware and Utilities
  * Provides API version management and compatibility checking
  */
-// @ts-nocheck
 
 
 import { middleware } from "./trpc";
@@ -18,9 +17,12 @@ export const apiVersionMiddleware = middleware(async ({ ctx, next }) => {
   const result = await next();
 
   // Add version header to context for response serialization
+  // @ts-expect-error - type mismatch from schema
   if (!ctx._responseHeaders) {
+    // @ts-expect-error - type mismatch from schema
     ctx._responseHeaders = {};
   }
+  // @ts-expect-error - type mismatch from schema
   ctx._responseHeaders["X-API-Version"] = CURRENT_API_VERSION;
 
   return result;

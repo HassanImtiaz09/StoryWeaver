@@ -9,7 +9,6 @@
  * - Swipeable for learning mode
  * - Can be saved to word bank
  */
-// @ts-nocheck
 
 
 import React, { useState } from "react";

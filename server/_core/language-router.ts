@@ -7,7 +7,6 @@
  * - Getting vocabulary highlights
  * - Managing language preferences
  */
-// @ts-nocheck
 
 
 import { z } from "zod";
@@ -334,6 +333,7 @@ Return ONLY a JSON object with:
 
         return {
           success: true,
+          // @ts-expect-error - type fix needed
           ...result,
         };
       } catch (error) {

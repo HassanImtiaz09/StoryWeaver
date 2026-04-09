@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -52,7 +51,8 @@ export default function GalleryScreen() {
     },
     {
       enabled: true,
-      onSuccess: (data) => {
+      // @ts-expect-error - overload mismatch
+      onSuccess: (data: any) => {
         if (galleryPage === 0) {
           setGalleryStories(data, true);
         } else {
@@ -216,7 +216,7 @@ export default function GalleryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<any>({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",

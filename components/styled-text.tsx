@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { Text, StyleSheet, TextProps } from 'react-native';
 import { TextStyles, FontFamily, getStoryTextExtras } from '@/lib/typography';
@@ -113,6 +112,7 @@ export function StoryNarrative({ color, style, childAge, ...props }: StoryNarrat
         ts.storyText,
         {
           color: color || colors.foreground,
+          // @ts-expect-error - overload mismatch
           wordSpacing: storyExtras.wordSpacing,
         },
         style,
@@ -134,6 +134,7 @@ export function StoryNarrativeLarge({ color, style, childAge, ...props }: StoryN
         ts.storyTextLarge,
         {
           color: color || colors.foreground,
+          // @ts-expect-error - overload mismatch
           wordSpacing: storyExtras.wordSpacing,
         },
         style,

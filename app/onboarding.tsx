@@ -11,7 +11,6 @@
  *   - Confetti & sparkle celebration on completion
  *   - Auto-generates a personalized welcome story using child profile
  */
-// @ts-nocheck
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -217,6 +216,7 @@ export default function OnboardingScreen() {
     Speech.stop();
 
     // Schedule speech after a small delay for visual transition
+    // @ts-expect-error - type assertion needed
     speakTimeoutRef.current = setTimeout(() => {
       setIsSpeaking(true);
       Speech.speak(text, {

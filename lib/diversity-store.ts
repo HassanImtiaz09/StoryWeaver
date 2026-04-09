@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -60,7 +59,9 @@ export const useDiversityStore = create<DiversityStore>()(
     }),
     {
       name: "diversity-store",
+      // @ts-expect-error - type assertion needed
       storage: AsyncStorage,
+      // @ts-expect-error - type assertion needed
       partialize: (state) => ({
         profile: state.profile,
         categories: state.categories,

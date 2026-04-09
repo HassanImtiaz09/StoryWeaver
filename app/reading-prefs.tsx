@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -456,6 +455,7 @@ export default function ReadingPrefsScreen() {
                 lineHeight: previewStyles.storyText.lineHeight,
                 letterSpacing: previewStyles.storyText.letterSpacing,
                 color: colors.text,
+                // @ts-expect-error - overload mismatch
                 wordSpacing: previewExtras.wordSpacing,
               },
             ]}
@@ -471,7 +471,7 @@ export default function ReadingPrefsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<any>({
   container: {
     padding: 16,
   },

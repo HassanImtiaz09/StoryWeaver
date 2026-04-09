@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import Animated, {
@@ -95,6 +94,7 @@ export function IllustrationShimmer({
     opacity: interpolate(brushProgress.value, [0, 0.1, 0.9, 1], [0, 0.6, 0.6, 0]),
   }));
 
+  // @ts-expect-error - namespace member
   const makeSparkleStyle = (sv: Animated.SharedValue<number>, x: number, y: number) =>
     useAnimatedStyle(() => ({
       opacity: sv.value,

@@ -27,6 +27,9 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { STORY_THEMES } from "@/constants/assets";
+import { useTooltip } from "@/hooks/use-tooltip";
+import { InlineTooltip } from "@/components/tooltip-overlay";
+import { getLocalStoryArcs } from "@/lib/story-store";
 
 /* ─── helpers ────────────────────────────────────────────── */
 function getQuickStoryDefaults(): { theme: (typeof STORY_THEMES)[0]; greeting: string } {
@@ -93,6 +96,14 @@ export default function CreateScreen() {
   const [selectedChild, setSelectedChild] = useState<LocalChild | null>(null);
   const [loading, setLoading] = useState(true);
   const [quickDefaults] = useState(() => getQuickStoryDefaults());
+  const [hasStories, setHasStories] = useState(false);
+
+  // First-time user tooltip
+  const { activeTooltip, dismiss: dismissTooltip } = useTooltip(
+    "create",
+    { hasChildren: children.length > 0, hasStories },
+    !loading
+  );
 
   /* ── Quick-story sparkle animation ── */
   const sparkleRotate = useSharedValue(0);
@@ -132,6 +143,12 @@ export default function CreateScreen() {
     setChildren(kids);
     if (kids.length > 0) {
       setSelectedChild(kids[0]);
+    }
+    try {
+      const arcs = await getLocalStoryArcs();
+      setHasStories(arcs.length > 0);
+    } catch {
+      // Non-critical
     }
     setLoading(false);
   }, []);
@@ -218,6 +235,15 @@ export default function CreateScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
+        {/* First-time tooltip */}
+        {activeTooltip && (
+          <InlineTooltip
+            message={activeTooltip.message}
+            emoji={activeTooltip.emoji}
+            onDismiss={dismissTooltip}
+          />
+        )}
+
         {/* Header */}
         <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>Create</Text>

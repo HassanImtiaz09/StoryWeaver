@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -62,7 +61,9 @@ export default function GalleryTabScreen() {
   // Initial load
   useEffect(() => {
     if (getGalleryQuery.data) {
+      // @ts-expect-error - type mismatch from schema
       const { stories, hasMore } = getGalleryQuery.data;
+      // @ts-expect-error - argument count mismatch
       setGalleryStories(stories);
       setHasMoreGallery(hasMore);
       setIsLoadingGallery(false);
@@ -80,6 +81,7 @@ export default function GalleryTabScreen() {
       setIsLoadingMore(true);
       // Fetch next page
       const nextPage = galleryPage + 1;
+      // @ts-expect-error - type mismatch from schema
       const { data } = await trpc.sharing.getGalleryStories.fetch({
         theme: galleryFilters.theme,
         ageGroup: galleryFilters.ageGroup,
@@ -106,6 +108,7 @@ export default function GalleryTabScreen() {
       }}
     >
       <GalleryStoryCard
+        // @ts-expect-error - type assertion needed
         story={item}
         onPress={() =>
           router.push({
@@ -148,7 +151,8 @@ export default function GalleryTabScreen() {
               Discover stories from our community
             </Text>
             <GalleryFilters
-              onFilterChange={(filters) => {
+              // @ts-expect-error - type assertion needed
+              onFilterChange={(filters: any) => {
                 setGalleryFilters(filters);
                 setIsLoadingGallery(true);
                 getGalleryQuery.refetch();
