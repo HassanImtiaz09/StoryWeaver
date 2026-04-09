@@ -410,6 +410,10 @@ export async function generateSpeech(options: TTSOptions): Promise<Buffer> {
 
   const { text, voiceConfig, model = "eleven_multilingual_v2", language } = options;
 
+  if (text.length > 5000) {
+    throw new Error("Text exceeds ElevenLabs maximum length of 5000 characters");
+  }
+
   const requestBody: Record<string, unknown> = {
     text,
     model_id: model,

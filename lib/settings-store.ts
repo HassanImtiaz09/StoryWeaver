@@ -2,6 +2,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SETTINGS_KEY = "storyweaver_settings";
 
+// ─── Helper: Safe AsyncStorage caching ─────────────────────────
+async function safeCache(key: string, data: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn("[SettingsStore] AsyncStorage write failed:", err);
+  }
+}
+
 export interface AppSettings {
   // Bedtime reminder
   bedtimeReminderEnabled: boolean;
@@ -162,12 +171,12 @@ export async function getSettings(): Promise<AppSettings> {
 export async function saveSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
   const current = await getSettings();
   const updated = { ...current, ...settings };
-  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
+  await safeCache(SETTINGS_KEY, updated);
   return updated;
 }
 
 export async function resetSettings(): Promise<AppSettings> {
-  await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_SETTINGS));
+  await safeCache(SETTINGS_KEY, DEFAULT_SETTINGS);
   return { ...DEFAULT_SETTINGS };
 }
 

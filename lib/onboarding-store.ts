@@ -1,5 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// ─── Helper: Safe AsyncStorage caching ─────────────────────────
+async function safeCache(key: string, data: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn("[OnboardingStore] AsyncStorage write failed:", err);
+  }
+}
+
 // ─── Types ─────────────────────────────────────────────────────
 export type NeurodivergentProfile = {
   type: string; // autism, adhd, dyslexia, anxiety, sensory, giftedness
@@ -66,13 +75,13 @@ export async function saveLocalChild(child: LocalChild): Promise<void> {
   } else {
     children.push(child);
   }
-  await AsyncStorage.setItem(CHILDREN_KEY, JSON.stringify(children));
+  await safeCache(CHILDREN_KEY, children);
 }
 
 export async function deleteLocalChild(childId: string): Promise<void> {
   const children = await getLocalChildren();
   const filtered = children.filter((c) => c.id !== childId);
-  await AsyncStorage.setItem(CHILDREN_KEY, JSON.stringify(filtered));
+  await safeCache(CHILDREN_KEY, filtered);
 }
 
 export async function getLocalChild(childId: string): Promise<LocalChild | null> {
@@ -97,7 +106,7 @@ export async function getSubscription(): Promise<SubscriptionState> {
 export async function incrementStoriesUsed(): Promise<number> {
   const sub = await getSubscription();
   const newCount = sub.storiesUsed + 1;
-  await AsyncStorage.setItem(STORIES_USED_KEY, String(newCount));
+  await safeCache(STORIES_USED_KEY, newCount.toString());
   return newCount;
 }
 

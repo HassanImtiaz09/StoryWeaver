@@ -2,6 +2,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BEDTIME_MODE_KEY = "storyweaver_bedtime_mode";
 
+// ─── Helper: Safe AsyncStorage caching ─────────────────────────
+async function safeCache(key: string, data: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn("[BedtimeMode] AsyncStorage write failed:", err);
+  }
+}
+
 export interface BedtimeState {
   isActive: boolean;
   activatedAt: string | null;
@@ -42,7 +51,7 @@ export async function getBedtimeState(): Promise<BedtimeState> {
 export async function saveBedtimeState(updates: Partial<BedtimeState>): Promise<BedtimeState> {
   const current = await getBedtimeState();
   const updated = { ...current, ...updates };
-  await AsyncStorage.setItem(BEDTIME_MODE_KEY, JSON.stringify(updated));
+  await safeCache(BEDTIME_MODE_KEY, updated);
   return updated;
 }
 

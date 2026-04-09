@@ -87,6 +87,15 @@ export const PLAN_DETAILS: PlanDetails[] = [
 const SUBSCRIPTION_KEY = "storyweaver_subscription";
 const FREE_STORIES_LIMIT = 3;
 
+// ─── Helper: Safe AsyncStorage caching ─────────────────────────
+async function safeCache(key: string, data: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn("[SubscriptionStore] AsyncStorage write failed:", err);
+  }
+}
+
 const DEFAULT_STATE: SubscriptionState = {
   plan: "free",
   storiesUsed: 0,
@@ -118,7 +127,7 @@ export async function fetchServerSubscription(trpcClient: any): Promise<Subscrip
     };
 
     // Cache in AsyncStorage as fallback
-    await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(serverState));
+    await safeCache(SUBSCRIPTION_KEY, serverState);
     return serverState;
   } catch (err) {
     console.warn("[Subscription] Failed to fetch from server, using local cache:", err);
@@ -142,7 +151,7 @@ export async function getSubscriptionState(): Promise<SubscriptionState> {
         state.expiresAt = null;
         state.trialActive = false;
         state.trialEndsAt = null;
-        await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(state));
+        await safeCache(SUBSCRIPTION_KEY, state);
       }
     }
 
@@ -156,7 +165,7 @@ export async function getSubscriptionState(): Promise<SubscriptionState> {
           state.plan = "free";
           state.expiresAt = null;
         }
-        await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(state));
+        await safeCache(SUBSCRIPTION_KEY, state);
       }
     }
 
@@ -169,7 +178,7 @@ export async function getSubscriptionState(): Promise<SubscriptionState> {
 export async function saveSubscriptionState(updates: Partial<SubscriptionState>): Promise<SubscriptionState> {
   const current = await getSubscriptionState();
   const updated = { ...current, ...updates };
-  await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(updated));
+  await safeCache(SUBSCRIPTION_KEY, updated);
   return updated;
 }
 

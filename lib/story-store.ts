@@ -2,6 +2,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORY_ARCS_KEY = "storyweaver_story_arcs";
 
+// ─── Helper: Safe AsyncStorage caching ─────────────────────────
+async function safeCache(key: string, data: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn("[StoryStore] AsyncStorage write failed:", err);
+  }
+}
+
 export type LocalStoryArc = {
   id: string;
   childId: string;
@@ -38,7 +47,7 @@ export async function getStoryArcsForChild(childId: string): Promise<LocalStoryA
 export async function saveLocalStoryArc(arc: LocalStoryArc): Promise<void> {
   const arcs = await getLocalStoryArcs();
   arcs.push(arc);
-  await AsyncStorage.setItem(STORY_ARCS_KEY, JSON.stringify(arcs));
+  await safeCache(STORY_ARCS_KEY, arcs);
 }
 
 export async function updateLocalStoryArc(id: string, updates: Partial<LocalStoryArc>): Promise<void> {
@@ -46,12 +55,12 @@ export async function updateLocalStoryArc(id: string, updates: Partial<LocalStor
   const index = arcs.findIndex((a) => a.id === id);
   if (index >= 0) {
     arcs[index] = { ...arcs[index], ...updates, updatedAt: new Date().toISOString() };
-    await AsyncStorage.setItem(STORY_ARCS_KEY, JSON.stringify(arcs));
+    await safeCache(STORY_ARCS_KEY, arcs);
   }
 }
 
 export async function removeLocalStoryArc(id: string): Promise<void> {
   const arcs = await getLocalStoryArcs();
   const filtered = arcs.filter((a) => a.id !== id);
-  await AsyncStorage.setItem(STORY_ARCS_KEY, JSON.stringify(filtered));
+  await safeCache(STORY_ARCS_KEY, filtered);
 }

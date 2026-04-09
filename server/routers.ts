@@ -494,24 +494,24 @@ export const appRouter = router({
     create: coppaProtectedProcedure
       .input(
         z.object({
-          name: z.string(),
+          name: z.string().min(1).max(255),
           age: z.number().int().min(1).max(18),
-          gender: z.string().optional(),
+          gender: z.string().max(50).optional(),
           interests: z.array(z.string()).optional(),
           personalityTraits: z.array(z.string()).optional(),
           fears: z.array(z.string()).optional(),
-          favoriteColor: z.string().optional(),
-          readingLevel: z.string().optional(),
-          language: z.string().optional(),
-          hairColor: z.string().optional(),
-          skinTone: z.string().optional(),
-          nickname: z.string().optional(),
-          favoriteCharacter: z.string().optional(),
+          favoriteColor: z.string().max(50).optional(),
+          readingLevel: z.string().max(50).optional(),
+          language: z.string().max(50).optional(),
+          hairColor: z.string().max(50).optional(),
+          skinTone: z.string().max(50).optional(),
+          nickname: z.string().max(255).optional(),
+          favoriteCharacter: z.string().max(255).optional(),
           isNeurodivergent: z.boolean().optional(),
-          neurodivergentProfiles: z.string().optional(),
+          neurodivergentProfiles: z.string().max(255).optional(),
           sensoryPreferences: z.array(z.string()).optional(),
-          communicationStyle: z.string().optional(),
-          storyPacing: z.string().optional(),
+          communicationStyle: z.string().max(255).optional(),
+          storyPacing: z.string().max(50).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -561,24 +561,24 @@ export const appRouter = router({
       .input(
         z.object({
           childId: z.number(),
-          name: z.string().optional(),
+          name: z.string().min(1).max(255).optional(),
           age: z.number().int().optional(),
-          gender: z.string().optional(),
+          gender: z.string().max(50).optional(),
           interests: z.array(z.string()).optional(),
           personalityTraits: z.array(z.string()).optional(),
           fears: z.array(z.string()).optional(),
-          favoriteColor: z.string().optional(),
-          readingLevel: z.string().optional(),
-          language: z.string().optional(),
-          hairColor: z.string().optional(),
-          skinTone: z.string().optional(),
-          nickname: z.string().optional(),
-          favoriteCharacter: z.string().optional(),
+          favoriteColor: z.string().max(50).optional(),
+          readingLevel: z.string().max(50).optional(),
+          language: z.string().max(50).optional(),
+          hairColor: z.string().max(50).optional(),
+          skinTone: z.string().max(50).optional(),
+          nickname: z.string().max(255).optional(),
+          favoriteCharacter: z.string().max(255).optional(),
           isNeurodivergent: z.boolean().optional(),
-          neurodivergentProfiles: z.string().optional(),
+          neurodivergentProfiles: z.string().max(255).optional(),
           sensoryPreferences: z.array(z.string()).optional(),
-          communicationStyle: z.string().optional(),
-          storyPacing: z.string().optional(),
+          communicationStyle: z.string().max(255).optional(),
+          storyPacing: z.string().max(50).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -598,7 +598,7 @@ export const appRouter = router({
         await db
           .update(children)
           .set(updateData as any)
-          .where(eq(children.id, childId));
+          .where(and(eq(children.id, childId), eq(children.userId, ctx.user.id)));
         const [updated] = await db.select().from(children).where(eq(children.id, childId)).limit(1);
         return updated;
       }),
@@ -661,8 +661,8 @@ export const appRouter = router({
           childId: z.number(),
           theme: z.string().min(1).max(200),
           customPrompt: z.string().max(500).optional(),
-          educationalValue: z.string().optional(),
-          totalEpisodes: z.number().optional(),
+          educationalValue: z.string().max(500).optional(),
+          totalEpisodes: z.number().int().min(1).max(20).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -729,8 +729,8 @@ export const appRouter = router({
           childId: z.number(),
           theme: z.string().min(1).max(200),
           customPrompt: z.string().max(500).optional(),
-          educationalValue: z.string().optional(),
-          totalEpisodes: z.number().optional(),
+          educationalValue: z.string().max(500).optional(),
+          totalEpisodes: z.number().int().min(1).max(20).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -802,15 +802,16 @@ export const appRouter = router({
         z.object({
           childId: z.number(),
           theme: z.string().min(1).max(200),
-          storyLength: z.string().optional(),
-          tone: z.string().optional(),
+          storyLength: z.string().max(50).optional(),
+          tone: z.string().max(50).optional(),
           moralLessons: z.array(z.string()).optional(),
           customElements: z.string().max(500).optional(),
-          totalEpisodes: z.number().optional(),
+          totalEpisodes: z.number().int().min(1).max(20).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
         try {
+          checkRateLimit(getRateLimitKey(ctx, "story_gen"), 10, 5 * 60_000);
           await checkStoryLimit(ctx.user.id);
 
           const [child] = await db
@@ -897,7 +898,9 @@ export const appRouter = router({
         return await db
           .select()
           .from(episodes)
-          .where(eq(episodes.storyArcId, input.arcId));
+          .where(eq(episodes.storyArcId, input.arcId))
+          .orderBy(asc(episodes.episodeNumber))
+          .limit(100);
       }),
 
     get: coppaProtectedProcedure
@@ -1263,7 +1266,9 @@ export const appRouter = router({
         return await db
           .select()
           .from(pages)
-          .where(eq(pages.episodeId, input.episodeId));
+          .where(eq(pages.episodeId, input.episodeId))
+          .orderBy(asc(pages.pageNumber))
+          .limit(100);
       }),
 
     get: protectedProcedure
@@ -2276,7 +2281,6 @@ export const appRouter = router({
         tier,
         status: user.subscriptionStatus ?? "none",
         expiresAt: user.subscriptionExpiresAt,
-        stripeCustomerId: user.stripeCustomerId,
       };
     }),
 

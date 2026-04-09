@@ -275,16 +275,16 @@ export default function StoryReaderScreen() {
           if (!isMountedRef.current) return;
           if (currentStatus.isLoaded) {
             const position = currentStatus.positionMillis || 0;
-            setAudioProgress(position);
+            if (isMountedRef.current) setAudioProgress(position);
             progressAnim.value = withTiming(position / (totalDuration || 1), {
               duration: 500,
               easing: Easing.linear,
             });
-            if (currentPage?.characters && currentPage.characters.length > 0) {
+            if (isMountedRef.current && currentPage?.characters && currentPage.characters.length > 0) {
               const firstChar = currentPage.characters[0] as any;
               setCurrentSpeaker(typeof firstChar === 'string' ? firstChar : firstChar?.name ?? null);
             }
-            if (currentStatus.didJustFinish) {
+            if (currentStatus.didJustFinish && isMountedRef.current) {
               await handleNarrationFinish();
             }
           }
@@ -299,12 +299,15 @@ export default function StoryReaderScreen() {
   }, [isNarrating, pages, isMusicEnabled, params?.episodeId, params?.childName]);
 
   const handleNarrationFinish = useCallback(async () => {
+    if (!isMountedRef.current) return; // Don't process if component has unmounted
     try {
       await cleanupAudio();
-      setIsNarrating(false);
-      if (progressUpdateIntervalRef.current) clearInterval(progressUpdateIntervalRef.current);
-      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
-      if (isLastPage) setShowingEndscreen(true);
+      if (isMountedRef.current) {
+        setIsNarrating(false);
+        if (progressUpdateIntervalRef.current) clearInterval(progressUpdateIntervalRef.current);
+        if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
+        if (isLastPage) setShowingEndscreen(true);
+      }
     } catch (error) {
       console.error('Error handling narration finish:', error);
     }

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { db } from "../db";
-import { eq, and, desc, isNull, ne } from "drizzle-orm";
+import { eq, and, desc, isNull, ne, sql } from "drizzle-orm";
 import { sharedStories, storyLikes, storyReports, storyArcs, episodes, children, users } from "../../drizzle/schema";
 import { TRPCError } from "@trpc/server";
 import { moderateEpisode } from "./contentModeration";
@@ -209,15 +209,22 @@ export async function publishToGallery(
   }
 
   // Run content moderation check
-  const episodes = await db
+  const episodeRecords = await db
     .select()
     .from(episodes)
     .where(eq(episodes.storyArcId, arcId));
 
   let hasViolations = false;
-  for (const episode of episodes) {
-    const result = await moderateEpisode(episode.summary || "", arc[0].childId);
-    if (!result.isApproved) {
+  for (const episode of episodeRecords) {
+    const result = await moderateEpisode(
+      {
+        title: arc[0].title,
+        summary: episode.summary || "",
+        pages: [{ text: episode.summary || "" }],
+      },
+      arc[0].childFears
+    );
+    if (!result.approved) {
       hasViolations = true;
       break;
     }
@@ -330,7 +337,7 @@ export async function recordView(shareCode: string): Promise<void> {
 
   await db
     .update(sharedStories)
-    .set({ viewCount: shared[0].viewCount + 1 })
+    .set({ viewCount: sql`${sharedStories.viewCount} + 1` })
     .where(eq(sharedStories.id, shared[0].id));
 }
 
@@ -368,7 +375,7 @@ export async function likeStory(arcId: number, userId: number): Promise<boolean>
 
     await db
       .update(sharedStories)
-      .set({ likeCount: Math.max(0, shared[0].likeCount - 1) })
+      .set({ likeCount: sql`GREATEST(${sharedStories.likeCount} - 1, 0)` })
       .where(eq(sharedStories.id, shared[0].id));
 
     return false;
@@ -381,7 +388,7 @@ export async function likeStory(arcId: number, userId: number): Promise<boolean>
 
     await db
       .update(sharedStories)
-      .set({ likeCount: shared[0].likeCount + 1 })
+      .set({ likeCount: sql`${sharedStories.likeCount} + 1` })
       .where(eq(sharedStories.id, shared[0].id));
 
     return true;
