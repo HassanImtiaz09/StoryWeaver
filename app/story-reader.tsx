@@ -41,6 +41,7 @@ import { WordHighlighter } from '@/components/word-highlighter';
 import { IllustrationShimmer } from '@/components/illustration-shimmer';
 import { StoryFeedbackModal } from '@/components/story-feedback-modal';
 import { ReadingGuide } from '@/components/reading-guide';
+import { ReaderSettingsTray } from '@/components/reader-settings-tray';
 import { useAccessibilityStore } from '@/lib/accessibility-store';
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -234,6 +235,7 @@ export default function StoryReaderScreen() {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [showingEndscreen, setShowingEndscreen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showSettingsTray, setShowSettingsTray] = useState(false);
 
   // Audio state
   const [isNarrating, setIsNarrating] = useState(false);
@@ -825,6 +827,12 @@ export default function StoryReaderScreen() {
         accentColor={colors.primary}
       />
 
+      {/* Settings Tray */}
+      <ReaderSettingsTray
+        isOpen={showSettingsTray}
+        onClose={() => setShowSettingsTray(false)}
+      />
+
       {showingEndscreen ? (
         <Animated.View entering={FadeIn} style={styles.flex}>
           <LinearGradient colors={moodColors} style={styles.flex}>
@@ -1100,6 +1108,16 @@ export default function StoryReaderScreen() {
                       color={isMusicEnabled ? '#fff' : colors.foreground}
                     />
                   )}
+                </TouchableOpacity>
+
+                {/* Settings */}
+                <TouchableOpacity
+                  style={[styles.controlButton, { backgroundColor: 'rgba(0,0,0,0.1)' }]}
+                  onPress={() => setShowSettingsTray(true)}
+                  accessibilityLabel="Open reader settings"
+                  accessibilityHint="Adjust reading speed and text size"
+                >
+                  <Text style={[styles.settingsButtonText, { color: colors.foreground }]}>Aa</Text>
                 </TouchableOpacity>
 
                 {/* Page counter */}
@@ -1418,6 +1436,10 @@ const styles = StyleSheet.create({
   pageCountText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  settingsButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
 
   // End screen
