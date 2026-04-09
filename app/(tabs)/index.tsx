@@ -33,6 +33,7 @@ import Animated, {
   withSpring,
   Easing,
   interpolate,
+  useAnimatedScrollHandler,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -158,6 +159,42 @@ function IllustratedRecCard({
   );
 }
 
+// ─── ScrollReveal Component ─────────────────────────────────────
+function ScrollReveal({
+  children,
+  scrollY,
+  threshold,
+  delay = 0,
+  reducedMotion = false,
+}: {
+  children: React.ReactNode;
+  scrollY: Animated.SharedValue<number>;
+  threshold: number;
+  delay?: number;
+  reducedMotion?: boolean;
+}) {
+  const animatedStyle = useAnimatedStyle(() => {
+    if (reducedMotion) {
+      return { opacity: 1, transform: [] };
+    }
+
+    const triggerOffset = threshold - 300;
+    const distance = scrollY.value - triggerOffset;
+    const progress = Math.min(Math.max(distance / 200, 0), 1);
+
+    return {
+      opacity: progress,
+      transform: [{ translateY: (1 - progress) * 30 }],
+    };
+  });
+
+  if (reducedMotion) {
+    return <View>{children}</View>;
+  }
+
+  return <Animated.View style={animatedStyle}>{children}</Animated.View>;
+}
+
 // ─── AI Recommendations ─────────────────────────────────────────
 const RECOMMENDATIONS = [
   { id: "r1", title: "The Moonlight Orchestra", theme: "musical", emoji: "🎵", reason: "Music + imagination" },
@@ -171,6 +208,121 @@ const RECOMMENDATIONS = [
   { id: "r9", title: "Jungle Code Breakers", theme: "jungle", emoji: "🐒", reason: "Jungle puzzles" },
   { id: "r10", title: "Candy Cloud Kingdom", theme: "candy", emoji: "🍭", reason: "Sweet dreams" },
 ];
+
+// ─── Animated Greeting Section with Parallax ───────────────────
+function AnimatedGreetingSection({
+  scrollY,
+  reducedMotion,
+  timeGreeting,
+  selectedChild,
+  colors,
+  bedtimeState,
+  childProgress,
+  toggleBedtimeMode,
+  router,
+}: {
+  scrollY: Animated.SharedValue<number>;
+  reducedMotion: boolean;
+  timeGreeting: { greeting: string; emoji: string } | null;
+  selectedChild: LocalChild | null;
+  colors: any;
+  bedtimeState: BedtimeState | null;
+  childProgress: any;
+  toggleBedtimeMode: () => void;
+  router: any;
+}) {
+  const parallaxStyle = useAnimatedStyle(() => {
+    if (reducedMotion) {
+      return { transform: [] };
+    }
+    return {
+      transform: [{ translateY: -scrollY.value * 0.15 }],
+    };
+  });
+
+  return (
+    <Animated.View style={[styles.greetingSection, parallaxStyle]} entering={FadeIn.duration(600)}>
+      {/* Floating stars background decoration */}
+      <FloatingStars count={3} area={{ width: 200, height: 100 }} />
+
+      <View style={styles.greetingTopRow}>
+        <View style={styles.greetingLeft}>
+          {timeGreeting && <WavingMascot reducedMotion={reducedMotion} />}
+          <View style={styles.greetingTextWrap}>
+            <Text
+              style={[styles.greeting, { color: colors.text }]}
+              accessibilityRole="header"
+            >
+              {timeGreeting?.greeting ?? "Tonight's Story"}
+            </Text>
+            <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
+              {selectedChild
+                ? `What adventure awaits tonight?`
+                : "Select a child to begin"}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.headerButtons}>
+          <AnimatedPressable
+            onPress={toggleBedtimeMode}
+            style={[
+              styles.headerBtn,
+              bedtimeState?.isActive && { backgroundColor: "rgba(255,215,0,0.15)" },
+            ]}
+            accessibilityLabel="Bedtime mode"
+            accessibilityRole="button"
+            accessibilityHint={bedtimeState?.isActive ? "Double-tap to disable bedtime mode" : "Double-tap to enable bedtime mode"}
+            accessibilityState={{ checked: bedtimeState?.isActive }}
+          >
+            <IconSymbol
+              name="moon.fill"
+              size={22}
+              color={bedtimeState?.isActive ? "#FFD700" : colors.muted}
+            />
+          </AnimatedPressable>
+          <AnimatedPressable
+            onPress={() => router.push("/settings" as any)}
+            style={styles.headerBtn}
+            accessibilityLabel="Settings"
+            accessibilityRole="button"
+            accessibilityHint="Double-tap to open settings"
+          >
+            <IconSymbol name="gearshape.fill" size={22} color={colors.muted} />
+          </AnimatedPressable>
+        </View>
+      </View>
+
+      {/* Gamification stats inline */}
+      {selectedChild && childProgress && (
+        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.statsRow}>
+          <StreakCounter
+            currentStreak={childProgress.currentStreak}
+            isActive={childProgress.currentStreak > 0}
+            size="sm"
+          />
+          <Pressable
+            onPress={() => router.push("/achievements" as any)}
+            style={[styles.pointsBadge, { backgroundColor: colors.card }]}
+            accessibilityLabel={`Level ${childProgress.level}, ${childProgress.totalPoints.toLocaleString()} points`}
+            accessibilityRole="button"
+            accessibilityHint="Double-tap to view achievements"
+          >
+            <Text style={styles.pointsEmoji}>⭐</Text>
+            <View>
+              <Text style={[styles.pointsLevel, { color: colors.textSecondary }]}>
+                Level {childProgress.level}
+              </Text>
+              <Text style={[styles.pointsValue, { color: colors.text }]}>
+                {childProgress.totalPoints.toLocaleString()} pts
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+          </Pressable>
+        </Animated.View>
+      )}
+    </Animated.View>
+  );
+}
 
 // ═════════════════════════════════════════════════════════════════
 // Main Screen
@@ -186,6 +338,14 @@ export default function TonightScreen() {
   const [loading, setLoading] = useState(true);
   const [subState, setSubState] = useState<SubscriptionState | null>(null);
   const [bedtimeState, setBedtimeState] = useState<BedtimeState | null>(null);
+
+  // Scroll animation shared value
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
 
   // Gamification
   const gamificationStore = useGamificationStore();
@@ -340,12 +500,14 @@ export default function TonightScreen() {
   return (
     <BedtimeModeWrapper isActive={bedtimeState?.isActive ?? false}>
       <ScreenContainer>
-        <ScrollView
+        <Animated.ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FFD700" />
           }
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
         >
           {/* Achievement Toast */}
           {currentAchievement && (
@@ -360,86 +522,17 @@ export default function TonightScreen() {
           )}
 
           {/* ═══ 1. Personalized Greeting with Time-Aware Message ═══ */}
-          <Animated.View entering={FadeIn.duration(600)} style={styles.greetingSection}>
-            {/* Floating stars background decoration */}
-            <FloatingStars count={3} area={{ width: 200, height: 100 }} />
-
-            <View style={styles.greetingTopRow}>
-              <View style={styles.greetingLeft}>
-                {timeGreeting && <WavingMascot reducedMotion={reducedMotion} />}
-                <View style={styles.greetingTextWrap}>
-                  <Text
-                    style={[styles.greeting, { color: colors.text }]}
-                    accessibilityRole="header"
-                  >
-                    {timeGreeting?.greeting ?? "Tonight's Story"}
-                  </Text>
-                  <Text style={[styles.subGreeting, { color: colors.textSecondary }]}>
-                    {selectedChild
-                      ? `What adventure awaits tonight?`
-                      : "Select a child to begin"}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.headerButtons}>
-                <AnimatedPressable
-                  onPress={toggleBedtimeMode}
-                  style={[
-                    styles.headerBtn,
-                    bedtimeState?.isActive && { backgroundColor: "rgba(255,215,0,0.15)" },
-                  ]}
-                  accessibilityLabel="Bedtime mode"
-                  accessibilityRole="button"
-                  accessibilityHint={bedtimeState?.isActive ? "Double-tap to disable bedtime mode" : "Double-tap to enable bedtime mode"}
-                  accessibilityState={{ checked: bedtimeState?.isActive }}
-                >
-                  <IconSymbol
-                    name="moon.fill"
-                    size={22}
-                    color={bedtimeState?.isActive ? "#FFD700" : colors.muted}
-                  />
-                </AnimatedPressable>
-                <AnimatedPressable
-                  onPress={() => router.push("/settings" as any)}
-                  style={styles.headerBtn}
-                  accessibilityLabel="Settings"
-                  accessibilityRole="button"
-                  accessibilityHint="Double-tap to open settings"
-                >
-                  <IconSymbol name="gearshape.fill" size={22} color={colors.muted} />
-                </AnimatedPressable>
-              </View>
-            </View>
-
-            {/* Gamification stats inline */}
-            {selectedChild && childProgress && (
-              <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.statsRow}>
-                <StreakCounter
-                  currentStreak={childProgress.currentStreak}
-                  isActive={childProgress.currentStreak > 0}
-                  size="sm"
-                />
-                <Pressable
-                  onPress={() => router.push("/achievements" as any)}
-                  style={[styles.pointsBadge, { backgroundColor: colors.card }]}
-                  accessibilityLabel={`Level ${childProgress.level}, ${childProgress.totalPoints.toLocaleString()} points`}
-                  accessibilityRole="button"
-                  accessibilityHint="Double-tap to view achievements"
-                >
-                  <Text style={styles.pointsEmoji}>⭐</Text>
-                  <View>
-                    <Text style={[styles.pointsLevel, { color: colors.textSecondary }]}>
-                      Level {childProgress.level}
-                    </Text>
-                    <Text style={[styles.pointsValue, { color: colors.text }]}>
-                      {childProgress.totalPoints.toLocaleString()} pts
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.muted} />
-                </Pressable>
-              </Animated.View>
-            )}
-          </Animated.View>
+          <AnimatedGreetingSection
+            scrollY={scrollY}
+            reducedMotion={reducedMotion}
+            timeGreeting={timeGreeting}
+            selectedChild={selectedChild}
+            colors={colors}
+            bedtimeState={bedtimeState}
+            childProgress={childProgress}
+            toggleBedtimeMode={toggleBedtimeMode}
+            router={router}
+          />
 
           {/* Child selector (multi-child only) */}
           {children.length > 1 && (
@@ -527,7 +620,12 @@ export default function TonightScreen() {
 
           {/* ═══ 3. Continue Reading — Active Story Arcs ═══ */}
           {activeArcs.length > 0 && (
-            <View style={styles.section}>
+            <ScrollReveal
+              scrollY={scrollY}
+              threshold={400}
+              reducedMotion={reducedMotion}
+            >
+              <View style={styles.section}>
               <Text
                 style={[styles.sectionTitle, { color: colors.text }]}
                 accessibilityRole="header"
@@ -579,12 +677,18 @@ export default function TonightScreen() {
                   </AnimatedPressable>
                 );
               })}
-            </View>
+              </View>
+            </ScrollReveal>
           )}
 
           {/* ═══ 4. Recommended Stories — Illustrated Cards ═══ */}
           {selectedChild && (
-            <View style={styles.section}>
+            <ScrollReveal
+              scrollY={scrollY}
+              threshold={600}
+              reducedMotion={reducedMotion}
+            >
+              <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 ✨ Recommended for {selectedChild.name}
               </Text>
@@ -615,11 +719,17 @@ export default function TonightScreen() {
                   />
                 ))}
               </ScrollView>
-            </View>
+              </View>
+            </ScrollReveal>
           )}
 
           {/* ═══ 5. Browse All Themes ═══ */}
-          <View style={styles.section}>
+          <ScrollReveal
+            scrollY={scrollY}
+            threshold={800}
+            reducedMotion={reducedMotion}
+          >
+            <View style={styles.section}>
             <Text
               style={[styles.sectionTitle, { color: colors.text }]}
               accessibilityRole="header"
@@ -668,10 +778,11 @@ export default function TonightScreen() {
                 </AnimatedPressable>
               ))}
             </View>
-          </View>
+            </View>
+          </ScrollReveal>
 
           <View style={{ height: 100 }} />
-        </ScrollView>
+        </Animated.ScrollView>
       </ScreenContainer>
     </BedtimeModeWrapper>
   );
