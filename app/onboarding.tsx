@@ -43,6 +43,7 @@ import Animated, {
 } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
+import * as Speech from "expo-speech";
 import { Ionicons } from "@expo/vector-icons";
 
 import { OnboardingMascot, MASCOT_LINES } from "@/components/onboarding-mascot";
@@ -53,6 +54,13 @@ import { trpc } from "@/lib/trpc";
 import { CHILD_INTERESTS, FAVORITE_COLORS } from "@/constants/assets";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+/* ─── Ollie's voice narration lines per step ─────────────────── */
+const OLLIE_NARRATION: Record<number, string> = {
+  0: "Hi there! I'm Ollie! What's your name? And how old are you?",
+  1: "Now pick some things you love! Tap at least three cards to continue.",
+  2: "Hooray! You did it! I'm creating your very first story right now!",
+};
 
 /* ─── Interest card data (top 18 with emojis for visual grid) ── */
 const INTEREST_CARDS = [
@@ -174,11 +182,61 @@ export default function OnboardingScreen() {
   const [genMsgIdx, setGenMsgIdx] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiPieces] = useState(() => generateConfetti(40));
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const generateMutation = trpc.stories.generateStory.useMutation();
+  const speakTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   /* ── Animation values ── */
   const progressWidth = useSharedValue(0.33);
+
+  /* ── Load voice setting on mount ── */
+  useEffect(() => {
+    const loadVoicePreference = async () => {
+      const saved = await AsyncStorage.getItem("sw_onboarding_voice");
+      if (saved !== null) {
+        setVoiceEnabled(saved === "true");
+      }
+    };
+    loadVoicePreference();
+  }, []);
+
+  /* ── Ollie speaks with child-friendly voice ── */
+  const speakOllie = useCallback((text: string) => {
+    if (!voiceEnabled) return;
+
+    // Clear any pending speak timeout
+    if (speakTimeoutRef.current) {
+      clearTimeout(speakTimeoutRef.current);
+    }
+
+    // Stop any currently speaking voice
+    Speech.stop();
+
+    // Schedule speech after a small delay for visual transition
+    speakTimeoutRef.current = setTimeout(() => {
+      setIsSpeaking(true);
+      Speech.speak(text, {
+        language: "en",
+        pitch: 1.3, // Slightly higher pitch for friendly tone
+        rate: 0.85, // Slower rate for pre-literate children
+        onDone: () => setIsSpeaking(false),
+        onError: () => setIsSpeaking(false),
+      });
+    }, 300);
+  }, [voiceEnabled]);
+
+  /* ── Handle voice toggle ── */
+  const toggleVoice = useCallback(async () => {
+    const newState = !voiceEnabled;
+    setVoiceEnabled(newState);
+    await AsyncStorage.setItem("sw_onboarding_voice", newState ? "true" : "false");
+    if (!newState) {
+      Speech.stop();
+      setIsSpeaking(false);
+    }
+  }, [voiceEnabled]);
 
   useEffect(() => {
     progressWidth.value = withSpring((step + 1) / 3, {
@@ -186,7 +244,22 @@ export default function OnboardingScreen() {
       stiffness: 120,
     });
     announce(`Step ${step + 1} of 3`);
-  }, [step]);
+
+    // Speak when step changes
+    if (OLLIE_NARRATION[step]) {
+      speakOllie(OLLIE_NARRATION[step]);
+    }
+  }, [step, speakOllie]);
+
+  /* ── Cleanup on unmount ── */
+  useEffect(() => {
+    return () => {
+      if (speakTimeoutRef.current) {
+        clearTimeout(speakTimeoutRef.current);
+      }
+      Speech.stop();
+    };
+  }, []);
 
   /* ── Gen message cycling ── */
   useEffect(() => {
@@ -304,7 +377,7 @@ export default function OnboardingScreen() {
       )}
 
       <SafeAreaView style={styles.safeArea}>
-        {/* ── Top bar: progress + step count ── */}
+        {/* ── Top bar: progress + step count + voice toggle ── */}
         <View style={styles.topBar}>
           {step > 0 && step < 2 && (
             <Pressable
@@ -322,6 +395,19 @@ export default function OnboardingScreen() {
           <Text style={styles.stepCount}>
             {Math.min(step + 1, 3)}/3
           </Text>
+          <Pressable
+            onPress={toggleVoice}
+            style={styles.voiceToggleBtn}
+            accessibilityRole="button"
+            accessibilityLabel={voiceEnabled ? "Voice narration on" : "Voice narration off"}
+            accessibilityHint="Toggle Ollie's voice guidance"
+          >
+            <Ionicons
+              name={voiceEnabled ? "volume-high" : "volume-mute"}
+              size={20}
+              color="#FFD700"
+            />
+          </Pressable>
         </View>
 
         {/* ── Step content ── */}
@@ -392,7 +478,7 @@ export default function OnboardingScreen() {
     return (
       <Animated.View entering={FadeIn.duration(400)} style={styles.stepContainer}>
         {/* Mascot */}
-        <OnboardingMascot mode="wave" speechKey="welcome" size={90} />
+        <OnboardingMascot mode="wave" speechKey="welcome" size={90} isSpeaking={isSpeaking} />
 
         <View style={{ height: 24 }} />
 
@@ -482,7 +568,7 @@ export default function OnboardingScreen() {
     return (
       <Animated.View entering={FadeIn.duration(400)} style={styles.stepContainer}>
         {/* Mascot */}
-        <OnboardingMascot mode="idle" speechKey="interests" size={80} />
+        <OnboardingMascot mode="idle" speechKey="interests" size={80} isSpeaking={isSpeaking} />
 
         <View style={{ height: 16 }} />
 
@@ -562,6 +648,7 @@ export default function OnboardingScreen() {
           mode="celebrate"
           speechKey="celebrate"
           size={110}
+          isSpeaking={isSpeaking}
         />
 
         <View style={{ height: 20 }} />
@@ -752,6 +839,15 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     minWidth: 28,
     textAlign: "right",
+  },
+  voiceToggleBtn: {
+    width: 44,
+    height: 44,
+    minHeight: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   /* ── Scroll content ── */

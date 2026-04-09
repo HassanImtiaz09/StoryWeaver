@@ -37,12 +37,42 @@ interface Props {
   mode?: MascotMode;
   speechKey?: keyof typeof MASCOT_LINES;
   size?: number;
+  isSpeaking?: boolean;
+}
+
+/* ─── Sound wave bar animation component ────────────────────── */
+function SoundWaveBar({ delay }: { delay: number }) {
+  const height = useSharedValue(4);
+
+  useEffect(() => {
+    height.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(16, { duration: 300 }),
+          withTiming(4, { duration: 300 })
+        ),
+        -1,
+        true
+      )
+    );
+  }, [delay]);
+
+  const style = useAnimatedStyle(() => ({
+    height: height.value,
+    width: 3,
+    backgroundColor: "rgba(255,215,0,0.8)",
+    borderRadius: 1.5,
+  }));
+
+  return <Animated.View style={style} />;
 }
 
 export function OnboardingMascot({
   mode = "idle",
   speechKey,
   size = 100,
+  isSpeaking = false,
 }: Props) {
   const reducedMotion = useReducedMotion();
 
@@ -51,6 +81,23 @@ export function OnboardingMascot({
   const bodyRotate = useSharedValue(0);
   const wingRotate = useSharedValue(0);
   const eyeBlink = useSharedValue(1);
+  const speechBubbleScale = useSharedValue(1);
+
+  /* ── Speaking pulse animation ── */
+  useEffect(() => {
+    if (isSpeaking && !reducedMotion) {
+      speechBubbleScale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 300 }),
+          withTiming(1, { duration: 300 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      speechBubbleScale.value = withTiming(1, { duration: 200 });
+    }
+  }, [isSpeaking, reducedMotion]);
 
   /* ── Idle bounce ── */
   useEffect(() => {
@@ -154,6 +201,10 @@ export function OnboardingMascot({
     transform: [{ scaleY: eyeBlink.value }],
   }));
 
+  const speechBubbleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: speechBubbleScale.value }],
+  }));
+
   const scale = size / 100;
   const speechLine = speechKey ? MASCOT_LINES[speechKey] : null;
 
@@ -161,13 +212,24 @@ export function OnboardingMascot({
     <View style={styles.wrapper} accessibilityLabel="Ollie the Owl mascot">
       {/* Speech bubble */}
       {speechLine && (
-        <Animated.View
-          entering={FadeIn.delay(300).duration(400)}
-          style={styles.speechBubble}
-        >
-          <Text style={styles.speechText}>{speechLine}</Text>
-          <View style={styles.speechTail} />
-        </Animated.View>
+        <View>
+          <Animated.View
+            entering={FadeIn.delay(300).duration(400)}
+            style={[styles.speechBubble, speechBubbleStyle]}
+          >
+            <Text style={styles.speechText}>{speechLine}</Text>
+            <View style={styles.speechTail} />
+          </Animated.View>
+
+          {/* Sound wave indicator when speaking */}
+          {isSpeaking && (
+            <View style={styles.soundWaveContainer}>
+              <SoundWaveBar delay={0} />
+              <SoundWaveBar delay={100} />
+              <SoundWaveBar delay={200} />
+            </View>
+          )}
+        </View>
       )}
 
       {/* Owl body */}
@@ -338,6 +400,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 4,
+  },
+  soundWaveContainer: {
+    flexDirection: "row",
+    gap: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 20,
+    marginBottom: 12,
   },
   speechText: {
     color: "#1a1a2e",
