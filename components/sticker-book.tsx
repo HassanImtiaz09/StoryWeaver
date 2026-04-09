@@ -24,6 +24,7 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/use-colors";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { announce } from "@/lib/a11y-helpers";
+import { playStickerPeel } from "@/lib/sound-effects";
 import { IllustratedEmptyState } from "./illustrated-empty-state";
 
 const { width: SW } = Dimensions.get("window");
@@ -118,6 +119,8 @@ function NewStickerSlot({ sticker, delay }: { sticker: StickerDef; delay: number
       scale.value = withDelay(delay, withSpring(1, { damping: 6, stiffness: 100 }));
       rotate.value = withDelay(delay, withSpring(0, { damping: 10 }));
       opacity.value = withDelay(delay, withTiming(1, { duration: 300 }));
+      // Play sticker peel sound with a slight delay
+      setTimeout(() => playStickerPeel(), delay);
     }
   }, [reducedMotion]);
 

@@ -108,6 +108,9 @@ export interface AppSettings {
 
   // Theme & Display preferences
   kidFriendlyLightModeEnabled: boolean; // Force light mode for young children (3-7) with high contrast
+
+  // Sound effects
+  soundEffectsEnabled: boolean; // Enable/disable gamification sound effects
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -170,6 +173,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultGradeLevel: "K",
   navMode: "parent",
   kidFriendlyLightModeEnabled: false,
+  soundEffectsEnabled: true,
 };
 
 export async function getSettings(): Promise<AppSettings> {

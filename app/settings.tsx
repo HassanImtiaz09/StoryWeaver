@@ -163,6 +163,19 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
       },
     ],
   },
+  {
+    id: "sound",
+    title: "Sound & Audio",
+    icon: "volume-high-outline",
+    description: "Sound effects, audio feedback",
+    quickToggles: [
+      {
+        key: "soundEffectsEnabled",
+        label: "Sound Effects",
+        description: "Enable sounds for badges, missions, and stickers",
+      },
+    ],
+  },
 ];
 
 // ─── Collapsible Section Component ─────────────────────────────

@@ -24,11 +24,11 @@ import Animated, {
   FadeOut,
   runOnJS,
 } from "react-native-reanimated";
-import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 import { TIER_COLORS } from "@/constants/gamification";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { announce } from "@/lib/a11y-helpers";
+import { playBadgeUnlock } from "@/lib/sound-effects";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 
@@ -176,7 +176,7 @@ export function BadgeUnlockCeremony({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     // Play unlock sound
-    playUnlockSound();
+    playBadgeUnlock();
 
     if (prefersReducedMotion) {
       // Skip animations, show static
@@ -333,23 +333,6 @@ export function BadgeUnlockCeremony({
   );
 }
 
-/* ─── Sound helper ─────────────────────────────────────────── */
-async function playUnlockSound() {
-  try {
-    const { sound } = await Audio.Sound.createAsync(
-      // Short achievement chime — fallback gracefully if asset missing
-      require("@/assets/sounds/achievement.mp3"),
-      { shouldPlay: true, volume: 0.7 }
-    );
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) {
-        sound.unloadAsync();
-      }
-    });
-  } catch {
-    // Sound not available — no-op
-  }
-}
 
 const styles = StyleSheet.create({
   overlay: {

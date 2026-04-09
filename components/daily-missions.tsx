@@ -24,6 +24,7 @@ import { useColors } from "@/hooks/use-colors";
 import { STORY_THEMES } from "@/constants/assets";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { announce } from "@/lib/a11y-helpers";
+import { playMissionComplete } from "@/lib/sound-effects";
 import { StreakFire } from "./micro-animations";
 
 /* ─── Mission templates ────────────────────────────────────── */
@@ -97,6 +98,8 @@ function MissionRow({
       } else {
         checkScale.value = withSpring(1, { damping: 8, stiffness: 120 });
       }
+      // Play mission complete sound
+      playMissionComplete();
     }
   }, [isCompleted, prefersReducedMotion]);
 
