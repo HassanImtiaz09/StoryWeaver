@@ -277,7 +277,9 @@ export async function getArcState(arcId: number): Promise<ArcState> {
  */
 export async function getEpisodeContext(
   arcId: number,
-  episodeNumber: number
+  episodeNumber: number,
+  /** Pass an already-fetched arc to avoid a duplicate DB query. */
+  preloadedArc?: { theme: string; title: string | null; synopsis: string | null; totalEpisodes: number; educationalValue: string | null }
 ): Promise<EpisodeContext> {
   const cacheKey = `episode_context:${arcId}:${episodeNumber}`;
 
@@ -287,8 +289,8 @@ export async function getEpisodeContext(
     return cached;
   }
 
-  // Fetch arc and all previous episodes
-  const [arc] = await db.select().from(storyArcs).where(eq(storyArcs.id, arcId)).limit(1);
+  // Use preloaded arc if provided, otherwise fetch from DB
+  const arc = preloadedArc ?? (await db.select().from(storyArcs).where(eq(storyArcs.id, arcId)).limit(1))[0];
 
   if (!arc) {
     throw new Error(`Story arc ${arcId} not found`);

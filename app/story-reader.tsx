@@ -88,6 +88,7 @@ export default function StoryReaderScreen() {
   const flatListRef = useRef<FlatList>(null);
   const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressUpdateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isMountedRef = useRef(true);
 
   const progressAnim = useSharedValue(0);
 
@@ -142,7 +143,9 @@ export default function StoryReaderScreen() {
   const moodColors: [string, string] = currentPage?.mood ? (MOOD_COLORS[currentPage.mood] ?? ['#6C63FF', '#8B83FF']) : ['#6C63FF', '#8B83FF'];
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       cleanupAudio();
       if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current);
       if (progressUpdateIntervalRef.current) clearInterval(progressUpdateIntervalRef.current);
@@ -260,8 +263,10 @@ export default function StoryReaderScreen() {
       setIsNarrating(true);
 
       progressUpdateIntervalRef.current = setInterval(async () => {
+        if (!isMountedRef.current) return; // guard against post-unmount updates
         try {
           const currentStatus = await narratorSound.getStatusAsync();
+          if (!isMountedRef.current) return;
           if (currentStatus.isLoaded) {
             const position = currentStatus.positionMillis || 0;
             setAudioProgress(position);

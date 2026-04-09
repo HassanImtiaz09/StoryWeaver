@@ -1,5 +1,65 @@
 import { ENV } from "./env";
 
+// ─── Prompt Input Sanitization ────────────────────────────────
+// All user-provided text is sanitized before being interpolated into
+// LLM prompts to prevent prompt injection attacks. This limits each
+// field to alphanumeric characters, basic punctuation, and spaces,
+// and enforces a maximum length per field.
+
+const MAX_FIELD_LENGTH = 100;
+const MAX_ARRAY_ITEMS = 20;
+
+/** Strip characters that could be used for prompt injection. */
+function sanitizeField(value: string | undefined | null, maxLen = MAX_FIELD_LENGTH): string {
+  if (!value) return "";
+  // Allow letters (any script), digits, spaces, hyphens, apostrophes, commas, periods
+  return value.replace(/[^\p{L}\p{N}\s\-',.\u0600-\u06FF\u0900-\u097F\u3040-\u30FF\u4E00-\u9FFF]/gu, "")
+    .trim()
+    .slice(0, maxLen);
+}
+
+/** Sanitize an array of strings (e.g., interests, traits). */
+function sanitizeArray(arr: string[] | undefined | null, maxLen = MAX_FIELD_LENGTH): string[] {
+  if (!arr || !Array.isArray(arr)) return [];
+  return arr
+    .slice(0, MAX_ARRAY_ITEMS)
+    .map((item) => sanitizeField(item, maxLen))
+    .filter((item) => item.length > 0);
+}
+
+/** Build a sanitized copy of a ChildProfile for use in prompts. */
+function sanitizeChildProfile(child: ChildProfile): ChildProfile {
+  return {
+    ...child,
+    name: sanitizeField(child.name, 50),
+    nickname: sanitizeField(child.nickname, 50) || undefined,
+    gender: sanitizeField(child.gender, 30) || undefined,
+    interests: sanitizeArray(child.interests),
+    personalityTraits: sanitizeArray(child.personalityTraits) || undefined,
+    fears: sanitizeArray(child.fears) || undefined,
+    favoriteColor: sanitizeField(child.favoriteColor, 30) || undefined,
+    favoriteCharacter: sanitizeField(child.favoriteCharacter, 60) || undefined,
+    language: sanitizeField(child.language, 30) || undefined,
+    hairColor: sanitizeField(child.hairColor, 30) || undefined,
+    skinTone: sanitizeField(child.skinTone, 30) || undefined,
+    communicationStyle: sanitizeField(child.communicationStyle, 50) || undefined,
+    storyPacing: sanitizeField(child.storyPacing, 30) || undefined,
+  };
+}
+
+/** Sanitize a StoryArcContext before interpolation. */
+function sanitizeArcContext(arc: StoryArcContext): StoryArcContext {
+  return {
+    ...arc,
+    title: sanitizeField(arc.title, 150),
+    theme: sanitizeField(arc.theme, 100),
+    educationalValue: sanitizeField(arc.educationalValue, 100),
+    previousEpisodeSummary: arc.previousEpisodeSummary
+      ? sanitizeField(arc.previousEpisodeSummary, 500)
+      : undefined,
+  };
+}
+
 // ─── Types ─────────────────────────────────────────────────────
 
 export type NeurodivergentInfo = {
@@ -208,10 +268,12 @@ IMPORTANT: Illustration only, no words or letters in the image. Suitable for pro
 // ─── Build Episode Prompt ──────────────────────────────────────
 
 function buildEpisodeGenerationPrompt(
-  child: ChildProfile,
-  arc: StoryArcContext,
+  rawChild: ChildProfile,
+  rawArc: StoryArcContext,
   episodeNumber: number
 ): string {
+  const child = sanitizeChildProfile(rawChild);
+  const arc = sanitizeArcContext(rawArc);
   const ageGuide = getAgeGuidance(child.age);
   const heroName = child.nickname ?? child.name;
   const ndGuide =
@@ -298,7 +360,8 @@ IMPORTANT: Each page's text should be at LEAST 100 words. Short pages make the s
 }
 
 // ─── Build Recommendation Prompt ───────────────────────────────
-function buildRecommendationPrompt(child: ChildProfile): string {
+function buildRecommendationPrompt(rawChild: ChildProfile): string {
+  const child = sanitizeChildProfile(rawChild);
   const ndContext =
     child.isNeurodivergent && child.neurodivergentProfiles?.length
       ? `\nThe child is neurodivergent (${child.neurodivergentProfiles
@@ -439,13 +502,14 @@ export async function generateRecommendations(
 }
 
 export async function generatePageImagePrompt(
-  child: ChildProfile,
+  rawChild: ChildProfile,
   storyText: string,
   mood: string,
   theme: string,
   pageNumber: number
 ): Promise<string> {
-  const imageStyle = buildImageStyleGuide(child, theme);
+  const child = sanitizeChildProfile(rawChild);
+  const imageStyle = buildImageStyleGuide(child, sanitizeField(theme, 100));
 
   const prompt = `Create a detailed image generation prompt for a children's book illustration.
 

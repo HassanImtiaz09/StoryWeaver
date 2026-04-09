@@ -889,8 +889,8 @@ export const appRouter = router({
           .limit(1);
         if (!child) throw new TRPCError({ code: "FORBIDDEN" });
 
-        // Get episode context for narrative continuity
-        const episodeContext = await getEpisodeContext(input.arcId, input.episodeNumber);
+        // Get episode context for narrative continuity (pass preloaded arc to avoid duplicate query)
+        const episodeContext = await getEpisodeContext(input.arcId, input.episodeNumber, arc);
 
         // Parse educational value (moral lessons) from arc
         const moralLessons = arc.educationalValue
@@ -937,6 +937,31 @@ export const appRouter = router({
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: `Episode quality score too low: ${qualityScore.overall}/100. Please regenerate.`,
+          });
+        }
+
+        // Content moderation — screen generated content before saving
+        const moderationResult = moderateEpisode(
+          {
+            title: episodeData.title,
+            summary: episodeData.summary,
+            pages: episodeData.pages.map((p: any) => ({ text: p.text })),
+          },
+          child.fears ?? undefined
+        );
+        if (!moderationResult.approved) {
+          // Log the flagged content for review
+          await db.insert(contentModerationLog).values({
+            userId: ctx.user.id,
+            contentType: "episode",
+            contentId: `arc-${input.arcId}-ep-${input.episodeNumber}`,
+            flaggedReason: moderationResult.flaggedContent.map((f) => f.reason).join("; ") || "Content failed safety checks",
+            moderationScore: moderationResult.overallSeverity === "high" ? 100 : moderationResult.overallSeverity === "medium" ? 60 : 30,
+            action: "blocked",
+          });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Generated story content did not pass safety review. Please try generating again with different settings.",
           });
         }
 
@@ -2677,9 +2702,9 @@ export const appRouter = router({
         z.object({
           childId: z.number(),
           elementType: z.enum(["character", "location", "moral", "pet", "object"]),
-          name: z.string().min(1).max(200),
-          description: z.string().optional(),
-          imageUrl: z.string().optional(),
+          name: z.string().min(1).max(100),
+          description: z.string().max(500).optional(),
+          imageUrl: z.string().url().max(2048).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -2719,9 +2744,9 @@ export const appRouter = router({
       .input(
         z.object({
           elementId: z.number(),
-          name: z.string().optional(),
-          description: z.string().optional(),
-          imageUrl: z.string().optional(),
+          name: z.string().min(1).max(100).optional(),
+          description: z.string().max(500).optional(),
+          imageUrl: z.string().url().max(2048).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {

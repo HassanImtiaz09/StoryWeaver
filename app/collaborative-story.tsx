@@ -77,22 +77,18 @@ export const CollaborativeStoryScreen: React.FC<CollaborativeStoryScreenProps> =
   useEffect(() => {
     if (!session) return;
 
-    const startPolling = () => {
-      const interval = setInterval(async () => {
-        try {
-          await loadSession(session.id);
-        } catch (error) {
-          console.error("Polling error:", error);
-        }
-      }, 2000); // Poll every 2 seconds
+    const interval = setInterval(async () => {
+      try {
+        await loadSession(session.id);
+      } catch (error) {
+        console.error("Polling error:", error);
+      }
+    }, 2000); // Poll every 2 seconds
 
-      setSyncInterval(interval);
-    };
-
-    startPolling();
+    setSyncInterval(interval);
 
     return () => {
-      if (syncInterval) clearInterval(syncInterval);
+      clearInterval(interval); // Use the locally scoped interval, not stale state
     };
   }, [session?.id]);
 
