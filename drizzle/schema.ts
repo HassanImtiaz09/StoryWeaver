@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, json, timestamp, mysqlEnum, boolean, decimal, index } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, varchar, text, json, timestamp, mysqlEnum, boolean, decimal, index, uniqueIndex } from "drizzle-orm/mysql-core";
 
 // ─── Users ─────────────────────────────────────────────────────
 
@@ -61,6 +61,7 @@ export const children = mysqlTable("children", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 }, (table) => [
   index("children_user_id_idx").on(table.userId),
+  uniqueIndex("children_user_name_unique").on(table.userId, table.name),
 ]);
 
 // ─── Story Arcs ────────────────────────────────────────────────
@@ -153,7 +154,10 @@ export const storyRecommendations = mysqlTable("story_recommendations", {
   estimatedEpisodes: int("estimated_episodes").default(5),
   isUsed: boolean("is_used").default(false),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("recommendations_user_id_idx").on(table.userId),
+  index("recommendations_child_id_idx").on(table.childId),
+]);
 
 // ─── Book Products Catalog ────────────────────────────────────
 
@@ -188,7 +192,10 @@ export const shippingAddresses = mysqlTable("shipping_addresses", {
   phone: varchar("phone", { length: 30 }),
   isDefault: boolean("is_default").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("shipping_user_id_idx").on(table.userId),
+  index("shipping_user_default_idx").on(table.userId, table.isDefault),
+]);
 
 // ─── Print Orders (Printful) ───────────────────────────────────
 
@@ -274,7 +281,10 @@ export const readingStreaks = mysqlTable("reading_streaks", {
   streakStartDate: timestamp("streak_start_date"),
   totalDaysRead: int("total_days_read").default(0).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull().onUpdateNow(),
-});
+}, (table) => [
+  index("reading_streaks_child_id_idx").on(table.childId),
+  index("reading_streaks_user_id_idx").on(table.userId),
+]);
 
 // ─── Achievements/Badges ───────────────────────────────────────
 
@@ -286,7 +296,10 @@ export const achievements = mysqlTable("achievements", {
   unlockedAt: timestamp("unlocked_at").defaultNow(),
   progress: int("progress").default(0).notNull(),
   metadata: json("metadata").$type<Record<string, unknown>>(),
-});
+}, (table) => [
+  index("achievements_child_id_idx").on(table.childId),
+  index("achievements_user_id_idx").on(table.userId),
+]);
 
 // ─── Reading Activity Log ──────────────────────────────────────
 
@@ -298,7 +311,11 @@ export const readingActivity = mysqlTable("reading_activity", {
   activityType: varchar("activity_type", { length: 50 }).notNull(), // "story_completed", "page_read", "bedtime_session", "streak_maintained"
   pointsEarned: int("points_earned").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("reading_activity_child_id_idx").on(table.childId),
+  index("reading_activity_user_id_idx").on(table.userId),
+  index("reading_activity_episode_id_idx").on(table.episodeId),
+]);
 
 // ─── Parent Co-Creation: Custom Story Elements ─────────────────
 
@@ -313,7 +330,10 @@ export const customStoryElements = mysqlTable("custom_story_elements", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
-});
+}, (table) => [
+  index("custom_story_elements_user_id_idx").on(table.userId),
+  index("custom_story_elements_child_id_idx").on(table.childId),
+]);
 
 // ─── Parent Co-Creation: Voice Recordings ──────────────────────
 
@@ -519,14 +539,19 @@ export const sharedStories = mysqlTable("shared_stories", {
   moderationStatus: mysqlEnum("moderation_status", ["pending", "approved", "rejected"]).default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => [
+  index("shared_stories_user_id_idx").on(table.userId),
+  index("shared_stories_share_code_idx").on(table.shareCode),
+]);
 
 export const storyLikes = mysqlTable("story_likes", {
   id: int("id").primaryKey().autoincrement(),
   sharedStoryId: int("shared_story_id").notNull(),
   userId: int("user_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("story_likes_shared_story_id_idx").on(table.sharedStoryId),
+]);
 
 export const storyReports = mysqlTable("story_reports", {
   id: int("id").primaryKey().autoincrement(),
@@ -535,7 +560,9 @@ export const storyReports = mysqlTable("story_reports", {
   reason: varchar("reason", { length: 255 }).notNull(), // e.g., "inappropriate", "spam", "copyright"
   reportStatus: mysqlEnum("report_status", ["pending", "reviewed", "dismissed"]).default("pending").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("story_reports_shared_story_id_idx").on(table.sharedStoryId),
+]);
 
 // ─── Educator Mode: Classrooms ────────────────────────────────
 // Teacher-facing classroom management system

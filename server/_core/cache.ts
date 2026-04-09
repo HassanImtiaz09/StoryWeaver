@@ -4,6 +4,8 @@
  * Reduces API costs by caching expensive operations.
  */
 
+import crypto from "crypto";
+
 /**
  * Cache configuration with TTL and key prefixes
  */
@@ -201,7 +203,7 @@ export function voicePreviewCacheKey(voiceId: string, textHash: string): string 
 
 /**
  * Generate a hash of child profile for cache key
- * Hashes interests, age, and personality traits
+ * Uses SHA-256 for collision resistance
  * @param child Child profile object
  */
 export function generateProfileHash(child: {
@@ -214,30 +216,16 @@ export function generateProfileHash(child: {
     (child.interests ?? []).sort().join(","),
     (child.personalityTraits ?? []).sort().join(","),
   ];
-
-  // Simple hash function (not cryptographic, just for cache keys)
-  let hash = 0;
-  const str = parts.join("|");
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(36);
+  return crypto.createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16);
 }
 
 /**
  * Generate a hash of text for cache key
+ * Uses SHA-256 for collision resistance
  * @param text Text to hash
  */
 export function generateTextHash(text: string): string {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(36);
+  return crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
 }
 
 export { CACHE_CONFIG, CacheService };

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { db } from "../db";
 import { eq, and, desc, isNull, ne } from "drizzle-orm";
 import { sharedStories, storyLikes, storyReports, storyArcs, episodes, children, users } from "../../drizzle/schema";
@@ -9,14 +10,10 @@ import { moderateEpisode } from "./contentModeration";
  * Handles story sharing, gallery publishing, likes, reports, and analytics
  */
 
-// Generate a unique, short, memorable share code
+// Generate a unique, short, memorable share code using cryptographically secure randomness
 function generateShareCode(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let code = "";
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
+  // 16 bytes = 128 bits of entropy, URL-safe base64 = 22 characters
+  return crypto.randomBytes(16).toString("base64url");
 }
 
 export interface ShareCardData {

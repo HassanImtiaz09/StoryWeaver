@@ -13,6 +13,11 @@ import type { Session } from "next-auth";
 import jwt from "jsonwebtoken";
 import { ENV } from "./env";
 
+// Fail fast if JWT_SECRET is not configured
+if (!ENV.cookieSecret) {
+  throw new Error("[FATAL] JWT_SECRET / cookieSecret is not configured. Server cannot start safely.");
+}
+
 /**
  * Context object available to all tRPC procedures
  */

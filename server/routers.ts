@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure, coppaProtectedProcedure, adminProcedure } from "./_core/trpc";
 import { db } from "./db";
-import { eq, and, desc, isNull, asc, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, asc, sql, lt } from "drizzle-orm";
 import {
   users,
   children,
@@ -659,106 +659,136 @@ export const appRouter = router({
       .input(
         z.object({
           childId: z.number(),
-          theme: z.string(),
-          customPrompt: z.string().optional(),
+          theme: z.string().min(1).max(200),
+          customPrompt: z.string().max(500).optional(),
           educationalValue: z.string().optional(),
           totalEpisodes: z.number().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        await checkStoryLimit(ctx.user.id);
+        try {
+          await checkStoryLimit(ctx.user.id);
 
-        const [child] = await db
-          .select()
-          .from(children)
-          .where(
-            and(
-              eq(children.id, input.childId),
-              eq(children.userId, ctx.user.id)
+          const [child] = await db
+            .select()
+            .from(children)
+            .where(
+              and(
+                eq(children.id, input.childId),
+                eq(children.userId, ctx.user.id)
+              )
             )
-          )
-          .limit(1);
-        if (!child) throw new TRPCError({ code: "NOT_FOUND" });
+            .limit(1);
+          if (!child) throw new TRPCError({ code: "NOT_FOUND" });
 
-        const childProfile = toChildProfile(child);
-        const educationalValue = input.educationalValue ?? "general learning";
-        const totalEpisodes = input.totalEpisodes ?? 5;
-        const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
+          const childProfile = toChildProfile(child);
+          const educationalValue = input.educationalValue ?? "general learning";
+          const totalEpisodes = input.totalEpisodes ?? 5;
+          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
 
-        const result = await db
-          .insert(storyArcs)
-          .values({
-            userId: ctx.user.id,
-            childId: input.childId,
-            theme: input.theme,
-            title: arcData.title,
-            synopsis: arcData.synopsis,
-            educationalValue,
-            totalEpisodes,
-          })
-          .$returningId();
-        const newId = result[0].id;
+          const result = await db
+            .insert(storyArcs)
+            .values({
+              userId: ctx.user.id,
+              childId: input.childId,
+              theme: input.theme,
+              title: arcData.title,
+              synopsis: arcData.synopsis,
+              educationalValue,
+              totalEpisodes,
+            })
+            .$returningId();
+          const newId = result[0].id;
 
-        await db
-          .update(users)
-          .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
-          .where(eq(users.id, ctx.user.id));
+          // Atomic check-and-increment: prevents race condition where concurrent requests bypass story limit
+          const updateResult = await db
+            .update(users)
+            .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
+            .where(
+              and(
+                eq(users.id, ctx.user.id),
+                sql`${users.storiesUsed} < COALESCE((SELECT CASE ${users.subscriptionPlan} WHEN 'free' THEN 5 WHEN 'monthly' THEN 50 WHEN 'yearly' THEN 50 WHEN 'family' THEN 200 ELSE 5 END), 5)`
+              )
+            );
 
-        const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
-        return newArc;
+          const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
+          return newArc;
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          console.error("[storyArcs.create] Unexpected error:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Story creation failed. Please try again.",
+          });
+        }
       }),
 
     generate: protectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          theme: z.string(),
-          customPrompt: z.string().optional(),
+          theme: z.string().min(1).max(200),
+          customPrompt: z.string().max(500).optional(),
           educationalValue: z.string().optional(),
           totalEpisodes: z.number().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        await checkStoryLimit(ctx.user.id);
+        try {
+          await checkStoryLimit(ctx.user.id);
 
-        const [child] = await db
-          .select()
-          .from(children)
-          .where(
-            and(
-              eq(children.id, input.childId),
-              eq(children.userId, ctx.user.id)
+          const [child] = await db
+            .select()
+            .from(children)
+            .where(
+              and(
+                eq(children.id, input.childId),
+                eq(children.userId, ctx.user.id)
+              )
             )
-          )
-          .limit(1);
-        if (!child) throw new TRPCError({ code: "NOT_FOUND" });
+            .limit(1);
+          if (!child) throw new TRPCError({ code: "NOT_FOUND" });
 
-        const childProfile = toChildProfile(child);
-        const educationalValue = input.educationalValue ?? "general learning";
-        const totalEpisodes = input.totalEpisodes ?? 5;
-        const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
+          const childProfile = toChildProfile(child);
+          const educationalValue = input.educationalValue ?? "general learning";
+          const totalEpisodes = input.totalEpisodes ?? 5;
+          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
 
-        const result = await db
-          .insert(storyArcs)
-          .values({
-            userId: ctx.user.id,
-            childId: input.childId,
-            theme: input.theme,
-            title: arcData.title,
-            synopsis: arcData.synopsis,
-            educationalValue,
-            totalEpisodes,
-          })
-          .$returningId();
-        const newId = result[0].id;
+          const result = await db
+            .insert(storyArcs)
+            .values({
+              userId: ctx.user.id,
+              childId: input.childId,
+              theme: input.theme,
+              title: arcData.title,
+              synopsis: arcData.synopsis,
+              educationalValue,
+              totalEpisodes,
+            })
+            .$returningId();
+          const newId = result[0].id;
 
-        await db
-          .update(users)
-          .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
-          .where(eq(users.id, ctx.user.id));
+          // Atomic check-and-increment: prevents race condition where concurrent requests bypass story limit
+          const updateResult = await db
+            .update(users)
+            .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
+            .where(
+              and(
+                eq(users.id, ctx.user.id),
+                sql`${users.storiesUsed} < COALESCE((SELECT CASE ${users.subscriptionPlan} WHEN 'free' THEN 5 WHEN 'monthly' THEN 50 WHEN 'yearly' THEN 50 WHEN 'family' THEN 200 ELSE 5 END), 5)`
+              )
+            );
 
-        const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
-        return newArc;
+          const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
+          return newArc;
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          console.error("[storyArcs.generate] Unexpected error:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Story creation failed. Please try again.",
+          });
+        }
       }),
   }),
 
@@ -771,66 +801,80 @@ export const appRouter = router({
       .input(
         z.object({
           childId: z.number(),
-          theme: z.string(),
+          theme: z.string().min(1).max(200),
           storyLength: z.string().optional(),
           tone: z.string().optional(),
           moralLessons: z.array(z.string()).optional(),
-          customElements: z.string().optional(),
+          customElements: z.string().max(500).optional(),
           totalEpisodes: z.number().optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        await checkStoryLimit(ctx.user.id);
+        try {
+          await checkStoryLimit(ctx.user.id);
 
-        const [child] = await db
-          .select()
-          .from(children)
-          .where(
-            and(
-              eq(children.id, input.childId),
-              eq(children.userId, ctx.user.id)
+          const [child] = await db
+            .select()
+            .from(children)
+            .where(
+              and(
+                eq(children.id, input.childId),
+                eq(children.userId, ctx.user.id)
+              )
             )
-          )
-          .limit(1);
-        if (!child) throw new TRPCError({ code: "NOT_FOUND" });
+            .limit(1);
+          if (!child) throw new TRPCError({ code: "NOT_FOUND" });
 
-        const childProfile = toChildProfile(child);
-        const educationalValue = input.moralLessons?.join(", ") ?? "general learning";
-        const totalEpisodes = input.totalEpisodes ?? 5;
-        const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
+          const childProfile = toChildProfile(child);
+          const educationalValue = input.moralLessons?.join(", ") ?? "general learning";
+          const totalEpisodes = input.totalEpisodes ?? 5;
+          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
 
-        // Create storyArcs entry with moral lessons support
-        const result = await db
-          .insert(storyArcs)
-          .values({
-            userId: ctx.user.id,
-            childId: input.childId,
-            theme: input.theme,
-            title: arcData.title,
-            synopsis: arcData.synopsis,
-            educationalValue: educationalValue,
-            totalEpisodes,
-          })
-          .$returningId();
-        const newId = result[0].id;
+          // Create storyArcs entry with moral lessons support
+          const result = await db
+            .insert(storyArcs)
+            .values({
+              userId: ctx.user.id,
+              childId: input.childId,
+              theme: input.theme,
+              title: arcData.title,
+              synopsis: arcData.synopsis,
+              educationalValue: educationalValue,
+              totalEpisodes,
+            })
+            .$returningId();
+          const newId = result[0].id;
 
-        // Track story usage
-        await db
-          .update(users)
-          .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
-          .where(eq(users.id, ctx.user.id));
+          // Atomic check-and-increment: prevents race condition where concurrent requests bypass story limit
+          const updateResult = await db
+            .update(users)
+            .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
+            .where(
+              and(
+                eq(users.id, ctx.user.id),
+                sql`${users.storiesUsed} < COALESCE((SELECT CASE ${users.subscriptionPlan} WHEN 'free' THEN 5 WHEN 'monthly' THEN 50 WHEN 'yearly' THEN 50 WHEN 'family' THEN 200 ELSE 5 END), 5)`
+              )
+            );
 
-        const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
-        return {
-          arcId: newArc.id,
-          serverArcId: newArc.id,
-          title: newArc.title,
-        };
+          const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
+          return {
+            arcId: newArc.id,
+            serverArcId: newArc.id,
+            title: newArc.title,
+          };
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          console.error("[stories.generateStory] Unexpected error:", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Story creation failed. Please try again.",
+          });
+        }
       }),
   }),
 
   episodes: router({
-    list: protectedProcedure
+    list: coppaProtectedProcedure
       .input(z.object({ arcId: z.number() }))
       .query(async ({ input, ctx }) => {
         const [arc] = await db
@@ -856,7 +900,7 @@ export const appRouter = router({
           .where(eq(episodes.storyArcId, input.arcId));
       }),
 
-    get: protectedProcedure
+    get: coppaProtectedProcedure
       .input(z.object({ episodeId: z.number() }))
       .query(async ({ input, ctx }) => {
         const [episode] = await db
@@ -890,152 +934,161 @@ export const appRouter = router({
         z.object({
           arcId: z.number(),
           episodeNumber: z.number().int(),
-          customPrompt: z.string().optional(),
+          customPrompt: z.string().max(500).optional(),
         })
       )
       .mutation(async ({ input, ctx }) => {
-        // Rate limit: max 10 story generations per 5 minutes per user
-        checkRateLimit(getRateLimitKey(ctx, "story_gen"), 10, 5 * 60_000);
-        const [arc] = await db
-          .select()
-          .from(storyArcs)
-          .where(eq(storyArcs.id, input.arcId))
-          .limit(1);
-        if (!arc) throw new TRPCError({ code: "NOT_FOUND" });
-        const [child] = await db
-          .select()
-          .from(children)
-          .where(
-            and(
-              eq(children.id, arc.childId),
-              eq(children.userId, ctx.user.id)
+        try {
+          // Rate limit: max 10 story generations per 5 minutes per user
+          checkRateLimit(getRateLimitKey(ctx, "story_gen"), 10, 5 * 60_000);
+          const [arc] = await db
+            .select()
+            .from(storyArcs)
+            .where(eq(storyArcs.id, input.arcId))
+            .limit(1);
+          if (!arc) throw new TRPCError({ code: "NOT_FOUND" });
+          const [child] = await db
+            .select()
+            .from(children)
+            .where(
+              and(
+                eq(children.id, arc.childId),
+                eq(children.userId, ctx.user.id)
+              )
             )
-          )
-          .limit(1);
-        if (!child) throw new TRPCError({ code: "FORBIDDEN" });
+            .limit(1);
+          if (!child) throw new TRPCError({ code: "FORBIDDEN" });
 
-        // Get episode context for narrative continuity (pass preloaded arc to avoid duplicate query)
-        const episodeContext = await getEpisodeContext(input.arcId, input.episodeNumber, arc);
+          // Get episode context for narrative continuity (pass preloaded arc to avoid duplicate query)
+          const episodeContext = await getEpisodeContext(input.arcId, input.episodeNumber, arc);
 
-        // Parse educational value (moral lessons) from arc
-        const moralLessons = arc.educationalValue
-          ? arc.educationalValue.split(",").map((m) => m.trim())
-          : undefined;
+          // Parse educational value (moral lessons) from arc
+          const moralLessons = arc.educationalValue
+            ? arc.educationalValue.split(",").map((m) => m.trim())
+            : undefined;
 
-        // Build story context for new StoryEngine
-        const storyContext: StoryContext = {
-          child: {
-            name: child.nickname ?? child.name,
-            age: child.age,
-            interests: child.interests ?? [],
-            personality: child.personalityTraits?.join(", "),
-            fears: child.fears,
-          },
-          theme: arc.theme,
-          storyArc: {
-            title: arc.title,
-            totalEpisodes: arc.totalEpisodes ?? 5,
-            currentEpisode: input.episodeNumber,
-          },
-          previousEpisodes: episodeContext.previousEpisodes,
-          preferences: {
-            readingLevel: child.readingLevel,
-            tone: "bedtime-friendly",
-          },
-          // IMPROVEMENT 2: Add moral lessons support
-          customElements: moralLessons ? { morals: moralLessons } : undefined,
-        };
+          // Build story context for new StoryEngine
+          const storyContext: StoryContext = {
+            child: {
+              name: child.nickname ?? child.name,
+              age: child.age,
+              interests: child.interests ?? [],
+              personality: child.personalityTraits?.join(", "),
+              fears: child.fears,
+            },
+            theme: arc.theme,
+            storyArc: {
+              title: arc.title,
+              totalEpisodes: arc.totalEpisodes ?? 5,
+              currentEpisode: input.episodeNumber,
+            },
+            previousEpisodes: episodeContext.previousEpisodes,
+            preferences: {
+              readingLevel: child.readingLevel,
+              tone: "bedtime-friendly",
+            },
+            // IMPROVEMENT 2: Add moral lessons support
+            customElements: moralLessons ? { morals: moralLessons } : undefined,
+          };
 
-        // Generate episode using new StoryEngine
-        const episodeData = await storyEngine.generateEpisode(storyContext);
+          // Generate episode using new StoryEngine
+          const episodeData = await storyEngine.generateEpisode(storyContext);
 
-        // Track cost for episode generation
-        costTracker.trackCost(ctx.user.id, input.arcId, {
-          service: "claude",
-          operation: "episode_generation",
-          estimatedCost: COST_ESTIMATES.storyGeneration,
-        });
-
-        // Score story quality
-        const qualityScore = await scoreStory(episodeData, child.age);
-        if (!passesQualityThreshold(qualityScore)) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `Episode quality score too low: ${qualityScore.overall}/100. Please regenerate.`,
+          // Track cost for episode generation
+          costTracker.trackCost(ctx.user.id, input.arcId, {
+            service: "claude",
+            operation: "episode_generation",
+            estimatedCost: COST_ESTIMATES.storyGeneration,
           });
-        }
 
-        // Content moderation — screen generated content before saving
-        const moderationResult = moderateEpisode(
-          {
-            title: episodeData.title,
-            summary: episodeData.summary,
-            pages: episodeData.pages.map((p: any) => ({ text: p.text })),
-          },
-          child.fears ?? undefined
-        );
-        if (!moderationResult.approved) {
-          // Log the flagged content for review
+          // Score story quality
+          const qualityScore = await scoreStory(episodeData, child.age);
+          if (!passesQualityThreshold(qualityScore)) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `Episode quality score too low: ${qualityScore.overall}/100. Please regenerate.`,
+            });
+          }
+
+          // Content moderation — screen generated content before saving
+          const moderationResult = moderateEpisode(
+            {
+              title: episodeData.title,
+              summary: episodeData.summary,
+              pages: episodeData.pages.map((p: any) => ({ text: p.text })),
+            },
+            child.fears ?? undefined
+          );
+          if (!moderationResult.approved) {
+            // Log the flagged content for review
+            await db.insert(contentModerationLog).values({
+              userId: ctx.user.id,
+              childId: child.id,
+              contentType: "episode",
+              approved: false,
+              flaggedItems: moderationResult.flaggedContent.map((f) => ({
+                text: f.text,
+                reason: f.reason,
+                severity: f.severity,
+              })),
+              overallSeverity: moderationResult.overallSeverity,
+            });
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Generated story content did not pass safety review. Please try generating again with different settings.",
+            });
+          }
+
+          const epResult = await db
+            .insert(episodes)
+            .values({
+              storyArcId: input.arcId,
+              episodeNumber: input.episodeNumber,
+              title: episodeData.title,
+              summary: episodeData.summary,
+              musicMood: episodeData.musicMood ?? null,
+            })
+            .$returningId();
+          const newEpisodeId = epResult[0].id;
+
+          // Insert pages
+          for (let pageIdx = 0; pageIdx < episodeData.pages.length; pageIdx++) {
+            const pageData = episodeData.pages[pageIdx];
+            await db.insert(pages).values({
+              episodeId: newEpisodeId,
+              pageNumber: pageData.pageNumber ?? pageIdx + 1,
+              storyText: pageData.text,
+              imagePrompt: pageData.imagePrompt,
+              mood: pageData.mood ?? null,
+              sceneDescription: null,
+              soundEffectHint: null,
+            });
+          }
+
+          // Log successful moderation
           await db.insert(contentModerationLog).values({
+            episodeId: newEpisodeId,
             userId: ctx.user.id,
             childId: child.id,
             contentType: "episode",
-            approved: false,
-            flaggedItems: moderationResult.flaggedContent.map((f) => ({
-              text: f.text,
-              reason: f.reason,
-              severity: f.severity,
-            })),
-            overallSeverity: moderationResult.overallSeverity,
+            approved: true,
+            flaggedItems: null,
+            overallSeverity: "safe",
           });
+
+          // Update arc progress
+          await updateArcProgress(input.arcId, newEpisodeId);
+
+          const [newEpisode] = await db.select().from(episodes).where(eq(episodes.id, newEpisodeId)).limit(1);
+          return newEpisode;
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          console.error("[episodes.generate] Unexpected error:", error);
           throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Generated story content did not pass safety review. Please try generating again with different settings.",
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Episode generation failed. Please try again.",
           });
         }
-
-        const epResult = await db
-          .insert(episodes)
-          .values({
-            storyArcId: input.arcId,
-            episodeNumber: input.episodeNumber,
-            title: episodeData.title,
-            summary: episodeData.summary,
-            musicMood: episodeData.musicMood ?? null,
-          })
-          .$returningId();
-        const newEpisodeId = epResult[0].id;
-
-        // Insert pages
-        for (let pageIdx = 0; pageIdx < episodeData.pages.length; pageIdx++) {
-          const pageData = episodeData.pages[pageIdx];
-          await db.insert(pages).values({
-            episodeId: newEpisodeId,
-            pageNumber: pageData.pageNumber ?? pageIdx + 1,
-            storyText: pageData.text,
-            imagePrompt: pageData.imagePrompt,
-            mood: pageData.mood ?? null,
-            sceneDescription: null,
-            soundEffectHint: null,
-          });
-        }
-
-        // Log successful moderation
-        await db.insert(contentModerationLog).values({
-          episodeId: newEpisodeId,
-          userId: ctx.user.id,
-          childId: child.id,
-          contentType: "episode",
-          approved: true,
-          flaggedItems: null,
-          overallSeverity: "safe",
-        });
-
-        // Update arc progress
-        await updateArcProgress(input.arcId, newEpisodeId);
-
-        const [newEpisode] = await db.select().from(episodes).where(eq(episodes.id, newEpisodeId)).limit(1);
-        return newEpisode;
       }),
 
     generateFullAudio: protectedProcedure
@@ -2528,7 +2581,7 @@ export const appRouter = router({
     /**
      * Get child's progress (streaks, achievements, points, level)
      */
-    getChildProgress: protectedProcedure
+    getChildProgress: coppaProtectedProcedure
       .input(z.object({ childId: z.number() }))
       .query(async ({ input, ctx }) => {
         // Verify child belongs to user
@@ -2573,7 +2626,7 @@ export const appRouter = router({
     /**
      * Get all achievements with unlock status for a child
      */
-    getAchievements: protectedProcedure
+    getAchievements: coppaProtectedProcedure
       .input(z.object({ childId: z.number() }))
       .query(async ({ input, ctx }) => {
         // Verify child belongs to user
@@ -2623,7 +2676,7 @@ export const appRouter = router({
     /**
      * Record reading activity and return any newly unlocked achievements
      */
-    recordReading: protectedProcedure
+    recordReading: coppaProtectedProcedure
       .input(z.object({ childId: z.number(), episodeId: z.number() }))
       .mutation(async ({ input, ctx }) => {
         // Verify child and episode belong to user
@@ -2728,7 +2781,7 @@ export const appRouter = router({
     /**
      * Create a custom story element (character, location, moral, pet, object)
      */
-    createCustomElement: protectedProcedure
+    createCustomElement: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
@@ -2753,7 +2806,7 @@ export const appRouter = router({
     /**
      * Get all custom elements for a child
      */
-    getCustomElements: protectedProcedure
+    getCustomElements: coppaProtectedProcedure
       .input(z.object({ childId: z.number() }))
       .query(async ({ input, ctx }) => {
         return await getCustomElements(ctx.user.id, input.childId);
@@ -2762,7 +2815,7 @@ export const appRouter = router({
     /**
      * Delete (soft) a custom element
      */
-    deleteCustomElement: protectedProcedure
+    deleteCustomElement: coppaProtectedProcedure
       .input(z.object({ elementId: z.number() }))
       .mutation(async ({ input, ctx }) => {
         return await deleteCustomElement(ctx.user.id, input.elementId);
@@ -2771,7 +2824,7 @@ export const appRouter = router({
     /**
      * Update a custom element
      */
-    updateCustomElement: protectedProcedure
+    updateCustomElement: coppaProtectedProcedure
       .input(
         z.object({
           elementId: z.number(),
@@ -2791,7 +2844,7 @@ export const appRouter = router({
     /**
      * Submit an episode for parent approval
      */
-    submitForApproval: protectedProcedure
+    submitForApproval: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
@@ -2809,7 +2862,7 @@ export const appRouter = router({
     /**
      * Review an episode (approve/reject/edit)
      */
-    reviewEpisode: protectedProcedure
+    reviewEpisode: coppaProtectedProcedure
       .input(
         z.object({
           queueId: z.number(),
@@ -2838,7 +2891,7 @@ export const appRouter = router({
     /**
      * Get child story preferences (formatted custom elements)
      */
-    getChildStoryPreferences: protectedProcedure
+    getChildStoryPreferences: coppaProtectedProcedure
       .input(z.object({ childId: z.number() }))
       .query(async ({ input, ctx }) => {
         return await getChildStoryPreferences(ctx.user.id, input.childId);
@@ -2847,7 +2900,7 @@ export const appRouter = router({
     /**
      * Create a parent voice recording
      */
-    createVoiceRecording: protectedProcedure
+    createVoiceRecording: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
@@ -2867,7 +2920,7 @@ export const appRouter = router({
     /**
      * Get voice recordings for a child
      */
-    getVoiceRecordings: protectedProcedure
+    getVoiceRecordings: coppaProtectedProcedure
       .input(z.object({ childId: z.number() }))
       .query(async ({ input, ctx }) => {
         return await getVoiceRecordings(ctx.user.id, input.childId);
@@ -2876,7 +2929,7 @@ export const appRouter = router({
     /**
      * Update voice recording status
      */
-    updateVoiceRecordingStatus: protectedProcedure
+    updateVoiceRecordingStatus: coppaProtectedProcedure
       .input(
         z.object({
           recordingId: z.number(),
@@ -3792,8 +3845,10 @@ export const appRouter = router({
      * Get a shared story by share code (public access, records view)
      */
     getSharedStoryByCode: publicProcedure
-      .input(z.object({ shareCode: z.string() }))
-      .query(async ({ input }) => {
+      .input(z.object({ shareCode: z.string().min(1).max(32) }))
+      .query(async ({ input, ctx }) => {
+        // Rate limit: max 10 share code lookups per minute per IP
+        checkRateLimit(getRateLimitKey(ctx, "share_lookup"), 10, 60_000);
         const { getSharedStoryByCode } = await import("./_core/sharingService");
         return await getSharedStoryByCode(input.shareCode);
       }),

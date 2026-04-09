@@ -129,12 +129,18 @@ export default function StoryReaderScreen() {
 
   const episodeQuery = trpc.episodes.get.useQuery(
     { episodeId },
-    { enabled: !!episodeId }
+    { enabled: !!episodeId, staleTime: 5000 }
   );
 
-  const generateFullAudioMutation = trpc.episodes.generateFullAudio.useMutation();
-  const generateMusicMutation = trpc.episodes.generateMusic.useMutation();
-  const generateImageMutation = trpc.pages.generateImage.useMutation();
+  const generateFullAudioMutation = trpc.episodes.generateFullAudio.useMutation({
+    onSuccess: () => { episodeQuery.refetch(); pagesQuery.refetch(); },
+  });
+  const generateMusicMutation = trpc.episodes.generateMusic.useMutation({
+    onSuccess: () => { episodeQuery.refetch(); },
+  });
+  const generateImageMutation = trpc.pages.generateImage.useMutation({
+    onSuccess: () => { pagesQuery.refetch(); },
+  });
 
   const pages = useMemo(() => pagesQuery.data || [], [pagesQuery.data]);
   const episode = episodeQuery.data;

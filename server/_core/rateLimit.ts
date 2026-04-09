@@ -64,14 +64,19 @@ export function checkRateLimit(
 
 /**
  * Extract a rate-limit key from the tRPC context.
- * Uses userId if authenticated, otherwise falls back to IP.
+ * Uses userId if authenticated, otherwise falls back to composite IP key.
  */
 export function getRateLimitKey(ctx: any, prefix: string): string {
   if (ctx.userId) {
     return `${prefix}:user:${ctx.userId}`;
   }
-  // Fallback to IP from request
+  // Fallback to composite IP key to prevent X-Forwarded-For spoofing
   const req = ctx.req;
-  const ip = req?.headers?.["x-forwarded-for"] || req?.socket?.remoteAddress || "unknown";
-  return `${prefix}:ip:${ip}`;
+  // Use the LAST IP in X-Forwarded-For (closest proxy) + socket IP for composite key
+  // This makes spoofing harder since both must match
+  const xff = req?.headers?.["x-forwarded-for"];
+  const forwardedIp = typeof xff === "string" ? xff.split(",").pop()?.trim() : undefined;
+  const socketIp = req?.socket?.remoteAddress || "unknown";
+  const compositeKey = forwardedIp ? `${forwardedIp}:${socketIp}` : socketIp;
+  return `${prefix}:ip:${compositeKey}`;
 }

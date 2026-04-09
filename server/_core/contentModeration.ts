@@ -279,20 +279,20 @@ Be strict about safety. Flag anything that could cause anxiety, fear, or harm to
         overallSeverity: parsed.severity || "safe",
       };
     } catch {
-      // If parsing fails, treat as safe (better to be permissive than block valid content)
+      // If parsing fails, fail CLOSED to protect child safety
       return {
-        approved: true,
-        flaggedContent: [],
-        overallSeverity: "safe",
+        approved: false,
+        flaggedContent: [{ text: "Moderation check failed", reason: "System error during safety check", severity: "high" }],
+        overallSeverity: "high",
       };
     }
   } catch (error) {
     console.error("AI safety check failed:", error);
-    // On error, treat as safe (fail open to avoid blocking legitimate content)
+    // On error, fail CLOSED to protect child safety
     return {
-      approved: true,
-      flaggedContent: [],
-      overallSeverity: "safe",
+      approved: false,
+      flaggedContent: [{ text: "Moderation check failed", reason: "System error during safety check", severity: "high" }],
+      overallSeverity: "high",
     };
   }
 }
