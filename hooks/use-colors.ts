@@ -1,6 +1,13 @@
 import { useColorScheme } from "react-native";
+import {
+  SchemeColors,
+  getAgeAdaptiveColors,
+  ageToGroup,
+  type ColorScheme,
+  type AgeGroup,
+} from "@/lib/_core/theme";
 
-interface Colors {
+export interface Colors {
   primary: string;
   secondary: string;
   accent: string;
@@ -15,26 +22,46 @@ interface Colors {
   destructive: string;
   success: string;
   warning: string;
+  // New: scheme-aware semantic tokens
+  isDark: boolean;
+  cardShadow: string;
+  overlay: string;
 }
 
-export function useColors(): Colors {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+/**
+ * Primary color hook used across all screens.
+ * Now powered by theme.config.js with proper light/dark values,
+ * age-adaptive overrides, and improved contrast ratios.
+ *
+ * @param childAge - Optional child age for age-adaptive theming
+ */
+export function useColors(childAge?: number): Colors {
+  const systemScheme = useColorScheme();
+  const isDark = systemScheme === "dark";
+  const scheme: ColorScheme = isDark ? "dark" : "light";
+  const ageGroup: AgeGroup = ageToGroup(childAge);
+
+  // Get age-adaptive colors (falls back to base if no age provided)
+  const palette = getAgeAdaptiveColors(scheme, ageGroup);
 
   return {
-    primary: "#FFD700", // Gold
-    secondary: "#FF6B6B", // Coral
-    accent: "#48C9B0", // Teal
-    background: isDark ? "#0A0E1A" : "#FFFFFF",
-    surface: isDark ? "#1A1E2E" : "#F8F9FA",
-    foreground: isDark ? "#FFFFFF" : "#0A0E1A",
-    text: isDark ? "#FFFFFF" : "#1F2937",
-    textSecondary: isDark ? "#9CA3AF" : "#6B7280",
-    muted: isDark ? "#6B7280" : "#9CA3AF",
-    border: isDark ? "#374151" : "#E5E7EB",
-    card: isDark ? "#1F2937" : "#FFFFFF",
-    destructive: "#EF4444",
-    success: "#10B981",
-    warning: "#F59E0B",
+    primary: palette.primary,
+    secondary: "#FF6B6B",                         // Coral (consistent)
+    accent: "#48C9B0",                             // Teal (consistent)
+    background: palette.background,
+    surface: palette.surface,
+    foreground: palette.foreground,
+    text: palette.foreground,
+    textSecondary: palette.muted,
+    muted: palette.muted,
+    border: palette.border,
+    card: palette.surface,
+    destructive: palette.error,
+    success: palette.success,
+    warning: palette.warning,
+    // Semantic tokens
+    isDark,
+    cardShadow: isDark ? "transparent" : "rgba(0,0,0,0.08)",
+    overlay: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.3)",
   };
 }

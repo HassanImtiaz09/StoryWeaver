@@ -7,6 +7,12 @@ export {
   Fonts,
   SchemeColors,
   ThemeColors,
+  AgeThemes,
+  StoryThemeAccents,
+  getAgeAdaptiveColors,
+  ageToGroup,
+  getStoryThemeAccent,
   type ColorScheme,
+  type AgeGroup,
   type ThemeColorPalette,
 } from "@/lib/_core/theme";

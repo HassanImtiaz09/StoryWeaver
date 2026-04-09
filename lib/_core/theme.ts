@@ -3,8 +3,11 @@ import { Platform } from "react-native";
 import themeConfig from "@/theme.config";
 
 export type ColorScheme = "light" | "dark";
+export type AgeGroup = "toddler" | "child" | "tween" | "default";
 
 export const ThemeColors = themeConfig.themeColors;
+export const AgeThemes = themeConfig.ageThemes;
+export const StoryThemeAccents = themeConfig.storyThemeAccents;
 
 type ThemeColorTokens = typeof ThemeColors;
 type ThemeColorName = keyof ThemeColorTokens;
@@ -27,6 +30,52 @@ function buildSchemePalette(colors: ThemeColorTokens): SchemePalette {
 }
 
 export const SchemeColors = buildSchemePalette(ThemeColors);
+
+/**
+ * Get age-adaptive colors by merging age theme overrides onto the base theme.
+ * Falls back to base theme for any tokens not overridden by the age theme.
+ */
+export function getAgeAdaptiveColors(
+  scheme: ColorScheme,
+  ageGroup: AgeGroup = "default"
+): Record<ThemeColorName, string> {
+  const base = SchemeColors[scheme];
+  if (ageGroup === "default" || !AgeThemes[ageGroup]) return base;
+
+  const ageOverrides = AgeThemes[ageGroup];
+  const merged = { ...base };
+
+  (Object.keys(ageOverrides) as ThemeColorName[]).forEach((name) => {
+    if (ageOverrides[name]?.[scheme]) {
+      merged[name] = ageOverrides[name][scheme];
+    }
+  });
+
+  return merged;
+}
+
+/**
+ * Determine age group from a child's age.
+ */
+export function ageToGroup(age: number | undefined): AgeGroup {
+  if (age === undefined) return "default";
+  if (age <= 5) return "toddler";
+  if (age <= 8) return "child";
+  if (age <= 12) return "tween";
+  return "default";
+}
+
+/**
+ * Get the accent color and gradient for a story theme.
+ */
+export function getStoryThemeAccent(
+  theme: string
+): { accent: string; gradient: [string, string] } {
+  const key = theme.toLowerCase().replace(/\s+/g, "");
+  const entry = StoryThemeAccents[key as keyof typeof StoryThemeAccents];
+  if (entry) return { accent: entry.accent, gradient: entry.gradient as [string, string] };
+  return { accent: "#FFD700", gradient: ["#1A1A2E", "#16213E"] };
+}
 
 type RuntimePalette = SchemePaletteItem & {
   text: string;

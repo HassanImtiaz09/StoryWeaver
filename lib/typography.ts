@@ -22,12 +22,11 @@ export const FontFamily = {
 
 // Pre-built text style presets
 export const TextStyles = {
-  // Screen titles
+  // Screen titles — color should be overridden by component using theme primary
   screenTitle: {
     fontFamily: FontFamily.heading,
     fontSize: 28,
     lineHeight: 36,
-    color: '#FFD700'
   },
 
   // Section headers

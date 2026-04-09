@@ -9,15 +9,18 @@ interface StyledTextProps extends TextProps {
   children: React.ReactNode;
 }
 
-// Story Title - for story names (Baloo 2 Bold, gold)
+// Story Title - for story names (Baloo 2 Bold, theme primary)
 export function StoryTitle({ color, style, ...props }: StyledTextProps) {
+  const { colorScheme } = useThemeContext();
+  const colors = Colors[colorScheme];
+
   return (
     <Text
       {...props}
       style={[
         styles.storyTitle,
         TextStyles.screenTitle,
-        color && { color },
+        { color: color || colors.primary },
         style,
       ]}
     />
@@ -279,7 +282,7 @@ export function TabLabel({ color, style, ...props }: StyledTextProps) {
   );
 }
 
-// Screen Title - for screen headings (Baloo 2 Bold, large)
+// Screen Title - for screen headings (Baloo 2 Bold, large, theme primary)
 export function ScreenTitle({ color, style, ...props }: StyledTextProps) {
   const { colorScheme } = useThemeContext();
   const colors = Colors[colorScheme];
@@ -289,7 +292,7 @@ export function ScreenTitle({ color, style, ...props }: StyledTextProps) {
       {...props}
       style={[
         TextStyles.screenTitle,
-        { color: color || colors.foreground },
+        { color: color || colors.primary },
         style,
       ]}
     />
