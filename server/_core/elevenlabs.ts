@@ -263,6 +263,71 @@ export class CharacterVoiceRegistry {
   }
 }
 
+// ─── Process narration pacing markup for ElevenLabs ──────────────
+
+/**
+ * Process narration pacing markup for ElevenLabs.
+ * - Keeps <break> tags as-is (ElevenLabs processes them natively)
+ * - Extracts tone directions like (softly), (excitedly) and adjusts voice settings
+ * - Handles *whispered text* by adjusting stability
+ */
+export function processNarrationMarkup(
+  text: string,
+  baseConfig: CharacterVoiceConfig
+): { processedText: string; adjustedConfig: CharacterVoiceConfig } {
+  const config = { ...baseConfig };
+  let processed = text;
+
+  // Detect tone modulation markers
+  const toneMatch = processed.match(/\((softly|excitedly|slowly, dreamily|gently, getting quieter|whispered|urgently|sadly|happily)\)/i);
+  if (toneMatch) {
+    const tone = toneMatch[1].toLowerCase();
+    processed = processed.replace(/\([^)]*(?:softly|excitedly|slowly|gently|whispered|urgently|sadly|happily)[^)]*\)/gi, "").trim();
+
+    switch (tone) {
+      case "softly":
+      case "whispered":
+        config.stability = Math.min(config.stability + 0.15, 0.95);
+        config.style = Math.max(config.style - 0.15, 0.05);
+        config.similarityBoost = Math.min(config.similarityBoost + 0.1, 0.95);
+        break;
+      case "excitedly":
+        config.style = Math.min(config.style + 0.2, 0.8);
+        config.stability = Math.max(config.stability - 0.1, 0.3);
+        break;
+      case "slowly, dreamily":
+      case "gently, getting quieter":
+        config.stability = Math.min(config.stability + 0.2, 0.95);
+        config.style = Math.max(config.style - 0.2, 0.05);
+        break;
+      case "urgently":
+        config.style = Math.min(config.style + 0.15, 0.75);
+        config.stability = Math.max(config.stability - 0.15, 0.25);
+        break;
+      case "sadly":
+        config.stability = Math.min(config.stability + 0.1, 0.9);
+        config.style = Math.max(config.style - 0.1, 0.1);
+        break;
+      case "happily":
+        config.style = Math.min(config.style + 0.1, 0.7);
+        break;
+    }
+  }
+
+  // Handle *whispered text* — remove asterisks, already adjusted config above
+  processed = processed.replace(/\*([^*]+)\*/g, "$1");
+
+  // Keep <break> tags as-is — ElevenLabs eleven_multilingual_v2 processes them natively
+  // But validate break times are within ElevenLabs limits (max 3s)
+  processed = processed.replace(/<break time="(\d+\.?\d*)s"\/>/g, (match, seconds) => {
+    const s = parseFloat(seconds);
+    if (s > 3.0) return '<break time="3.0s"/>';
+    return match;
+  });
+
+  return { processedText: processed, adjustedConfig: config };
+}
+
 // ─── Generate a short silence buffer for pauses ─────────────────
 
 function generateSilence(durationMs: number): Buffer {
@@ -347,7 +412,8 @@ export async function generatePageAudio(
     }
 
     const enhancedText = addVocalQuirks(segment.text, segment.characterTraits || "", voiceRole);
-    const audioBuffer = await generateSpeech({ text: enhancedText, voiceConfig, language });
+    const { processedText, adjustedConfig } = processNarrationMarkup(enhancedText, voiceConfig);
+    const audioBuffer = await generateSpeech({ text: processedText, voiceConfig: adjustedConfig, language });
     const estimatedDurationMs = Math.round((audioBuffer.length / 16000) * 1000);
 
     audioBuffers.push(audioBuffer);
@@ -442,7 +508,8 @@ export async function generateEpisodeAudio(
       }
 
       const enhancedText = addVocalQuirks(segment.text, segment.characterTraits || "", voiceRole);
-      const audioBuffer = await generateSpeech({ text: enhancedText, voiceConfig, language });
+      const { processedText, adjustedConfig } = processNarrationMarkup(enhancedText, voiceConfig);
+      const audioBuffer = await generateSpeech({ text: processedText, voiceConfig: adjustedConfig, language });
       const estimatedDurationMs = Math.round((audioBuffer.length / 16000) * 1000);
 
       allBuffers.push(audioBuffer);

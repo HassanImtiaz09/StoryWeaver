@@ -24,7 +24,11 @@ interface StoryPreference {
 
 const STORY_LENGTH_OPTIONS = ["Short (5-10 min)", "Medium (15-20 min)", "Long (25-30 min)"];
 const STORY_TONE_OPTIONS = ["Adventurous", "Calm", "Funny", "Magical"];
-const STORY_MORAL_OPTIONS = ["Courage", "Kindness", "Creativity", "Friendship"];
+const STORY_MORAL_OPTIONS = [
+  "Courage", "Kindness", "Creativity", "Friendship",
+  "Honesty", "Patience", "Empathy", "Resilience",
+  "Sharing", "Gratitude", "Teamwork", "Respect",
+];
 
 export default function NewStoryScreen() {
   const router = useRouter();
@@ -38,16 +42,29 @@ export default function NewStoryScreen() {
 
   const [storyLength, setStoryLength] = useState<string | null>(null);
   const [storyTone, setStoryTone] = useState<string | null>(null);
-  const [storyMoral, setStoryMoral] = useState<string | null>(null);
+  const [storyMorals, setStoryMorals] = useState<string[]>([]);
   const [customElements, setCustomElements] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Use tRPC mutation for story generation
   const generateMutation = trpc.stories.generateStory.useMutation();
 
+  const toggleMoral = (moral: string) => {
+    setStoryMorals(prev => {
+      if (prev.includes(moral)) {
+        return prev.filter(m => m !== moral);
+      }
+      if (prev.length >= 3) {
+        Alert.alert("Maximum 3", "You can select up to 3 moral lessons");
+        return prev;
+      }
+      return [...prev, moral];
+    });
+  };
+
   const handleGenerateStory = async () => {
-    if (!storyLength || !storyTone || !storyMoral) {
-      Alert.alert("Missing Options", "Please select story length, tone, and moral lesson");
+    if (!storyLength || !storyTone || storyMorals.length === 0) {
+      Alert.alert("Missing Options", "Please select story length, tone, and at least one moral lesson");
       return;
     }
 
@@ -64,7 +81,7 @@ export default function NewStoryScreen() {
         theme: params?.theme || "fantasy",
         storyLength,
         tone: storyTone,
-        moralLesson: storyMoral,
+        moralLessons: storyMorals,
         customElements: customElements || undefined,
       });
 
@@ -198,19 +215,33 @@ export default function NewStoryScreen() {
 
         {/* Moral Lesson Selection */}
         <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            What should it teach?
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, marginTop: 20 }}>
+            <Text style={[styles.sectionTitle, { color: colors.text, flex: 1 }]}>
+              What should it teach? (Pick up to 3)
+            </Text>
+            <View style={{
+              backgroundColor: colors.primary,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 12,
+              minWidth: 40,
+              alignItems: "center"
+            }}>
+              <Text style={{ color: "#0A0E1A", fontSize: 12, fontWeight: "700" }}>
+                {storyMorals.length}/3
+              </Text>
+            </View>
+          </View>
           <View style={styles.optionsGrid}>
             {STORY_MORAL_OPTIONS.map((option) => (
               <Pressable
                 key={option}
-                onPress={() => setStoryMoral(option)}
+                onPress={() => toggleMoral(option)}
                 style={[
                   styles.optionButton,
                   {
                     backgroundColor:
-                      storyMoral === option
+                      storyMorals.includes(option)
                         ? colors.primary
                         : "rgba(255,255,255,0.08)",
                   },
@@ -220,7 +251,7 @@ export default function NewStoryScreen() {
                   style={[
                     styles.optionButtonText,
                     {
-                      color: storyMoral === option ? "#0A0E1A" : colors.text,
+                      color: storyMorals.includes(option) ? "#0A0E1A" : colors.text,
                     },
                   ]}
                 >

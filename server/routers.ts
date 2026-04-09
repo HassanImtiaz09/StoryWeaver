@@ -751,6 +751,73 @@ export const appRouter = router({
       }),
   }),
 
+  stories: router({
+    /**
+     * Generate a new story with optional moral lessons (array support)
+     * Maps to storyArcs.generate but with enhanced IMPROVEMENT 2 support
+     */
+    generateStory: protectedProcedure
+      .input(
+        z.object({
+          childId: z.number(),
+          theme: z.string(),
+          storyLength: z.string().optional(),
+          tone: z.string().optional(),
+          moralLessons: z.array(z.string()).optional(),
+          customElements: z.string().optional(),
+          totalEpisodes: z.number().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        await checkStoryLimit(ctx.user.id);
+
+        const [child] = await db
+          .select()
+          .from(children)
+          .where(
+            and(
+              eq(children.id, input.childId),
+              eq(children.userId, ctx.user.id)
+            )
+          )
+          .limit(1);
+        if (!child) throw new TRPCError({ code: "NOT_FOUND" });
+
+        const childProfile = toChildProfile(child);
+        const educationalValue = input.moralLessons?.join(", ") ?? "general learning";
+        const totalEpisodes = input.totalEpisodes ?? 5;
+        const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
+
+        // Create storyArcs entry with moral lessons support
+        const result = await db
+          .insert(storyArcs)
+          .values({
+            userId: ctx.user.id,
+            childId: input.childId,
+            theme: input.theme,
+            title: arcData.title,
+            synopsis: arcData.synopsis,
+            educationalValue: educationalValue,
+            totalEpisodes,
+          })
+          .$returningId();
+        const newId = result[0].id;
+
+        // Track story usage
+        await db
+          .update(users)
+          .set({ storiesUsed: (await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1))[0].storiesUsed! + 1 })
+          .where(eq(users.id, ctx.user.id));
+
+        const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
+        return {
+          arcId: newArc.id,
+          serverArcId: newArc.id,
+          title: newArc.title,
+        };
+      }),
+  }),
+
   episodes: router({
     list: protectedProcedure
       .input(z.object({ arcId: z.number() }))
@@ -837,6 +904,11 @@ export const appRouter = router({
         // Get episode context for narrative continuity
         const episodeContext = await getEpisodeContext(input.arcId, input.episodeNumber);
 
+        // Parse educational value (moral lessons) from arc
+        const moralLessons = arc.educationalValue
+          ? arc.educationalValue.split(",").map((m) => m.trim())
+          : undefined;
+
         // Build story context for new StoryEngine
         const storyContext: StoryContext = {
           child: {
@@ -857,6 +929,8 @@ export const appRouter = router({
             readingLevel: child.readingLevel,
             tone: "bedtime-friendly",
           },
+          // IMPROVEMENT 2: Add moral lessons support
+          customElements: moralLessons ? { morals: moralLessons } : undefined,
         };
 
         // Generate episode using new StoryEngine

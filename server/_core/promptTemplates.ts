@@ -83,6 +83,43 @@ SIMPLIFIED VOCABULARY:
 }
 
 /**
+ * Build narration pacing and SSML markup instructions
+ */
+export function buildNarrationPacingPrompt(): string {
+  return `NARRATION PACING & DELIVERY MARKUP (CRITICAL for natural-sounding audio):
+
+You MUST embed pacing cues directly in the story text using these markers:
+
+PAUSE MARKERS (processed by text-to-speech):
+- <break time="0.5s"/> — Short breath pause (between sentences within action)
+- <break time="1.0s"/> — Medium pause (between paragraphs, scene shifts, before dramatic reveals)
+- <break time="1.5s"/> — Long pause (page transitions, dramatic tension, before climax moments)
+- <break time="2.0s"/> — Extended pause (after emotional moments, before the final page wind-down)
+
+PACING RULES:
+1. NEVER have more than 3 sentences without at least a short <break time="0.5s"/>
+2. Place <break time="1.0s"/> before any character speaks for the first time on a page
+3. Place <break time="1.5s"/> after any emotional revelation or surprise
+4. The FINAL PAGE must have <break time="2.0s"/> after every 2 sentences to slow the pace for sleep
+5. Dialogue should have natural pauses — <break time="0.3s"/> between back-and-forth exchanges
+6. After a question, add <break time="0.8s"/> before the answer
+
+TONE MODULATION (embedded in text):
+- For whispered lines: wrap in *asterisks* and add "(softly)" before the line
+- For excited lines: use ! naturally and add "(excitedly)" before the line
+- For slow, dreamy lines: use ellipses "..." and add "(slowly, dreamily)" before the line
+- For the bedtime wind-down: add "(gently, getting quieter)" before narrator lines
+
+EXAMPLE of properly paced text:
+NARRATOR: The forest was quiet tonight. <break time="0.5s"/> Moonlight filtered through the canopy, painting silver patterns on the mossy path below. <break time="1.0s"/>
+MAYA: (excitedly) "Look! The fireflies are spelling something!" <break time="0.8s"/>
+LUNA: (softly) *"Shhh... watch carefully..."* <break time="1.5s"/>
+NARRATOR: (slowly, dreamily) And there, dancing in the warm summer air... <break time="0.5s"/> the tiny lights spelled out a single word... <break time="2.0s"/> "Home."
+
+This pacing creates a NATURAL listening experience — not robotic monotone. The pauses give the listener time to imagine, feel, and drift toward sleep.`;
+}
+
+/**
  * Build a system prompt for character voice instruction
  */
 export function buildVoiceFormatPrompt(): string {
@@ -115,10 +152,37 @@ export function EPISODE_GENERATION_TEMPLATE(
 ): string {
   const heroName = context.child.name;
 
-  // Adjust page count for large print mode
-  let pageCount = context.child.age <= 3 ? 8 : context.child.age <= 5 ? 10 : 12;
+  // IMPROVEMENT 1: Optimal bedtime story length based on age and narration pace (~100 words/min)
+  // Ages 2-4: 5-8 min → 500-800 words → 6 pages × ~100 words
+  // Ages 5-7: 8-12 min → 800-1200 words → 8 pages × ~125 words
+  // Ages 8-10: 12-18 min → 1200-1800 words → 10 pages × ~150 words
+  // Ages 11-13: 15-20 min → 1500-2000 words → 12 pages × ~170 words
+  let pageCount: number;
+  let wordsPerPage: number;
+  let targetNarrationMinutes: string;
+
+  if (context.child.age <= 4) {
+    pageCount = 6;
+    wordsPerPage = 100;
+    targetNarrationMinutes = "5-8";
+  } else if (context.child.age <= 7) {
+    pageCount = 8;
+    wordsPerPage = 125;
+    targetNarrationMinutes = "8-12";
+  } else if (context.child.age <= 10) {
+    pageCount = 10;
+    wordsPerPage = 150;
+    targetNarrationMinutes = "12-18";
+  } else {
+    pageCount = 12;
+    wordsPerPage = 170;
+    targetNarrationMinutes = "15-20";
+  }
+
+  // Adjust for accessibility options
   if (accessibilityOptions?.largePrint) {
     pageCount = Math.ceil(pageCount * 1.2); // More pages with fewer words each
+    wordsPerPage = Math.ceil(wordsPerPage * 0.85);
   }
 
   let ageGuide = "";
@@ -141,12 +205,60 @@ export function EPISODE_GENERATION_TEMPLATE(
     ? `- Previous Episodes: ${context.previousEpisodes.map((e) => `"${e.title}": ${e.summary}`).join("; ")}`
     : "- This is the first episode.";
 
+  const episodeNumber = context.storyArc?.currentEpisode || 1;
+  const totalEpisodes = context.storyArc?.totalEpisodes || 5;
+
+  // IMPROVEMENT 3: Episode consistency - narrative phase guidance
+  let narrativePhaseGuide = "";
+  if (episodeNumber === 1) {
+    narrativePhaseGuide = `NARRATIVE PHASE: INTRODUCTION (Episode 1 of ${totalEpisodes})
+  - Establish the world, introduce the main character and their ordinary life
+  - End with a "call to adventure" — something disrupts the ordinary world
+  - Introduce 1-2 key side characters who will recur throughout the series
+  - Plant seeds of the overarching mystery/quest`;
+  } else if (episodeNumber <= Math.ceil(totalEpisodes * 0.3)) {
+    narrativePhaseGuide = `NARRATIVE PHASE: RISING ACTION (Episode ${episodeNumber} of ${totalEpisodes})
+  - Build on the quest/challenge established in episode 1
+  - Introduce new allies or obstacles
+  - Deepen the main character's motivation
+  - Each discovery should raise MORE questions
+  - Reference specific events and characters from previous episodes`;
+  } else if (episodeNumber <= Math.ceil(totalEpisodes * 0.7)) {
+    narrativePhaseGuide = `NARRATIVE PHASE: MIDPOINT & ESCALATION (Episode ${episodeNumber} of ${totalEpisodes})
+  - Stakes are higher now — the challenge is more serious
+  - Main character faces a setback or learns a difficult lesson
+  - Relationships deepen between characters
+  - New information changes the hero's understanding of the quest
+  - Reference previous episodes — characters should remember and grow`;
+  } else if (episodeNumber < totalEpisodes) {
+    narrativePhaseGuide = `NARRATIVE PHASE: CLIMAX APPROACH (Episode ${episodeNumber} of ${totalEpisodes})
+  - The biggest challenge yet — the hero must use everything they've learned
+  - All major characters should appear or be referenced
+  - Build toward the climactic moment but don't resolve it yet
+  - The hero should demonstrate growth from earlier episodes`;
+  } else {
+    narrativePhaseGuide = `NARRATIVE PHASE: RESOLUTION (Episode ${episodeNumber} of ${totalEpisodes} — FINAL EPISODE)
+  - Resolve the overarching quest/challenge
+  - The hero succeeds using lessons learned across ALL previous episodes
+  - Give every recurring character a satisfying conclusion
+  - Reference key moments from the series
+  - End with a sense of accomplishment and gentle closure for bedtime`;
+  }
+
+  // IMPROVEMENT 2: Multiple morals support
   const customElementsContext = context.customElements
     ? `
 CUSTOM ELEMENTS TO INCLUDE:
 ${context.customElements.characters ? `- Characters: ${context.customElements.characters.join(", ")}` : ""}
 ${context.customElements.locations ? `- Locations: ${context.customElements.locations.join(", ")}` : ""}
-${context.customElements.morals ? `- Moral lessons: ${context.customElements.morals.join(", ")}` : ""}`
+${
+  context.customElements.morals?.length
+    ? `
+MORAL LESSONS TO WEAVE INTO THE STORY (important — these should emerge naturally through the narrative, NOT be lectured):
+${context.customElements.morals.map((m, i) => `${i + 1}. ${m} — show this through character actions and consequences, not dialogue about the lesson`).join("\n")}
+`
+    : ""
+}`
     : "";
 
   const artStyleGuide = ART_STYLE_PROMPTS[context.theme] || ART_STYLE_PROMPTS.forest;
@@ -156,7 +268,7 @@ ${context.customElements.morals ? `- Moral lessons: ${context.customElements.mor
 STORY CONTEXT:
 - Series: "${context.storyArc?.title || "Adventure"}"
 - Theme: ${context.theme}
-- Episode ${context.storyArc?.currentEpisode || 1} of ${context.storyArc?.totalEpisodes || 5}
+- Episode ${episodeNumber} of ${totalEpisodes}
 ${previousEpisodeContext}
 
 CHILD PROFILE:
@@ -167,10 +279,12 @@ ${context.child.fears?.length ? `- Fears to gently address: ${context.child.fear
 
 ${ageGuide}
 
+${narrativePhaseGuide}
+
 ${customElementsContext}
 
 CRITICAL STORYTELLING REQUIREMENTS:
-1. STORY LENGTH: Generate exactly ${pageCount} pages. Each page must have SUBSTANTIAL content — at least 100 words.
+1. STORY LENGTH: Generate exactly ${pageCount} pages. Target ${wordsPerPage} words per page (total ~${pageCount * wordsPerPage} words). This should produce a ${targetNarrationMinutes} minute bedtime narration at a calm reading pace. Do NOT exceed ${Math.round(pageCount * wordsPerPage * 1.2)} total words — children need rest, not marathons.
 2. ENGAGEMENT: Every page should hook the listener. Use vivid sensory details, character emotions, dialogue, and mini-discoveries.
 3. PACING: Build tension gradually. First pages: introduce setting and characters. Middle pages: rising action with discoveries and challenges. Final 2 pages: warm wind-down for bedtime.
 4. CHARACTERS: Give each character a distinct personality and speaking style. Use at least 3 named characters with meaningful dialogue. The hero should speak frequently.
@@ -179,7 +293,16 @@ CRITICAL STORYTELLING REQUIREMENTS:
 7. EMOTIONAL ARC: curiosity → excitement → challenge → triumph → warmth → sleepiness.
 8. BEDTIME ENDING: Final 2 pages must gently wind down using calming language, slowing pace, mentions of stars/moon/sleep/dreams.
 
+SERIES CONTINUITY (CRITICAL):
+- All characters introduced in previous episodes MUST be referenced consistently (same names, same traits, same relationships)
+- The hero should explicitly remember and reference events from previous episodes
+- Settings established earlier should remain consistent
+- Any items, powers, or tools gained in previous episodes should still be available
+- Character growth should be cumulative — the hero at episode ${episodeNumber} should be noticeably more mature/capable than episode 1
+
 ${buildVoiceFormatPrompt()}
+
+${buildNarrationPacingPrompt()}
 
 ${
   accessibilityOptions
