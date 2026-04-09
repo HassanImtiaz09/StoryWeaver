@@ -32,8 +32,12 @@ export interface AppSettings {
   storiesPerMonth: number;
 
   // Display
-  fontSize: "small" | "medium" | "large";
+  fontSize: "small" | "medium" | "large" | "extraLarge";
   darkMode: "auto" | "light" | "dark";
+
+  // Typography & Accessibility
+  fontPreference: "default" | "openDyslexic";   // Accessibility font choice
+  dyslexiaFriendlySpacing: boolean;              // Extra word-spacing in story text
 
   // Bedtime mode
   bedtimeModeEnabled: boolean;
@@ -114,6 +118,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   storiesPerMonth: 3,
   fontSize: "medium",
   darkMode: "auto",
+  fontPreference: "default",
+  dyslexiaFriendlySpacing: false,
   bedtimeModeEnabled: true,
   sleepTimerDefault: 30,
   ambientSoundDefault: "rain",
