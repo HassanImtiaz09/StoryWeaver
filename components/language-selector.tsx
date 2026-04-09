@@ -19,6 +19,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { useLanguageStore } from "@/lib/language-store";
+import { useColors } from "@/hooks/use-colors";
 import { SUPPORTED_LANGUAGES } from "@/server/_core/languageService";
 import { formatLanguageName, getLanguageFlag } from "@/server/_core/bilingualFormatter";
 
@@ -35,6 +36,7 @@ export function LanguageSelector({
   onLanguageSelected,
   showBilingualToggle = false,
 }: LanguageSelectorProps) {
+  const colors = useColors();
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const {
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: colors.border,
   },
 
   buttonContent: {
@@ -322,7 +324,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: colors.border,
   },
 
   modalTitle: {
@@ -357,7 +359,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: colors.border,
     color: "#000",
   },
 
@@ -385,7 +387,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: colors.border,
   },
 
   languageOptionSelected: {

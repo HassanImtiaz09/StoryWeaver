@@ -7,6 +7,7 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { BarChart, LineChart, PieChart } from "react-native-chart-kit";
 import { Dimensions } from "react-native";
+import { useColors } from "@/hooks/use-colors";
 
 interface ClassAnalyticsSummaryProps {
   totalReadingTime: number;
@@ -29,6 +30,7 @@ export const ClassAnalyticsSummary: React.FC<ClassAnalyticsSummaryProps> = ({
   studentsNeedingAttention,
   topPerformers,
 }) => {
+  const colors = useColors();
   const chartWidth = Dimensions.get("window").width - 32;
   const engagementRate = totalStudents > 0 ? Math.round((studentsEngaged / totalStudents) * 100) : 0;
 
@@ -199,7 +201,7 @@ const styles = StyleSheet.create({
     padding: 14,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: colors.border,
   },
   statNumber: {
     fontSize: 24,
@@ -264,7 +266,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: colors.border,
   },
   themeText: {
     fontSize: 15,
@@ -282,7 +284,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: colors.border,
   },
   studentInfo: {
     flex: 1,

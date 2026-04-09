@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { TextInput } from "react-native";
+import { useColors } from "@/hooks/use-colors";
 
 export interface AssessmentQuestion {
   id: string;
@@ -44,6 +45,7 @@ export const AssessmentView: React.FC<AssessmentViewProps> = ({
   onSubmit,
   isLoading = false,
 }) => {
+  const colors = useColors();
   const [answers, setAnswers] = useState<StudentAnswers>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -408,7 +410,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderWidth: 2,
-    borderColor: "#e0e0e0",
+    borderColor: colors.border,
     borderRadius: 8,
   },
   optionButtonSelected: {
@@ -444,7 +446,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderWidth: 2,
-    borderColor: "#e0e0e0",
+    borderColor: colors.border,
     borderRadius: 8,
     alignItems: "center",
   },
@@ -462,7 +464,7 @@ const styles = StyleSheet.create({
   },
   shortAnswerInput: {
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -491,7 +493,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 10,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: colors.border,
     backgroundColor: "#fff",
   },
   navButton: {
@@ -535,7 +537,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: colors.border,
   },
   resultNumber: {
     fontSize: 11,

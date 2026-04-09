@@ -19,6 +19,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useOfflineStore, type OfflineStoryInfo } from "@/lib/offline-store";
 import { createOfflineManager } from "@/lib/offline-manager";
+import { useColors } from "@/hooks/use-colors";
 
 type SortOption = "recently-downloaded" | "size" | "last-read";
 
@@ -30,6 +31,7 @@ interface OfflineLibraryProps {
 export function OfflineLibrary({ userId, onStoryPress }: OfflineLibraryProps) {
   const [sortBy, setSortBy] = useState<SortOption>("recently-downloaded");
   const [isLoading, setIsLoading] = useState(false);
+  const colors = useColors();
 
   const store = useOfflineStore();
   const stories = Array.from(store.offlineStories.values());
@@ -410,7 +412,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: "row",

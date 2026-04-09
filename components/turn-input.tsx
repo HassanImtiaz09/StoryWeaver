@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useCollaborativeStore } from "../lib/collaborative-store";
+import { useColors } from "@/hooks/use-colors";
 
 interface TurnInputProps {
   onSubmitTurn: (input: string) => Promise<void>;
@@ -25,6 +26,7 @@ export const TurnInput: React.FC<TurnInputProps> = ({
   onPreviewGenerated,
   disabled = false,
 }) => {
+  const colors = useColors();
   const input = useCollaborativeStore((state) => state.myTurnInput);
   const setInput = useCollaborativeStore((state) => state.setMyTurnInput);
   const suggestions = useCollaborativeStore((state) => state.suggestedPrompts);
@@ -306,7 +308,7 @@ const styles = {
   },
   input: {
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,

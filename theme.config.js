@@ -7,7 +7,7 @@ const themeColors = {
   surface:    { light: '#FFFFFF', dark: '#1E2750' },        // White cards on cream / navy cards with 2% luminance delta
   foreground: { light: '#1F2937', dark: '#F5F5F5' },        // Dark charcoal on light / light on dark
   muted:      { light: '#6B7280', dark: '#A0A4B8' },        // Improved contrast: 4.5:1+ on both schemes
-  border:     { light: '#E5E7EB', dark: 'rgba(255,215,0,0.25)' },  // Visible borders on both schemes
+  border:     { light: '#E5E7EB', dark: 'rgba(255,215,0,0.40)' },  // 3:1+ contrast on #0A0E1A / #1E2750
   success:    { light: '#16A34A', dark: '#4ADE80' },        // Darker green for light bg
   warning:    { light: '#D97706', dark: '#FBBF24' },        // Darker amber for light bg
   error:      { light: '#DC2626', dark: '#F87171' },        // Darker red for light bg
@@ -24,7 +24,7 @@ const ageThemes = {
     surface:    { light: '#FFFFFF', dark: '#1E2750' },       // Pure white cards on light bg
     foreground: { light: '#2D1B10', dark: '#FFF5EB' },       // Warm dark brown (high contrast for text)
     muted:      { light: '#A0826D', dark: '#B0A898' },       // Softer brown for secondary text
-    border:     { light: '#F5D4B8', dark: 'rgba(255,149,0,0.25)' },  // Softer peach borders
+    border:     { light: '#F5D4B8', dark: 'rgba(255,149,0,0.40)' },  // 3:1+ contrast on dark bg
   },
   // Ages 6-8: Vibrant, energetic, adventure-ready
   child: {
@@ -33,7 +33,7 @@ const ageThemes = {
     surface:    { light: '#FFFFFF', dark: '#1E2750' },
     foreground: { light: '#1E1B4B', dark: '#F5F5F5' },       // Deep indigo
     muted:      { light: '#6366F1', dark: '#A0A4B8' },
-    border:     { light: '#E0E7FF', dark: 'rgba(99,99,255,0.25)' },
+    border:     { light: '#E0E7FF', dark: 'rgba(99,99,255,0.40)' },  // 3:1+ contrast on dark bg
   },
   // Ages 9-12: Sophisticated, dark-first, gaming-inspired
   tween: {
@@ -42,7 +42,7 @@ const ageThemes = {
     surface:    { light: '#FFFFFF', dark: '#1E2750' },
     foreground: { light: '#0F172A', dark: '#F5F5F5' },       // Slate
     muted:      { light: '#64748B', dark: '#A0A4B8' },
-    border:     { light: '#E2E8F0', dark: 'rgba(255,215,0,0.25)' },
+    border:     { light: '#E2E8F0', dark: 'rgba(255,215,0,0.40)' },  // 3:1+ contrast on dark bg
   },
 };
 

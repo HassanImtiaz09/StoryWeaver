@@ -21,6 +21,7 @@ import {
   SafeAreaView,
 } from "react-native";
 import { useLanguageLearning } from "@/lib/language-store";
+import { useColors } from "@/hooks/use-colors";
 
 interface VocabularyCardProps {
   word: string;
@@ -41,6 +42,7 @@ export function VocabularyCard({
   onClose,
   onSave,
 }: VocabularyCardProps) {
+  const colors = useColors();
   const [isSaved, setIsSaved] = useState(false);
   const { learningLanguage } = useLanguageLearning();
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
@@ -412,7 +414,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: colors.border,
   },
 
   actionButtonPrimary: {
@@ -470,7 +472,7 @@ const styles = StyleSheet.create({
 
   progressBar: {
     height: 4,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: colors.border,
     borderRadius: 2,
     overflow: "hidden",
   },
@@ -512,7 +514,7 @@ const styles = StyleSheet.create({
 
   stackDivider: {
     height: 1,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: colors.border,
     marginVertical: 16,
   },
 

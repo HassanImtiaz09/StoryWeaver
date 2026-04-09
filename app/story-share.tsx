@@ -13,6 +13,7 @@ import {
 import { useRoute } from "@react-navigation/native";
 import { trpc } from "@/lib/trpc";
 import { useSharingStore } from "@/lib/sharing-store";
+import { useColors } from "@/hooks/use-colors";
 import { ShareCard } from "@/components/share-card";
 import { ShareButton } from "@/components/share-button";
 import { ShareOptionsSheet } from "@/components/share-options-sheet";
@@ -24,6 +25,7 @@ interface RouteParams {
 export default function StoryShareScreen() {
   const route = useRoute();
   const { arcId } = route.params as RouteParams;
+  const colors = useColors();
 
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
@@ -319,7 +321,7 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border,
   },
   statIcon: {
     fontSize: 24,
@@ -343,7 +345,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border,
   },
   privacyRow: {
     flexDirection: "row",
@@ -364,7 +366,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: colors.border,
   },
   privacyText: {
     fontSize: 12,
@@ -382,7 +384,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: colors.border,
   },
   actionButtonPressed: {
     backgroundColor: "#F3F4F6",
