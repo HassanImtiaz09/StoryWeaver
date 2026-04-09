@@ -14,6 +14,7 @@ import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useDiversityStore } from "@/lib/diversity-store";
 import { ScreenContainer } from "@/components/screen-container";
+import { BreadcrumbHeader } from "@/components/breadcrumb-header";
 import DiversityCategorySelector from "@/components/diversity-category-selector";
 import RepresentationPreview from "@/components/representation-preview";
 import CulturalCalendarCard from "@/components/cultural-calendar-card";
@@ -165,22 +166,15 @@ export default function DiversitySettingsScreen() {
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       <ScreenContainer>
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-4 py-4 border-b"
-          style={{ borderBottomColor: colors.border }}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="flex-row items-center gap-2"
-          >
-            <ChevronLeft size={24} color={colors.primary} />
-            <Text
-              className="font-semibold text-gray-900"
-              style={{ color: colors.text }}
-            >
-              Diversity & Representation
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* Breadcrumb Header */}
+        <BreadcrumbHeader
+          title="Diversity & Representation"
+          crumbs={[
+            { label: "Home", route: "/(tabs)" },
+            { label: "Settings", route: "/settings" },
+            { label: "Diversity" },
+          ]}
+        />
 
         {isLoading ? (
           <View className="flex-1 items-center justify-center">

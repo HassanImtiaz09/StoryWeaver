@@ -28,6 +28,7 @@ import { LanguageSelector } from "@/components/language-selector";
 import { BilingualPageView } from "@/components/bilingual-page-view";
 import { LanguageLearningBadge } from "@/components/language-learning-badge";
 import { SUPPORTED_LANGUAGES } from "@/server/_core/languageService";
+import { BreadcrumbHeader } from "@/components/breadcrumb-header";
 
 export default function LanguageSettingsScreen() {
   const {
@@ -82,13 +83,15 @@ export default function LanguageSettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Language Settings</Text>
-          <Text style={styles.headerSubtitle}>
-            Configure your story language and multilingual features
-          </Text>
-        </View>
+        {/* Breadcrumb Header */}
+        <BreadcrumbHeader
+          title="Language Settings"
+          crumbs={[
+            { label: "Home", route: "/(tabs)" },
+            { label: "Settings", route: "/settings" },
+            { label: "Language Settings" },
+          ]}
+        />
 
         {/* Primary Language Section */}
         <View style={styles.section}>

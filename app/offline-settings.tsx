@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getSettings, saveSettings, type AppSettings } from "@/lib/settings-store";
 import { useOfflineStore } from "@/lib/offline-store";
 import { createOfflineManager } from "@/lib/offline-manager";
+import { BreadcrumbHeader } from "@/components/breadcrumb-header";
 
 export default function OfflineSettingsScreen() {
   const [settings, setSettings] = useState<Partial<AppSettings>>({
@@ -131,6 +132,16 @@ export default function OfflineSettingsScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Breadcrumb Header */}
+      <BreadcrumbHeader
+        title="Offline & Storage"
+        crumbs={[
+          { label: "Home", route: "/(tabs)" },
+          { label: "Settings", route: "/settings" },
+          { label: "Offline" },
+        ]}
+      />
+
       {/* Storage Status */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Storage</Text>

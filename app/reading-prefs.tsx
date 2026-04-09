@@ -14,6 +14,7 @@ import { useColors } from "@/hooks/use-colors";
 import { getSettings, saveSettings, type AppSettings } from "@/lib/settings-store";
 import { getScaledTextStyles, getStoryTextExtras, FontFamily, type TextSizePreference, type FontPreference } from "@/lib/typography";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { BreadcrumbHeader } from "@/components/breadcrumb-header";
 
 export default function ReadingPrefsScreen() {
   const router = useRouter();
@@ -86,25 +87,15 @@ export default function ReadingPrefsScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <Animated.View entering={FadeInDown.duration(400)} style={styles.header}>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.6 }]}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-          >
-            <Ionicons name="chevron-back" size={28} color={colors.text} />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              Reading Preferences
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Customize text size, fonts, and story display
-            </Text>
-          </View>
-        </Animated.View>
+        {/* Breadcrumb Header */}
+        <BreadcrumbHeader
+          title="Reading Preferences"
+          crumbs={[
+            { label: "Home", route: "/(tabs)" },
+            { label: "Settings", route: "/settings" },
+            { label: "Reading" },
+          ]}
+        />
 
         {/* ─── Text Size ──────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(100).duration(400)}>

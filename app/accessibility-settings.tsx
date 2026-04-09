@@ -15,6 +15,7 @@ import { useAccessibilityStore } from "@/lib/accessibility-store";
 import { getAccessibleColorPalette } from "@/lib/accessibility-text-styles";
 import { useColors } from "@/hooks/use-colors";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { BreadcrumbHeader } from "@/components/breadcrumb-header";
 
 /**
  * Accessibility Settings Screen
@@ -45,27 +46,15 @@ export default function AccessibilitySettingsScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <Animated.View
-          entering={FadeInDown.duration(400)}
-          style={styles.header}
-        >
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && { opacity: 0.6 },
-            ]}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-          >
-            <Ionicons name="chevron-back" size={28} color={paletteColors.text} />
-          </Pressable>
-          <Text style={[styles.title, { color: paletteColors.text }]}>
-            Accessibility
-          </Text>
-          <View style={{ width: 28 }} />
-        </Animated.View>
+        {/* Breadcrumb Header */}
+        <BreadcrumbHeader
+          title="Accessibility"
+          crumbs={[
+            { label: "Home", route: "/(tabs)" },
+            { label: "Settings", route: "/settings" },
+            { label: "Accessibility" },
+          ]}
+        />
 
         {/* Quick Info Section */}
         <Animated.View

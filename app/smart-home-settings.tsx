@@ -9,6 +9,7 @@ import AmbientSoundPicker from "@/components/ambient-sound-picker";
 import BedtimeRoutineBuilder from "@/components/bedtime-routine-builder";
 import { useSmartHomeStore, SmartHomeDevice, BedtimeRoutine, BedtimeStep } from "@/lib/smart-home-store";
 import { trpc } from "@/lib/trpc";
+import { BreadcrumbHeader } from "@/components/breadcrumb-header";
 
 export default function SmartHomeSettings() {
   const { text, background, border, accent } = useColors();
@@ -178,6 +179,16 @@ export default function SmartHomeSettings() {
       <Stack.Screen options={{ headerTitle: "Smart Home Settings" }} />
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+        {/* Breadcrumb Header */}
+        <BreadcrumbHeader
+          title="Smart Home"
+          crumbs={[
+            { label: "Home", route: "/(tabs)" },
+            { label: "Settings", route: "/settings" },
+            { label: "Smart Home" },
+          ]}
+        />
+
         {/* Smart Home Toggle */}
         <View className={`rounded-lg border ${border} p-4 mb-4`} style={{ backgroundColor: background }}>
           <View className="flex-row items-center justify-between">

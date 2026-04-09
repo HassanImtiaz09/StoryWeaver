@@ -102,6 +102,9 @@ export interface AppSettings {
   // Educator Mode
   educatorModeEnabled: boolean; // Enable teacher dashboard and classroom features
   defaultGradeLevel: string; // Default grade level for new classrooms
+
+  // Navigation mode
+  navMode: "parent" | "child"; // child = simplified 3-tab nav, parent = full 5-tab nav
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -162,6 +165,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   accessibilityEnabled: false,
   educatorModeEnabled: false,
   defaultGradeLevel: "K",
+  navMode: "parent",
 };
 
 export async function getSettings(): Promise<AppSettings> {
