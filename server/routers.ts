@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, publicProcedure, protectedProcedure, adminProcedure } from "./_core/trpc";
+import { router, publicProcedure, protectedProcedure, coppaProtectedProcedure, adminProcedure } from "./_core/trpc";
 import { db } from "./db";
-import { eq, and, desc, isNull, asc } from "drizzle-orm";
+import { eq, and, desc, isNull, asc, sql } from "drizzle-orm";
 import {
   users,
   children,
@@ -182,201 +182,189 @@ export const appRouter = router({
     /**
      * Get reading summary statistics
      */
-    getReadingSummary: protectedProcedure
+    getReadingSummary: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
           period: z.enum(["week", "month", "all"]).default("week"),
         })
       )
       .query(async ({ input, ctx }) => {
         const { getReadingSummary } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await getReadingSummary(input.childId, userId, input.period);
       }),
 
     /**
      * Get reading trends data for charts
      */
-    getReadingTrends: protectedProcedure
+    getReadingTrends: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
           days: z.number().default(30),
         })
       )
       .query(async ({ input, ctx }) => {
         const { getReadingTrends } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await getReadingTrends(input.childId, userId, input.days);
       }),
 
     /**
      * Get theme breakdown for pie chart
      */
-    getThemeBreakdown: protectedProcedure
+    getThemeBreakdown: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
         })
       )
       .query(async ({ input, ctx }) => {
         const { getThemeBreakdown } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await getThemeBreakdown(input.childId, userId);
       }),
 
     /**
      * Get vocabulary growth data
      */
-    getVocabularyGrowth: protectedProcedure
+    getVocabularyGrowth: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
           days: z.number().default(90),
         })
       )
       .query(async ({ input, ctx }) => {
         const { getVocabularyGrowth } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await getVocabularyGrowth(input.childId, userId, input.days);
       }),
 
     /**
      * Get reading heatmap data
      */
-    getReadingHeatmap: protectedProcedure
+    getReadingHeatmap: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
           weeks: z.number().default(12),
         })
       )
       .query(async ({ input, ctx }) => {
         const { getReadingHeatmap } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await getReadingHeatmap(input.childId, userId, input.weeks);
       }),
 
     /**
      * Get milestone data
      */
-    getMilestones: protectedProcedure
+    getMilestones: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
         })
       )
       .query(async ({ input, ctx }) => {
         const { getMilestones } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await getMilestones(input.childId, userId);
       }),
 
     /**
      * Get engagement score
      */
-    getEngagementScore: protectedProcedure
+    getEngagementScore: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
         })
       )
       .query(async ({ input, ctx }) => {
         const { getEngagementScore } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await getEngagementScore(input.childId, userId);
       }),
 
     /**
      * Get weekly report
      */
-    getWeeklyReport: protectedProcedure
+    getWeeklyReport: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
         })
       )
       .query(async ({ input, ctx }) => {
         const { getWeeklyReport } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await getWeeklyReport(input.childId, userId);
       }),
 
     /**
      * Compare child's metrics with peers (anonymous)
      */
-    compareWithPeers: protectedProcedure
+    compareWithPeers: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
-          userId: z.number().optional(),
         })
       )
       .query(async ({ input, ctx }) => {
         const { compareWithPeers } = await import("./_core/analyticsService");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await compareWithPeers(input.childId, userId);
       }),
 
     /**
      * Generate weekly digest
      */
-    generateWeeklyDigest: protectedProcedure
+    generateWeeklyDigest: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
           childName: z.string(),
-          userId: z.number().optional(),
         })
       )
       .query(async ({ input, ctx }) => {
         const { generateWeeklyDigest } = await import("./_core/reportGenerator");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await generateWeeklyDigest(input.childId, userId, input.childName);
       }),
 
     /**
      * Generate monthly report
      */
-    generateMonthlyReport: protectedProcedure
+    generateMonthlyReport: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
           childName: z.string(),
-          userId: z.number().optional(),
         })
       )
       .query(async ({ input, ctx }) => {
         const { generateMonthlyReport } = await import("./_core/reportGenerator");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await generateMonthlyReport(input.childId, userId, input.childName);
       }),
 
     /**
      * Generate custom progress report
      */
-    generateProgressReport: protectedProcedure
+    generateProgressReport: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
           childName: z.string(),
           startDate: z.string().datetime(),
           endDate: z.string().datetime(),
-          userId: z.number().optional(),
         })
       )
       .query(async ({ input, ctx }) => {
         const { generateProgressReport } = await import("./_core/reportGenerator");
-        const userId = input.userId || ctx.userId || 0;
+        const userId = ctx.userId!;
         return await generateProgressReport(
           input.childId,
           userId,
@@ -462,14 +450,14 @@ export const appRouter = router({
   }),
 
   children: router({
-    list: protectedProcedure.query(async ({ ctx }) => {
+    list: coppaProtectedProcedure.query(async ({ ctx }) => {
       return await db
         .select()
         .from(children)
         .where(eq(children.userId, ctx.user.id));
     }),
 
-    get: protectedProcedure
+    get: coppaProtectedProcedure
       .input(z.object({ childId: z.number() }))
       .query(async ({ input, ctx }) => {
         const [child] = await db
@@ -486,7 +474,7 @@ export const appRouter = router({
         return child;
       }),
 
-    create: protectedProcedure
+    create: coppaProtectedProcedure
       .input(
         z.object({
           name: z.string(),
@@ -552,7 +540,7 @@ export const appRouter = router({
         return newChild;
       }),
 
-    update: protectedProcedure
+    update: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
@@ -600,7 +588,7 @@ export const appRouter = router({
   }),
 
   storyArcs: router({
-    list: protectedProcedure
+    list: coppaProtectedProcedure
       .input(z.object({ childId: z.number() }))
       .query(async ({ input, ctx }) => {
         const [child] = await db
@@ -620,7 +608,7 @@ export const appRouter = router({
           .where(eq(storyArcs.childId, input.childId));
       }),
 
-    get: protectedProcedure
+    get: coppaProtectedProcedure
       .input(z.object({ arcId: z.number() }))
       .query(async ({ input, ctx }) => {
         const [arc] = await db
@@ -644,7 +632,7 @@ export const appRouter = router({
       }),
 
     // Alias: "create" maps to "generate" for client compatibility
-    create: protectedProcedure
+    create: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
@@ -690,7 +678,7 @@ export const appRouter = router({
 
         await db
           .update(users)
-          .set({ storiesUsed: (await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1))[0].storiesUsed! + 1 })
+          .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
           .where(eq(users.id, ctx.user.id));
 
         const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
@@ -743,7 +731,7 @@ export const appRouter = router({
 
         await db
           .update(users)
-          .set({ storiesUsed: (await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1))[0].storiesUsed! + 1 })
+          .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
           .where(eq(users.id, ctx.user.id));
 
         const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);
@@ -806,7 +794,7 @@ export const appRouter = router({
         // Track story usage
         await db
           .update(users)
-          .set({ storiesUsed: (await db.select().from(users).where(eq(users.id, ctx.user.id)).limit(1))[0].storiesUsed! + 1 })
+          .set({ storiesUsed: sql`${users.storiesUsed} + 1` })
           .where(eq(users.id, ctx.user.id));
 
         const [newArc] = await db.select().from(storyArcs).where(eq(storyArcs.id, newId)).limit(1);

@@ -6,6 +6,10 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { Context } from "./context";
 import { createContext } from "./context";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
+import { users } from "../../drizzle/schema";
+import { checkParentalConsent } from "./coppaConsent";
 
 const t = initTRPC.context<typeof createContext>().create();
 
@@ -37,21 +41,39 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 });
 
 /**
- * Admin procedure - requires admin role
+ * Admin procedure - requires admin role verified from database.
+ * The user's `role` column must be "admin" — no hardcoded user IDs.
  */
 export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  // In a real app, check user role from database
-  // For now, we'll assume admins have a special flag or userId of 1
-  // In production, you would query the database to check role
-  const isAdmin = ctx.userId === 1; // Simple demo check
+  const [user] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, ctx.userId!))
+    .limit(1);
 
-  if (!isAdmin) {
+  if (!user || user.role !== "admin") {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Admin access required",
     });
   }
 
+  return next();
+});
+
+/**
+ * COPPA-protected procedure — requires both authentication AND
+ * verified parental consent. Use for any endpoint that accesses
+ * or modifies child data.
+ */
+export const coppaProtectedProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const hasConsent = await checkParentalConsent(ctx.userId!);
+  if (!hasConsent) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Parental consent is required to access child data. Please complete the consent verification process.",
+    });
+  }
   return next();
 });
 

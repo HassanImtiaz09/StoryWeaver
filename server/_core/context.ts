@@ -1,87 +1,79 @@
 /**
  * tRPC Context Creation
- * Extracts user information from request and provides it to procedures
+ * Extracts user information from request and provides it to procedures.
+ *
+ * Authentication flow:
+ *   1. Bearer JWT token → verified with jwt.verify() using JWT_SECRET
+ *   2. Session cookie → extracted from express-session middleware
+ *   3. No auth → userId remains null (public endpoints only)
  */
 
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { Session } from "next-auth";
+import jwt from "jsonwebtoken";
+import { ENV } from "./env";
 
 /**
  * Context object available to all tRPC procedures
  */
 export interface Context {
-  // User information from session
   session: Session | null;
   userId: number | null;
   userEmail: string | null;
-
-  // Express request/response for advanced use cases
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
 }
 
 /**
- * Creates context for each tRPC request
+ * Creates context for each tRPC request.
+ * Authentication is handled exclusively via:
+ *   - JWT Bearer tokens (signature-verified)
+ *   - Session cookies (server-side session store)
  *
- * In a production app, you would:
- * 1. Extract session from JWT token or cookies
- * 2. Look up user from database
- * 3. Populate userId and user details
- *
- * For now, this is a basic implementation that extracts userId from headers
+ * Query-parameter auth has been removed for security.
  */
 export function createContext({
   req,
   res,
 }: CreateExpressContextOptions): Context {
-  // Extract user ID from Authorization header or session
   let userId: number | null = null;
   let userEmail: string | null = null;
   let session: Session | null = null;
 
-  // Try to get user ID from Authorization header (Bearer token)
+  // ── 1. Bearer JWT token (signature-verified) ─────────────────
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
     try {
-      // In production, you would verify the JWT token here
-      // For now, we'll parse it as a simple JSON payload
-      // This is insecure and should never be used in production
-      if (token.includes(".")) {
-        // JWT format - extract the payload
-        const parts = token.split(".");
-        if (parts[1]) {
-          const decoded = JSON.parse(Buffer.from(parts[1], "base64").toString());
-          userId = decoded.sub || decoded.userId || null;
-          userEmail = decoded.email || null;
-        }
+      const secret = ENV.cookieSecret;
+      if (!secret) {
+        // JWT_SECRET not configured — reject all token auth
+        console.error("[Auth] JWT_SECRET is not configured; rejecting Bearer token");
       } else {
-        // Simple token format - assume it's the user ID
-        userId = parseInt(token, 10) || null;
+        const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
+        userId = typeof decoded.sub === "number"
+          ? decoded.sub
+          : typeof decoded.sub === "string"
+            ? parseInt(decoded.sub, 10) || null
+            : decoded.userId ?? null;
+        userEmail = typeof decoded.email === "string" ? decoded.email : null;
       }
     } catch (error) {
-      // Token parsing failed, continue without user
+      // Invalid or expired token — continue unauthenticated.
+      // Do NOT fall through to weaker auth methods.
     }
   }
 
-  // Try to get user ID from cookies (if using session-based auth)
+  // ── 2. Session cookie ────────────────────────────────────────
   if (!userId && req.session) {
-    const sessionData = req.session as any;
+    const sessionData = req.session as Record<string, any>;
     userId = sessionData.userId || sessionData.user?.id || null;
     userEmail = sessionData.user?.email || null;
-    session = sessionData as Session;
+    session = sessionData as unknown as Session;
   }
 
-  // Try to get user ID from query params (for development only)
-  if (!userId && req.query?.userId) {
-    userId = parseInt(req.query.userId as string, 10) || null;
-  }
+  // NOTE: Query-parameter auth (?userId=X) has been deliberately removed.
+  // It was a development shortcut that allowed trivial impersonation.
 
-  return {
-    session,
-    userId,
-    userEmail,
-    req,
-    res,
-  };
+  return { session, userId, userEmail, req, res };
 }
