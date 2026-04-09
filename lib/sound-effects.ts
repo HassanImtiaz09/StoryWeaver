@@ -6,6 +6,12 @@ import { getSettings, saveSettings } from "@/lib/settings-store";
 
 let soundEnabledCache: boolean | null = null;
 
+// ─── Race-condition prevention ────────────────────────────────
+// Mutex lock prevents overlapping sound sequences.
+// Active sounds are tracked for cleanup on unmount or rapid re-trigger.
+let isPlaying = false;
+const activeSounds: Set<Audio.Sound> = new Set();
+
 export async function loadSoundPreference() {
   try {
     const settings = await getSettings();
@@ -27,6 +33,19 @@ export async function setSoundEnabled(enabled: boolean) {
 
 export function isSoundEnabled(): boolean {
   return soundEnabledCache !== false;
+}
+
+/**
+ * Immediately unload all active sound instances.
+ * Safe to call from component cleanup / unmount.
+ */
+export async function releaseAllSounds() {
+  const toRelease = [...activeSounds];
+  activeSounds.clear();
+  isPlaying = false;
+  await Promise.allSettled(
+    toRelease.map((s) => s.unloadAsync().catch(() => {}))
+  );
 }
 
 // Generate a simple sine wave WAV as base64
@@ -74,27 +93,48 @@ function generateToneWav(frequency: number, duration: number, volume: number = 0
   return btoa(binary);
 }
 
-// Play a sequence of tones
+// Play a sequence of tones with mutex guard and per-sound tracking
 async function playToneSequence(
   tones: { freq: number; dur: number }[],
   gap: number
 ) {
-  for (const tone of tones) {
-    try {
-      const wav = generateToneWav(tone.freq, tone.dur);
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: `data:audio/wav;base64,${wav}` },
-        { shouldPlay: true, volume: 0.6 }
-      );
+  // If a sequence is already playing, skip to prevent overlap
+  if (isPlaying) return;
+  isPlaying = true;
 
-      // Wait for tone to complete
-      await new Promise((r) => setTimeout(r, tone.dur * 1000 + gap));
+  try {
+    for (const tone of tones) {
+      // Bail out if another call reset the lock (e.g. releaseAllSounds)
+      if (!isPlaying) return;
 
-      // Clean up
-      await sound.unloadAsync();
-    } catch {
-      // Silently fail if audio system unavailable
+      let sound: Audio.Sound | null = null;
+      try {
+        const wav = generateToneWav(tone.freq, tone.dur);
+        const { sound: created } = await Audio.Sound.createAsync(
+          { uri: `data:audio/wav;base64,${wav}` },
+          { shouldPlay: true, volume: 0.6 }
+        );
+        sound = created;
+        activeSounds.add(sound);
+
+        // Wait for tone to complete
+        await new Promise((r) => setTimeout(r, tone.dur * 1000 + gap));
+      } catch {
+        // Silently fail if audio system unavailable
+      } finally {
+        // Always clean up the individual sound
+        if (sound) {
+          activeSounds.delete(sound);
+          try {
+            await sound.unloadAsync();
+          } catch {
+            // Already unloaded or unavailable
+          }
+        }
+      }
     }
+  } finally {
+    isPlaying = false;
   }
 }
 
