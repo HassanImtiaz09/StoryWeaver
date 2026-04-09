@@ -796,7 +796,21 @@ export const appRouter = router({
           const educationalValue = input.educationalValue ?? "general learning";
           const totalEpisodes = input.totalEpisodes ?? 5;
           const sanitizedCustomPrompt = input.customPrompt ? sanitizePrompt(input.customPrompt) : undefined;
-          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
+
+          // Fetch custom story elements for this child (AF-003)
+          const customElements = await db
+            .select({
+              elementType: customStoryElements.elementType,
+              name: customStoryElements.name,
+              description: customStoryElements.description,
+            })
+            .from(customStoryElements)
+            .where(and(
+              eq(customStoryElements.childId, input.childId),
+              eq(customStoryElements.isActive, true)
+            ));
+
+          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes, customElements);
 
           return await createStoryArcHelper(ctx.user.id, input.childId, input.theme, educationalValue, totalEpisodes, arcData);
         } catch (error) {
@@ -839,7 +853,21 @@ export const appRouter = router({
           const educationalValue = input.educationalValue ?? "general learning";
           const totalEpisodes = input.totalEpisodes ?? 5;
           const sanitizedCustomPrompt = input.customPrompt ? sanitizePrompt(input.customPrompt) : undefined;
-          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
+
+          // Fetch custom story elements for this child (AF-003)
+          const customElements = await db
+            .select({
+              elementType: customStoryElements.elementType,
+              name: customStoryElements.name,
+              description: customStoryElements.description,
+            })
+            .from(customStoryElements)
+            .where(and(
+              eq(customStoryElements.childId, input.childId),
+              eq(customStoryElements.isActive, true)
+            ));
+
+          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes, customElements);
 
           return await createStoryArcHelper(ctx.user.id, input.childId, input.theme, educationalValue, totalEpisodes, arcData);
         } catch (error) {
@@ -890,7 +918,21 @@ export const appRouter = router({
           const childProfile = toChildProfile(child);
           const educationalValue = input.moralLessons?.join(", ") ?? "general learning";
           const totalEpisodes = input.totalEpisodes ?? 5;
-          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes);
+
+          // Fetch custom story elements for this child (AF-003)
+          const customElements = await db
+            .select({
+              elementType: customStoryElements.elementType,
+              name: customStoryElements.name,
+              description: customStoryElements.description,
+            })
+            .from(customStoryElements)
+            .where(and(
+              eq(customStoryElements.childId, input.childId),
+              eq(customStoryElements.isActive, true)
+            ));
+
+          const arcData = await generateStoryArcWithClaude(childProfile, input.theme, educationalValue, totalEpisodes, customElements);
 
           // Create storyArcs entry with moral lessons support
           const result = await db
@@ -1785,6 +1827,11 @@ export const appRouter = router({
         return { rates, price };
       }),
 
+    /**
+     * Confirm a print order (CQ-003)
+     * NOTE: This procedure should be renamed to "confirmOrder" in a future version
+     * for consistency with naming conventions (action_resource pattern).
+     */
     confirm: protectedProcedure
       .input(z.object({
         orderId: z.number(),
@@ -2218,6 +2265,11 @@ export const appRouter = router({
         return order;
       }),
 
+    /**
+     * Save a shipping address (CQ-003)
+     * NOTE: This procedure should be renamed to "createAddress" in a future version
+     * for consistency with naming conventions (standard CRUD pattern).
+     */
     saveAddress: protectedProcedure
       .input(
         z.object({
@@ -3402,7 +3454,8 @@ export const appRouter = router({
       }),
 
     /**
-     * Submit a turn contribution
+     * Submit a turn contribution (CQ-003)
+     * NOTE: This naming is clear and context-specific. Follows action_resource pattern.
      */
     submitTurn: protectedProcedure
       .input(
@@ -3464,7 +3517,8 @@ export const appRouter = router({
       }),
 
     /**
-     * Advance to next participant's turn
+     * Advance to next participant's turn (CQ-003)
+     * NOTE: This naming is clear and context-specific. Follows action_resource pattern.
      */
     advanceTurn: protectedProcedure
       .input(z.object({ sessionId: z.number() }))
@@ -3478,7 +3532,8 @@ export const appRouter = router({
       }),
 
     /**
-     * Start the collaborative session (host only)
+     * Start the collaborative session (host only) (CQ-003)
+     * NOTE: This naming is clear and context-specific. Follows action_resource pattern.
      */
     startSession: protectedProcedure
       .input(z.object({ sessionId: z.number() }))
@@ -3492,7 +3547,8 @@ export const appRouter = router({
       }),
 
     /**
-     * Skip current turn (host only)
+     * Skip current turn (host only) (CQ-003)
+     * NOTE: This naming is clear and context-specific. Follows action_resource pattern.
      */
     skipTurn: protectedProcedure
       .input(z.object({ sessionId: z.number() }))
@@ -3797,6 +3853,10 @@ export const appRouter = router({
     /**
      * Publish a story to the public gallery
      */
+    /**
+     * Publish a story to the public gallery (CQ-003)
+     * NOTE: This naming is clear and context-specific. Follows action_resource pattern.
+     */
     publishToGallery: protectedProcedure
       .input(
         z.object({
@@ -3810,7 +3870,8 @@ export const appRouter = router({
       }),
 
     /**
-     * Remove a story from the public gallery
+     * Remove a story from the public gallery (CQ-003)
+     * NOTE: This naming is clear and context-specific. Follows action_resource pattern.
      */
     unpublishFromGallery: protectedProcedure
       .input(z.object({ arcId: z.number() }))
@@ -3839,7 +3900,8 @@ export const appRouter = router({
       }),
 
     /**
-     * Like or unlike a story
+     * Like or unlike a story (CQ-003)
+     * NOTE: This naming is clear and context-specific. Follows action_resource pattern.
      */
     likeStory: protectedProcedure
       .input(z.object({ arcId: z.number() }))
@@ -3849,7 +3911,8 @@ export const appRouter = router({
       }),
 
     /**
-     * Report a story for moderation
+     * Report a story for moderation (CQ-003)
+     * NOTE: This naming is clear and context-specific. Follows action_resource pattern.
      */
     reportStory: protectedProcedure
       .input(

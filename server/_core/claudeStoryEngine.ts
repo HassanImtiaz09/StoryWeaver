@@ -473,12 +473,17 @@ export async function generateStoryArcWithClaude(
   child: ChildProfile,
   theme: string,
   educationalValue: string,
-  totalEpisodes: number
+  totalEpisodes: number,
+  customElements?: Array<{ elementType: string; name: string; description: string }>
 ): Promise<{ title: string; synopsis: string }> {
   const ndContext =
     child.isNeurodivergent && child.neurodivergentProfiles?.length
       ? `\nThis child is neurodivergent (${child.neurodivergentProfiles.map((p) => p.type).join(", ")}). The story arc should be especially well-suited for their needs.`
       : "";
+
+  const customElementsContext = customElements && customElements.length > 0
+    ? `\nIncorporate these custom elements into the story:\n${customElements.map(e => `- ${e.elementType}: ${e.name} - ${e.description}`).join('\n')}`
+    : "";
 
   const prompt = `Create a children's story arc title and synopsis.
 Child: ${child.name}, age ${child.age}
@@ -486,7 +491,7 @@ Theme: ${theme}
 Educational Value: ${educationalValue}
 Total Episodes: ${totalEpisodes}
 Interests: ${child.interests.join(", ")}
-${ndContext}
+${ndContext}${customElementsContext}
 
 Return JSON: { "title": "creative story arc title", "synopsis": "2-3 sentence synopsis" }`;
 
