@@ -6,6 +6,7 @@
  * uses a warm, bedtime-appropriate voice.
  *
  * Supports both per-page and continuous episode-level audio generation.
+ * Includes multilingual TTS support and per-character voice tracking across episodes.
  *
  * Requires ELEVENLABS_API_KEY environment variable.
  */
@@ -198,7 +199,69 @@ export type TTSOptions = {
   text: string;
   voiceConfig: CharacterVoiceConfig;
   model?: string;
+  language?: string; // ISO 639-1 code (e.g., 'es', 'fr', 'ar')
 };
+
+// ─── Per-Character Voice Registry ───────────────────────────────
+// Maintains consistent voice assignments across an entire story/episode
+
+export class CharacterVoiceRegistry {
+  private assignments: Map<string, { voiceRole: VoiceRole; voiceConfig: CharacterVoiceConfig }> = new Map();
+  private usedRoles: Set<VoiceRole> = new Set();
+
+  constructor(characters: Array<{ name: string; traits: string }>) {
+    // Pre-assign unique voices to each character at creation time
+    // Narrator always gets "narrator"
+    this.assignments.set("NARRATOR", { voiceRole: "narrator", voiceConfig: VOICE_PRESETS.narrator });
+    this.usedRoles.add("narrator");
+
+    for (const char of characters) {
+      this.assignVoice(char.name.toUpperCase(), char.traits);
+    }
+  }
+
+  private assignVoice(name: string, traits: string): void {
+    if (this.assignments.has(name)) return;
+
+    // First try trait-based matching
+    const preferredRole = resolveVoiceRole(traits);
+
+    if (!this.usedRoles.has(preferredRole)) {
+      // Unique role available
+      this.assignments.set(name, { voiceRole: preferredRole, voiceConfig: VOICE_PRESETS[preferredRole] });
+      this.usedRoles.add(preferredRole);
+    } else {
+      // Role already used - find next best unique voice
+      const allRoles: VoiceRole[] = ["child_hero", "wise_old", "friendly_creature", "villain_silly",
+        "magical_being", "animal_small", "animal_large", "robot_friendly"];
+      const available = allRoles.filter(r => !this.usedRoles.has(r));
+
+      if (available.length > 0) {
+        const role = available[0];
+        this.assignments.set(name, { voiceRole: role, voiceConfig: VOICE_PRESETS[role] });
+        this.usedRoles.add(role);
+      } else {
+        // All roles used - reuse the preferred but with slightly different settings
+        const config = { ...VOICE_PRESETS[preferredRole] };
+        config.style = Math.min(config.style + 0.15, 0.8); // Shift style to differentiate
+        config.stability = Math.max(config.stability - 0.1, 0.3);
+        this.assignments.set(name, { voiceRole: preferredRole, voiceConfig: config });
+      }
+    }
+  }
+
+  getVoice(characterName: string): { voiceRole: VoiceRole; voiceConfig: CharacterVoiceConfig } {
+    const upper = characterName.toUpperCase();
+    if (this.assignments.has(upper)) return this.assignments.get(upper)!;
+    // Late-arriving character - assign on the fly
+    this.assignVoice(upper, characterName);
+    return this.assignments.get(upper)!;
+  }
+
+  getAssignments(): Map<string, { voiceRole: VoiceRole; voiceConfig: CharacterVoiceConfig }> {
+    return new Map(this.assignments);
+  }
+}
 
 // ─── Generate a short silence buffer for pauses ─────────────────
 
@@ -215,7 +278,23 @@ export async function generateSpeech(options: TTSOptions): Promise<Buffer> {
   const apiKey = ENV.elevenLabsApiKey;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
 
-  const { text, voiceConfig, model = "eleven_multilingual_v2" } = options;
+  const { text, voiceConfig, model = "eleven_multilingual_v2", language } = options;
+
+  const requestBody: Record<string, unknown> = {
+    text,
+    model_id: model,
+    voice_settings: {
+      stability: voiceConfig.stability,
+      similarity_boost: voiceConfig.similarityBoost,
+      style: voiceConfig.style,
+      use_speaker_boost: voiceConfig.speakerBoost,
+    },
+  };
+
+  // Include language_code if provided (for multilingual support)
+  if (language) {
+    requestBody.language_code = language;
+  }
 
   const response = await fetch(
     `${ELEVENLABS_BASE_URL}/text-to-speech/${voiceConfig.voiceId}`,
@@ -226,16 +305,7 @@ export async function generateSpeech(options: TTSOptions): Promise<Buffer> {
         "content-type": "application/json",
         accept: "audio/mpeg",
       },
-      body: JSON.stringify({
-        text,
-        model_id: model,
-        voice_settings: {
-          stability: voiceConfig.stability,
-          similarity_boost: voiceConfig.similarityBoost,
-          style: voiceConfig.style,
-          use_speaker_boost: voiceConfig.speakerBoost,
-        },
-      }),
+      body: JSON.stringify(requestBody),
     }
   );
   if (!response.ok) {
@@ -251,19 +321,33 @@ export async function generateSpeech(options: TTSOptions): Promise<Buffer> {
 export async function generatePageAudio(
   pageText: string,
   characters: Array<{ name: string; traits: string }>,
-  pageId: number | string
+  pageId: number | string,
+  language?: string,
+  voiceRegistry?: CharacterVoiceRegistry
 ): Promise<PageAudioResult> {
   const segments = parseStorySegments(pageText, characters);
   const audioBuffers: Buffer[] = [];
   const segmentMeta: PageAudioResult["segments"] = [];
   let currentMs = 0;
 
-  for (const segment of segments) {
-    const voiceRole = segment.voiceRole || resolveVoiceRole(segment.characterTraits || "");
-    const voiceConfig = VOICE_PRESETS[voiceRole];
-    const enhancedText = addVocalQuirks(segment.text, segment.characterTraits || "", voiceRole);
+  // Use provided registry or create a temporary one for this page
+  const registry = voiceRegistry || new CharacterVoiceRegistry(characters);
 
-    const audioBuffer = await generateSpeech({ text: enhancedText, voiceConfig });
+  for (const segment of segments) {
+    let voiceConfig = VOICE_PRESETS["narrator"];
+    let voiceRole: VoiceRole = "narrator";
+
+    if (segment.type === "dialogue" && segment.character) {
+      const voiceAssignment = registry.getVoice(segment.character);
+      voiceRole = voiceAssignment.voiceRole;
+      voiceConfig = voiceAssignment.voiceConfig;
+    } else if (segment.voiceRole) {
+      voiceRole = segment.voiceRole;
+      voiceConfig = VOICE_PRESETS[voiceRole];
+    }
+
+    const enhancedText = addVocalQuirks(segment.text, segment.characterTraits || "", voiceRole);
+    const audioBuffer = await generateSpeech({ text: enhancedText, voiceConfig, language });
     const estimatedDurationMs = Math.round((audioBuffer.length / 16000) * 1000);
 
     audioBuffers.push(audioBuffer);
@@ -302,12 +386,28 @@ export async function generateEpisodeAudio(
     characters: Array<{ name: string; traits: string }>;
     mood?: string;
   }>,
-  episodeId: number | string
+  episodeId: number | string,
+  language?: string
 ): Promise<EpisodeAudioResult> {
   const allBuffers: Buffer[] = [];
   const pageTimings: EpisodeAudioResult["pageTimings"] = [];
   const allSegments: EpisodeAudioResult["segments"] = [];
   let currentMs = 0;
+
+  // Create a SINGLE voice registry for the entire episode to ensure consistency
+  const allCharacters: Array<{ name: string; traits: string }> = [];
+  const seenNames = new Set<string>();
+
+  for (const page of pagesData) {
+    for (const char of page.characters) {
+      if (!seenNames.has(char.name.toUpperCase())) {
+        allCharacters.push(char);
+        seenNames.add(char.name.toUpperCase());
+      }
+    }
+  }
+
+  const voiceRegistry = new CharacterVoiceRegistry(allCharacters);
 
   for (let i = 0; i < pagesData.length; i++) {
     const page = pagesData[i];
@@ -315,8 +415,17 @@ export async function generateEpisodeAudio(
     const segments = parseStorySegments(page.storyText, page.characters);
 
     for (const segment of segments) {
-      const voiceRole = segment.voiceRole || resolveVoiceRole(segment.characterTraits || "");
-      const voiceConfig = { ...VOICE_PRESETS[voiceRole] };
+      let voiceConfig: CharacterVoiceConfig;
+      let voiceRole: VoiceRole;
+
+      if (segment.type === "dialogue" && segment.character) {
+        const voiceAssignment = voiceRegistry.getVoice(segment.character);
+        voiceRole = voiceAssignment.voiceRole;
+        voiceConfig = { ...voiceAssignment.voiceConfig };
+      } else {
+        voiceRole = "narrator";
+        voiceConfig = { ...VOICE_PRESETS["narrator"] };
+      }
 
       // Adjust pacing based on mood — slower for calm/dreamy, faster for exciting
       if (page.mood === "calm" || page.mood === "reassuring") {
@@ -333,7 +442,7 @@ export async function generateEpisodeAudio(
       }
 
       const enhancedText = addVocalQuirks(segment.text, segment.characterTraits || "", voiceRole);
-      const audioBuffer = await generateSpeech({ text: enhancedText, voiceConfig });
+      const audioBuffer = await generateSpeech({ text: enhancedText, voiceConfig, language });
       const estimatedDurationMs = Math.round((audioBuffer.length / 16000) * 1000);
 
       allBuffers.push(audioBuffer);
@@ -392,28 +501,59 @@ export function parseStorySegments(
 ): StorySegment[] {
   const segments: StorySegment[] = [];
   const lines = text.split("\n").filter((l) => l.trim());
+
+  // Build lookup with multiple name variants
   const charLookup = new Map<string, string>();
   for (const char of characters) {
     charLookup.set(char.name.toUpperCase(), char.traits);
+    // Also add underscore variant for names with spaces
+    charLookup.set(char.name.toUpperCase().replace(/\s+/g, "_"), char.traits);
   }
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const dialogueMatch = trimmed.match(/^([A-Z_]+(?:\s[A-Z_]+)*):\s*(.+)$/);
+
+    // Try multiple dialogue patterns:
+    // 1. "CHARACTER_NAME: dialogue" (uppercase with underscores)
+    // 2. "Character Name: dialogue" (title case)
+    // 3. "CHARACTER NAME: dialogue" (uppercase with spaces)
+    const dialogueMatch = trimmed.match(/^([A-Za-z_]+(?:[\s_][A-Za-z_]+)*):\s*(.+)$/);
+
     if (dialogueMatch) {
-      const charName = dialogueMatch[1];
+      const rawName = dialogueMatch[1];
       const dialogue = dialogueMatch[2].replace(/^["\u201C]|["\u201D]$/g, "");
-      if (charName === "NARRATOR") {
+      const normalizedName = rawName.toUpperCase().replace(/\s+/g, "_");
+
+      if (normalizedName === "NARRATOR") {
         segments.push({ type: "narration", text: dialogue, voiceRole: "narrator" });
       } else {
-        const traits = charLookup.get(charName) || charName.toLowerCase();
-        segments.push({ type: "dialogue", character: charName, characterTraits: traits, text: dialogue });
+        // Try to find character in lookup
+        const traits = charLookup.get(normalizedName)
+          || charLookup.get(rawName.toUpperCase())
+          || findClosestCharacter(rawName, charLookup)
+          || rawName.toLowerCase();
+
+        segments.push({
+          type: "dialogue",
+          character: normalizedName,
+          characterTraits: traits,
+          text: dialogue,
+        });
       }
     } else {
       segments.push({ type: "narration", text: trimmed, voiceRole: "narrator" });
     }
   }
   return segments;
+}
+
+// Fuzzy match for character names (handles partial matches like "LUNA" matching "LUNA_THE_FAIRY")
+function findClosestCharacter(name: string, lookup: Map<string, string>): string | null {
+  const upper = name.toUpperCase();
+  for (const [key, traits] of lookup.entries()) {
+    if (key.startsWith(upper) || upper.startsWith(key)) return traits;
+  }
+  return null;
 }
 
 function addVocalQuirks(text: string, traits: string, voiceRole: VoiceRole): string {
