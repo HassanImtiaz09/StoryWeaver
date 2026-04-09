@@ -1,3 +1,4 @@
+import React, { memo } from "react";
 import { View, Text, Pressable, StyleSheet, ImageBackground } from "react-native";
 import { Image } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -32,7 +33,7 @@ interface Props {
  * 1. "Continue Your Story" as PRIMARY action (if available)
  * 2. "Tonight's Suggestion" as secondary
  */
-export function TonightRecommendation({
+export const TonightRecommendation = memo(function TonightRecommendation({
   childName,
   recommendation,
   onPress,
@@ -273,7 +274,7 @@ export function TonightRecommendation({
   }
 
   return null;
-}
+});
 
 const styles = StyleSheet.create({
   container: {

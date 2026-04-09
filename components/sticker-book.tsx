@@ -7,7 +7,7 @@
  *   - Total count and collection progress
  *   - Haptic feedback on sticker tap
  */
-import React, { useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet, Dimensions } from "react-native";
 import Animated, {
   FadeIn,
@@ -160,7 +160,7 @@ interface StickerBookProps {
   onStickerPress?: (sticker: StickerDef) => void;
 }
 
-export function StickerBook({
+export const StickerBook = memo(function StickerBook({
   collectedStickerIds,
   newStickerIds = [],
   onStickerPress,
@@ -374,7 +374,7 @@ export function StickerBook({
       })}
     </View>
   );
-}
+});
 
 const SLOT_SIZE = (SW - 32 - 40) / 6; // 6 per row with gaps
 

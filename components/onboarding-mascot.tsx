@@ -3,7 +3,7 @@
  * the user through the onboarding flow. Has idle bounce, wave,
  * celebration, and speech-bubble animations.
  */
-import React, { useEffect } from "react";
+import React, { memo, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -68,7 +68,7 @@ function SoundWaveBar({ delay }: { delay: number }) {
   return <Animated.View style={style} />;
 }
 
-export function OnboardingMascot({
+export const OnboardingMascot = memo(function OnboardingMascot({
   mode = "idle",
   speechKey,
   size = 100,
@@ -382,7 +382,7 @@ export function OnboardingMascot({
       <Text style={styles.nameLabel}>Ollie</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrapper: {

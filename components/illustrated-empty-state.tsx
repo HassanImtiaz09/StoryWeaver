@@ -13,7 +13,7 @@
  *   - no-network: Confused Ollie with broken Wi-Fi symbol and side-to-side sway
  *   - error: Broken book tilting with falling stars and healing bandaid pop-in
  */
-import React, { useEffect } from "react";
+import React, { memo, useEffect } from "react";
 import {
   View,
   Text,
@@ -733,7 +733,7 @@ function renderIllustration(type: EmptyStateType, compact?: boolean) {
 // Main Component
 // ═══════════════════════════════════════════════════════════════
 
-export function IllustratedEmptyState({
+export const IllustratedEmptyState = memo(function IllustratedEmptyState({
   type,
   title,
   subtitle,
@@ -797,7 +797,7 @@ export function IllustratedEmptyState({
       )}
     </Animated.View>
   );
-}
+});
 
 // ═══════════════════════════════════════════════════════════════
 // Styles

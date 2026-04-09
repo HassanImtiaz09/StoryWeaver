@@ -10,7 +10,7 @@
  *   - Stars appear in background at milestones (3, 7, 14, 30)
  *   - Gentle idle flicker animation on flame
  */
-import React, { useEffect } from "react";
+import React, { memo, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -37,7 +37,7 @@ interface BedtimeCandleProps {
   maxStreak?: number;    // for normalizing (default 30)
 }
 
-export function BedtimeCandle({
+export const BedtimeCandle = memo(function BedtimeCandle({
   bedtimeStreak,
   maxStreak = 30,
 }: BedtimeCandleProps) {
@@ -379,7 +379,7 @@ export function BedtimeCandle({
       })()}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

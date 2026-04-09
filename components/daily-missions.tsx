@@ -7,7 +7,7 @@
  *   - Themed rewards (stickers tied to theme)
  *   - Refresh countdown to next day
  */
-import React, { useMemo, useEffect } from "react";
+import React, { memo, useMemo, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import Animated, {
   FadeInDown,
@@ -180,7 +180,7 @@ interface DailyMissionsProps {
   onMissionPress: (mission: MissionTemplate) => void;
 }
 
-export function DailyMissions({
+export const DailyMissions = memo(function DailyMissions({
   completedMissionIds,
   onMissionPress,
 }: DailyMissionsProps) {
@@ -284,7 +284,7 @@ export function DailyMissions({
       )}
     </View>
   );
-}
+});
 
 export type { MissionTemplate };
 

@@ -9,7 +9,7 @@
  *   - Points counter animate-up
  *   - Auto-dismiss after ~4s or tap to close
  */
-import React, { useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
@@ -145,7 +145,7 @@ interface Props {
   onDismiss: () => void;
 }
 
-export function BadgeUnlockCeremony({
+export const BadgeUnlockCeremony = memo(function BadgeUnlockCeremony({
   visible,
   name,
   description,
@@ -331,8 +331,7 @@ export function BadgeUnlockCeremony({
       </Pressable>
     </Animated.View>
   );
-}
-
+});
 
 const styles = StyleSheet.create({
   overlay: {

@@ -9,7 +9,7 @@
  *   - Empty slots shown as faint outlines (room to grow)
  *   - Shelf wood grain texture via gradient
  */
-import React from "react";
+import React, { memo } from "react";
 import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
 import Animated, {
   FadeInDown,
@@ -214,7 +214,7 @@ interface StoryBookshelfProps {
   onBookPress: (book: BookData) => void;
 }
 
-export function StoryBookshelf({
+export const StoryBookshelf = memo(function StoryBookshelf({
   completedStories,
   onBookPress,
 }: StoryBookshelfProps) {
@@ -305,7 +305,7 @@ export function StoryBookshelf({
       </View>
     </View>
   );
-}
+});
 
 export type { BookData };
 

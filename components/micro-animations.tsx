@@ -12,7 +12,7 @@
  *   6. TypewriterText — Character-by-character text reveal
  */
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { memo, useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet, ViewStyle, TextStyle, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
@@ -46,7 +46,7 @@ interface StreakFireProps {
  * Inner yellow flame → middle orange → outer red-orange. Each layer flickers
  * independently for a natural, flickering fire effect.
  */
-export function StreakFire({ size = 32, intensity = "medium" }: StreakFireProps) {
+export const StreakFire = memo(function StreakFire({ size = 32, intensity = "medium" }: StreakFireProps) {
   const reducedMotion = useReducedMotion();
 
   // Speed map: low=slower, high=faster
@@ -220,7 +220,7 @@ export function StreakFire({ size = 32, intensity = "medium" }: StreakFireProps)
       </Animated.View>
     </View>
   );
-}
+});
 
 // ═════════════════════════════════════════════════════════════════
 // 2. LoadingBook — Animated book with pages and loading dots
@@ -237,7 +237,7 @@ interface LoadingBookProps {
  * LoadingBook — An animated book that opens and closes with a breathing motion.
  * Pages fan open and close smoothly, with three dots animating below.
  */
-export function LoadingBook({ size = 64, message = "Loading..." }: LoadingBookProps) {
+export const LoadingBook = memo(function LoadingBook({ size = 64, message = "Loading..." }: LoadingBookProps) {
   const reducedMotion = useReducedMotion();
 
   // Book cover rotation (opens/closes)
@@ -429,7 +429,7 @@ export function LoadingBook({ size = 64, message = "Loading..." }: LoadingBookPr
       <Text style={[styles.loadingMessage, { marginTop: 8 }]}>{message}</Text>
     </View>
   );
-}
+});
 
 // ═════════════════════════════════════════════════════════════════
 // 3. FloatingStars — Ambient floating particles
@@ -446,7 +446,7 @@ interface FloatingStarsProps {
  * FloatingStars — Generates ambient floating stars that gently drift and fade.
  * Each star has randomized timing for a natural, staggered effect.
  */
-export function FloatingStars({ count = 5, area = { width: 200, height: 100 } }: FloatingStarsProps) {
+export const FloatingStars = memo(function FloatingStars({ count = 5, area = { width: 200, height: 100 } }: FloatingStarsProps) {
   const reducedMotion = useReducedMotion();
   const [stars] = useState(() =>
     Array.from({ length: count }, (_, i) => ({
@@ -571,7 +571,7 @@ interface PulsingGlowProps {
  * PulsingGlow — A soft glowing circle that breathes in and out.
  * Scale and opacity oscillate for a gentle, ambient effect.
  */
-export function PulsingGlow({
+export const PulsingGlow = memo(function PulsingGlow({
   color = "#FFD700",
   size = 40,
   speed = "normal",
@@ -635,7 +635,7 @@ export function PulsingGlow({
       accessibilityRole="progressbar"
     />
   );
-}
+});
 
 // ═════════════════════════════════════════════════════════════════
 // 5. WiggleEmoji — Playful emoji animation
@@ -654,7 +654,7 @@ interface WiggleEmojiProps {
  * WiggleEmoji — Makes an emoji rotate side-to-side and pop up.
  * Perfect for achievement notifications and interactive feedback.
  */
-export function WiggleEmoji({ emoji, size = 32, trigger }: WiggleEmojiProps) {
+export const WiggleEmoji = memo(function WiggleEmoji({ emoji, size = 32, trigger }: WiggleEmojiProps) {
   const reducedMotion = useReducedMotion();
   const [triggerCount, setTriggerCount] = useState(0);
 
@@ -710,7 +710,7 @@ export function WiggleEmoji({ emoji, size = 32, trigger }: WiggleEmojiProps) {
       {emoji}
     </Animated.Text>
   );
-}
+});
 
 // ═════════════════════════════════════════════════════════════════
 // 6. TypewriterText — Character-by-character reveal
@@ -731,7 +731,7 @@ interface TypewriterTextProps {
  * TypewriterText — Reveals text character-by-character with a blinking cursor.
  * Respects reduceMotion and shows full text immediately when enabled.
  */
-export function TypewriterText({
+export const TypewriterText = memo(function TypewriterText({
   text,
   speed = 40,
   style,
@@ -815,7 +815,7 @@ export function TypewriterText({
       )}
     </View>
   );
-}
+});
 
 // ─── Internal Styles ────────────────────────────────────────────
 const styles = StyleSheet.create({
