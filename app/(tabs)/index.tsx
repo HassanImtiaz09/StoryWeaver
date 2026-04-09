@@ -23,6 +23,7 @@ import { setSelectedChild as updateSelectedChild } from "@/lib/child-context-sto
 import Animated, {
   FadeIn,
   FadeInDown,
+  FadeOut,
   FadeInRight,
   useSharedValue,
   useAnimatedStyle,
@@ -195,6 +196,79 @@ function ScrollReveal({
   return <Animated.View style={animatedStyle}>{children}</Animated.View>;
 }
 
+// ─── Subscription Banner ────────────────────────────────────────
+function SubscriptionBanner({
+  remainingStories,
+  onDismiss,
+  onUnlock,
+  reducedMotion,
+  colors,
+}: {
+  remainingStories: number;
+  onDismiss: () => void;
+  onUnlock: () => void;
+  reducedMotion: boolean;
+  colors: any;
+}) {
+  return (
+    <Animated.View
+      entering={
+        reducedMotion
+          ? FadeIn.duration(300)
+          : FadeInDown.delay(800).duration(400)
+      }
+      style={[styles.bannerContainer]}
+      accessibilityRole="alert"
+      accessibilityLabel={`${remainingStories} free stories remaining this month`}
+    >
+      <LinearGradient
+        colors={["rgba(255,215,0,0.15)", "rgba(255,215,0,0.05)"]}
+        locations={[0, 1]}
+        style={styles.bannerGradient}
+      >
+        <View style={styles.bannerContent}>
+          <View style={styles.bannerText}>
+            <Text
+              style={[styles.bannerEmoji, { color: colors.text }]}
+              accessibilityLabel=""
+            >
+              ✨
+            </Text>
+            <Text
+              style={[styles.bannerMessage, { color: colors.text }]}
+              accessibilityLabel=""
+            >
+              {remainingStories === 1
+                ? "1 free story remaining"
+                : `${remainingStories} free stories remaining`}
+            </Text>
+          </View>
+          <Pressable
+            onPress={onUnlock}
+            style={styles.bannerCTA}
+            accessibilityRole="link"
+            accessibilityLabel="Unlock Unlimited Stories"
+            accessibilityHint="Navigate to subscription plans"
+          >
+            <Text style={styles.bannerCTAText}>Unlock →</Text>
+          </Pressable>
+        </View>
+        <Pressable
+          onPress={onDismiss}
+          style={styles.bannerDismiss}
+          accessibilityLabel="Dismiss subscription banner"
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <Text style={[styles.bannerDismissIcon, { color: colors.muted }]}>
+            ×
+          </Text>
+        </Pressable>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
 // ─── AI Recommendations ─────────────────────────────────────────
 const RECOMMENDATIONS = [
   { id: "r1", title: "The Moonlight Orchestra", theme: "musical", emoji: "🎵", reason: "Music + imagination" },
@@ -338,6 +412,8 @@ export default function TonightScreen() {
   const [loading, setLoading] = useState(true);
   const [subState, setSubState] = useState<SubscriptionState | null>(null);
   const [bedtimeState, setBedtimeState] = useState<BedtimeState | null>(null);
+  const [remainingStories, setRemainingStories] = useState(0);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Scroll animation shared value
   const scrollY = useSharedValue(0);
@@ -388,6 +464,8 @@ export default function TonightScreen() {
       setSubState(sub);
       const bedtime = await getBedtimeState();
       setBedtimeState(bedtime);
+      const remaining = await getRemainingFreeStories();
+      setRemainingStories(remaining);
       setLoading(false);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -681,6 +759,25 @@ export default function TonightScreen() {
             </ScrollReveal>
           )}
 
+          {/* ═══ 3.5. Subscription Banner (Free Users) ═══ */}
+          {selectedChild &&
+            !subState?.isSubscribed &&
+            remainingStories <= 5 &&
+            !bannerDismissed && (
+              <SubscriptionBanner
+                remainingStories={remainingStories}
+                onDismiss={() => setBannerDismissed(true)}
+                onUnlock={() =>
+                  router.push({
+                    pathname: "/settings" as any,
+                    params: { tab: "subscription" },
+                  })
+                }
+                reducedMotion={reducedMotion}
+                colors={colors}
+              />
+            )}
+
           {/* ═══ 4. Recommended Stories — Illustrated Cards ═══ */}
           {selectedChild && (
             <ScrollReveal
@@ -963,4 +1060,65 @@ const styles = StyleSheet.create({
   themeGradient: { flex: 1, justifyContent: "flex-end", padding: 12 },
   themeEmoji: { fontSize: 28, marginBottom: 4 },
   themeLabel: { fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
+
+  // ── Subscription Banner ──
+  bannerContainer: {
+    marginBottom: 20,
+  },
+  bannerGradient: {
+    borderRadius: 12,
+    padding: 14,
+    paddingRight: 44, // Space for dismiss button
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.2)",
+    minHeight: 44,
+  },
+  bannerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flex: 1,
+    gap: 12,
+  },
+  bannerText: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  bannerEmoji: {
+    fontSize: 16,
+  },
+  bannerMessage: {
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  bannerCTA: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,215,0,0.2)",
+  },
+  bannerCTAText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFD700",
+  },
+  bannerDismiss: {
+    position: "absolute",
+    right: 8,
+    top: 8,
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bannerDismissIcon: {
+    fontSize: 28,
+    fontWeight: "300",
+  },
 });
