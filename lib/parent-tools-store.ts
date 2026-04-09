@@ -3,6 +3,15 @@ import { create } from "zustand";
 
 const PARENT_TOOLS_KEY = "storyweaver_parent_tools";
 
+/** Safe AsyncStorage write — logs errors but never throws, so state updates aren't lost. */
+async function safeCache(key: string, data: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn("[ParentTools] AsyncStorage write failed:", err);
+  }
+}
+
 export interface CustomElement {
   id: number;
   userId: number;
@@ -145,7 +154,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
 
     const state = get();
     const cacheData = Array.from(state.customElements.entries());
-    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
+    await safeCache(PARENT_TOOLS_KEY, cacheData);
   },
 
   addCustomElement: async (childId: number, element: CustomElement) => {
@@ -158,7 +167,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
 
     const state = get();
     const cacheData = Array.from(state.customElements.entries());
-    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
+    await safeCache(PARENT_TOOLS_KEY, cacheData);
   },
 
   replaceCustomElement: async (elementId: number, updated: CustomElement) => {
@@ -177,7 +186,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
 
     const state = get();
     const cacheData = Array.from(state.customElements.entries());
-    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
+    await safeCache(PARENT_TOOLS_KEY, cacheData);
   },
 
   removeCustomElement: async (elementId: number) => {
@@ -192,7 +201,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
 
     const state = get();
     const cacheData = Array.from(state.customElements.entries());
-    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
+    await safeCache(PARENT_TOOLS_KEY, cacheData);
   },
 
   // ─── Voice Recordings ──────────────────────────────────────
@@ -205,7 +214,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
 
     const state = get();
     const cacheData = Array.from(state.voiceRecordings.entries());
-    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
+    await safeCache(PARENT_TOOLS_KEY, cacheData);
   },
 
   addVoiceRecording: async (childId: number, recording: VoiceRecording) => {
@@ -218,7 +227,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
 
     const state = get();
     const cacheData = Array.from(state.voiceRecordings.entries());
-    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
+    await safeCache(PARENT_TOOLS_KEY, cacheData);
   },
 
   updateRecordingInStore: async (recordingId, status, voiceModelId) => {
@@ -241,16 +250,13 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
 
     const state = get();
     const cacheData = Array.from(state.voiceRecordings.entries());
-    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
+    await safeCache(PARENT_TOOLS_KEY, cacheData);
   },
 
   // ─── Approval Queue ────────────────────────────────────────
   setApprovalQueue: async (queue: ApprovalQueueItem[]) => {
     set({ approvalQueue: queue, isLoading: false });
-    await AsyncStorage.setItem(
-      PARENT_TOOLS_KEY,
-      JSON.stringify({ approvalQueue: queue })
-    );
+    await safeCache(PARENT_TOOLS_KEY, { approvalQueue: queue });
   },
 
   addToApprovalQueue: async (item: ApprovalQueueItem) => {
@@ -264,10 +270,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
     });
 
     const state = get();
-    await AsyncStorage.setItem(
-      PARENT_TOOLS_KEY,
-      JSON.stringify({ approvalQueue: state.approvalQueue })
-    );
+    await safeCache(PARENT_TOOLS_KEY, { approvalQueue: state.approvalQueue });
   },
 
   updateApprovalItem: async (queueId, status, parentNotes, editedContent) => {
@@ -287,10 +290,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
     });
 
     const state = get();
-    await AsyncStorage.setItem(
-      PARENT_TOOLS_KEY,
-      JSON.stringify({ approvalQueue: state.approvalQueue })
-    );
+    await safeCache(PARENT_TOOLS_KEY, { approvalQueue: state.approvalQueue });
   },
 
   // ─── Preferences ──────────────────────────────────────────
@@ -303,7 +303,7 @@ export const useParentToolsStore = create<ParentToolsState>((set, get) => ({
 
     const state = get();
     const cacheData = Array.from(state.childPreferences.entries());
-    await AsyncStorage.setItem(PARENT_TOOLS_KEY, JSON.stringify(cacheData));
+    await safeCache(PARENT_TOOLS_KEY, cacheData);
   },
 
   // ─── Utilities ────────────────────────────────────────────

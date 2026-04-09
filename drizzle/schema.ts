@@ -1,4 +1,4 @@
-import { mysqlTable, int, varchar, text, json, timestamp, mysqlEnum, boolean, decimal } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, varchar, text, json, timestamp, mysqlEnum, boolean, decimal, index } from "drizzle-orm/mysql-core";
 
 // ─── Users ─────────────────────────────────────────────────────
 
@@ -59,7 +59,9 @@ export const children = mysqlTable("children", {
   allergiesOrTriggers: json("allergies_or_triggers").$type<string[]>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
-});
+}, (table) => [
+  index("children_user_id_idx").on(table.userId),
+]);
 
 // ─── Story Arcs ────────────────────────────────────────────────
 
@@ -77,7 +79,10 @@ export const storyArcs = mysqlTable("story_arcs", {
   status: mysqlEnum("status", ["active", "completed", "paused"]).default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
-});
+}, (table) => [
+  index("story_arcs_child_id_idx").on(table.childId),
+  index("story_arcs_user_id_idx").on(table.userId),
+]);
 
 // ─── Episodes ──────────────────────────────────────────────────
 
@@ -103,7 +108,10 @@ export const episodes = mysqlTable("episodes", {
   musicDurationMs: int("music_duration_ms"),
   musicMood: varchar("music_mood", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("episodes_story_arc_id_idx").on(table.storyArcId),
+  index("episodes_arc_episode_idx").on(table.storyArcId, table.episodeNumber),
+]);
 
 // ─── Pages ─────────────────────────────────────────────────────
 
@@ -124,7 +132,10 @@ export const pages = mysqlTable("pages", {
   soundEffectHint: text("sound_effect_hint"),
   soundEffectUrl: varchar("sound_effect_url", { length: 1024 }),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  index("pages_episode_id_idx").on(table.episodeId),
+  index("pages_episode_page_idx").on(table.episodeId, table.pageNumber),
+]);
 
 // ─── Story Recommendations ─────────────────────────────────────
 
@@ -232,7 +243,10 @@ export const contentModerationLog = mysqlTable("content_moderation_log", {
   >(),
   overallSeverity: varchar("overall_severity", { length: 20 }).notNull(),
   reviewedAt: timestamp("reviewed_at").defaultNow(),
-});
+}, (table) => [
+  index("moderation_user_id_idx").on(table.userId),
+  index("moderation_child_id_idx").on(table.childId),
+]);
 
 // ─── Generation Costs ──────────────────────────────────────────
 
@@ -772,7 +786,10 @@ export const narrativeMilestones = mysqlTable("narrative_milestones", {
   isCompleted: boolean("is_completed").default(false),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("milestones_arc_id_idx").on(table.arcId),
+  index("milestones_arc_episode_idx").on(table.arcId, table.episodeNumber),
+]);
 
 // ─── Type Exports ──────────────────────────────────────────────
 

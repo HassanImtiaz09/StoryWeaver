@@ -36,14 +36,13 @@ import { selRouter } from "./_core/selRouter";
 import { smartHomeRouter } from "./_core/smartHomeRouter";
 import { diversityRouter } from "./_core/diversityRouter";
 import { checkParentalConsent, recordParentalConsent, requireConsent, getConsentStatus } from "./_core/coppaConsent";
-import { moderateEpisode, aiSafetyCheck, validateChildAge } from "./_core/contentModeration";
+import { moderateEpisode, validateChildAge } from "./_core/contentModeration";
 import {
   generateEpisodeWithClaude,
   generateStoryArcWithClaude,
   generateRecommendations,
   generatePageImagePrompt,
   type ChildProfile,
-  type StoryArcContext,
 } from "./_core/claudeStoryEngine";
 import { storyEngine, type StoryContext } from "./_core/storyEngine";
 import { getEpisodeContext, updateArcProgress } from "./_core/narrativeArc";
@@ -66,17 +65,16 @@ import {
   generateBookLayout,
   estimatePageCount,
   validatePrintReady,
-  type BookLayout,
 } from "./_core/bookLayout";
 import {
   calculatePrice,
   getAvailableFormats,
-  type PriceBreakdown,
 } from "./_core/printPricing";
 import { SUBSCRIPTION_TIERS } from "../constants/assets";
 import { COOKIE_NAME } from "../shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { cache, recommendationsCacheKey, voicePreviewCacheKey, generateProfileHash, generateTextHash, CACHE_CONFIG } from "./_core/cache";
+import { checkRateLimit, getRateLimitKey } from "./_core/rateLimit";
 import { costTracker, COST_ESTIMATES } from "./_core/costTracker";
 import {
   recordActivity,
@@ -202,7 +200,7 @@ export const appRouter = router({
       .input(
         z.object({
           childId: z.number(),
-          days: z.number().default(30),
+          days: z.number().min(1).max(365).default(30),
         })
       )
       .query(async ({ input, ctx }) => {
@@ -233,7 +231,7 @@ export const appRouter = router({
       .input(
         z.object({
           childId: z.number(),
-          days: z.number().default(90),
+          days: z.number().min(1).max(365).default(90),
         })
       )
       .query(async ({ input, ctx }) => {
@@ -249,7 +247,7 @@ export const appRouter = router({
       .input(
         z.object({
           childId: z.number(),
-          weeks: z.number().default(12),
+          weeks: z.number().min(1).max(52).default(12),
         })
       )
       .query(async ({ input, ctx }) => {
@@ -376,16 +374,26 @@ export const appRouter = router({
   }),
 
   auth: router({
+    // NOTE: signUp and login are handled by the OAuth flow (registerOAuthRoutes).
+    // These stubs exist only to provide a clear error if clients call them directly.
     signUp: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string() }))
-      .mutation(async ({ input }) => {
-        return { userId: 1, email: input.email };
+      .mutation(async ({ ctx }) => {
+        checkRateLimit(getRateLimitKey(ctx, "auth"), 5, 60_000); // 5 attempts per minute
+        throw new TRPCError({
+          code: "METHOD_NOT_SUPPORTED",
+          message: "Direct sign-up is not supported. Please use OAuth authentication.",
+        });
       }),
 
     login: publicProcedure
       .input(z.object({ email: z.string().email(), password: z.string() }))
-      .query(async ({ input }) => {
-        return { token: "placeholder" };
+      .query(async ({ ctx }) => {
+        checkRateLimit(getRateLimitKey(ctx, "auth"), 5, 60_000); // 5 attempts per minute
+        throw new TRPCError({
+          code: "METHOD_NOT_SUPPORTED",
+          message: "Direct login is not supported. Please use OAuth authentication.",
+        });
       }),
 
     logout: publicProcedure.mutation(async ({ ctx }) => {
@@ -450,12 +458,21 @@ export const appRouter = router({
   }),
 
   children: router({
-    list: coppaProtectedProcedure.query(async ({ ctx }) => {
-      return await db
-        .select()
-        .from(children)
-        .where(eq(children.userId, ctx.user.id));
-    }),
+    list: coppaProtectedProcedure
+      .input(
+        z.object({
+          limit: z.number().min(1).max(100).default(50),
+          offset: z.number().min(0).default(0),
+        }).optional().default({})
+      )
+      .query(async ({ input, ctx }) => {
+        return await db
+          .select()
+          .from(children)
+          .where(eq(children.userId, ctx.user.id))
+          .limit(input.limit)
+          .offset(input.offset);
+      }),
 
     get: coppaProtectedProcedure
       .input(z.object({ childId: z.number() }))
@@ -589,7 +606,11 @@ export const appRouter = router({
 
   storyArcs: router({
     list: coppaProtectedProcedure
-      .input(z.object({ childId: z.number() }))
+      .input(z.object({
+        childId: z.number(),
+        limit: z.number().min(1).max(100).default(50),
+        offset: z.number().min(0).default(0),
+      }))
       .query(async ({ input, ctx }) => {
         const [child] = await db
           .select()
@@ -605,7 +626,9 @@ export const appRouter = router({
         return await db
           .select()
           .from(storyArcs)
-          .where(eq(storyArcs.childId, input.childId));
+          .where(eq(storyArcs.childId, input.childId))
+          .limit(input.limit)
+          .offset(input.offset);
       }),
 
     get: coppaProtectedProcedure
@@ -744,7 +767,7 @@ export const appRouter = router({
      * Generate a new story with optional moral lessons (array support)
      * Maps to storyArcs.generate but with enhanced IMPROVEMENT 2 support
      */
-    generateStory: protectedProcedure
+    generateStory: coppaProtectedProcedure
       .input(
         z.object({
           childId: z.number(),
@@ -862,7 +885,7 @@ export const appRouter = router({
         return episode;
       }),
 
-    generate: protectedProcedure
+    generate: coppaProtectedProcedure
       .input(
         z.object({
           arcId: z.number(),
@@ -871,6 +894,8 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input, ctx }) => {
+        // Rate limit: max 10 story generations per 5 minutes per user
+        checkRateLimit(getRateLimitKey(ctx, "story_gen"), 10, 5 * 60_000);
         const [arc] = await db
           .select()
           .from(storyArcs)
@@ -1281,6 +1306,8 @@ export const appRouter = router({
     generateAudio: protectedProcedure
       .input(z.object({ pageId: z.number(), voiceRole: z.string() }))
       .mutation(async ({ input, ctx }) => {
+        // Rate limit: max 30 audio generations per 5 minutes per user
+        checkRateLimit(getRateLimitKey(ctx, "audio_gen"), 30, 5 * 60_000);
         const [page] = await db
           .select()
           .from(pages)

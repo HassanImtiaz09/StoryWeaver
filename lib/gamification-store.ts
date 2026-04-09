@@ -3,6 +3,15 @@ import { create } from "zustand";
 
 const GAMIFICATION_KEY = "storyweaver_gamification";
 
+/** Safe AsyncStorage write — logs errors but never throws, so state updates aren't lost. */
+async function safeCache(key: string, data: unknown): Promise<void> {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.warn("[Gamification] AsyncStorage write failed:", err);
+  }
+}
+
 export interface Achievement {
   key: string;
   name: string;
@@ -92,7 +101,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     // Cache to AsyncStorage
     const state = get();
     const cacheData = Array.from(state.childProgress.entries());
-    await AsyncStorage.setItem(GAMIFICATION_KEY, JSON.stringify(cacheData));
+    await safeCache(GAMIFICATION_KEY, cacheData);
   },
 
   setAchievements: async (childId: number, achievements: Achievement[]) => {
@@ -105,17 +114,14 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     // Cache to AsyncStorage
     const state = get();
     const cacheData = Array.from(state.allAchievements.entries());
-    await AsyncStorage.setItem(GAMIFICATION_KEY, JSON.stringify(cacheData));
+    await safeCache(GAMIFICATION_KEY, cacheData);
   },
 
   setLeaderboard: async (leaderboard: LeaderboardEntry[]) => {
     set({ leaderboard, isLoading: false });
 
     // Cache to AsyncStorage
-    await AsyncStorage.setItem(
-      GAMIFICATION_KEY,
-      JSON.stringify({ leaderboard })
-    );
+    await safeCache(GAMIFICATION_KEY, { leaderboard });
   },
 
   updateProgressAfterReading: async (childId: number, progress: ChildProgress) => {
@@ -128,7 +134,7 @@ export const useGamificationStore = create<GamificationState>((set, get) => ({
     // Cache to AsyncStorage
     const state = get();
     const cacheData = Array.from(state.childProgress.entries());
-    await AsyncStorage.setItem(GAMIFICATION_KEY, JSON.stringify(cacheData));
+    await safeCache(GAMIFICATION_KEY, cacheData);
   },
 
   clearError: () => {
