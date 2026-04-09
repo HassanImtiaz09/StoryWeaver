@@ -112,6 +112,107 @@ export async function saveFilterSettings(settings: Partial<ContentFilterSettings
   }
 }
 
+// ─── Text normalization to prevent bypass attacks ──────────────
+
+/**
+ * Normalizes text to prevent common bypass techniques:
+ * - Strips diacritics/accents (é→e, ñ→n)
+ * - Replaces leet-speak substitutions (0→o, 1→i/l, 3→e, etc.)
+ * - Removes repeated characters beyond 2 (killlll→kill)
+ * - Removes zero-width and invisible Unicode characters
+ * - Converts to lowercase
+ */
+function normalizeText(text: string): string {
+  // Remove zero-width characters and other invisible Unicode
+  let normalized = text.replace(/[\u200b\u200c\u200d\u2060\ufeff]/g, '');
+
+  // Strip diacritics/accents using NFD normalization
+  normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // Replace leet-speak and common character substitutions
+  normalized = normalized
+    .replace(/0/g, 'o')
+    .replace(/1/g, 'i')
+    .replace(/3/g, 'e')
+    .replace(/4/g, 'a')
+    .replace(/5/g, 's')
+    .replace(/7/g, 't')
+    .replace(/@/g, 'a')
+    .replace(/\$/g, 's');
+
+  // Remove repeated characters beyond 2 (e.g., killlll → kill)
+  normalized = normalized.replace(/(.)\1{2,}/g, '$1$1');
+
+  // Convert to lowercase
+  normalized = normalized.toLowerCase();
+
+  return normalized;
+}
+
+/**
+ * Classic Soundex algorithm for phonetic matching.
+ * Converts words to a phonetic code (e.g., "kill" → "K400").
+ * Useful for detecting phonetically similar variations of dangerous words.
+ */
+function soundex(word: string): string {
+  const s = word.toUpperCase().replace(/[^A-Z]/g, '');
+  if (!s) return '';
+
+  const firstLetter = s[0];
+  const codes: Record<string, string> = {
+    B: '1',
+    F: '1',
+    P: '1',
+    V: '1',
+    C: '2',
+    G: '2',
+    J: '2',
+    K: '2',
+    Q: '2',
+    S: '2',
+    X: '2',
+    Z: '2',
+    D: '3',
+    T: '3',
+    L: '4',
+    M: '5',
+    N: '5',
+    R: '6',
+  };
+
+  let code = firstLetter;
+  let lastCode = codes[firstLetter] || '';
+
+  for (let i = 1; i < s.length && code.length < 4; i++) {
+    const c = codes[s[i]] || '';
+    if (c && c !== lastCode) {
+      code += c;
+      lastCode = c;
+    } else if (!c) {
+      lastCode = '';
+    }
+  }
+
+  // Pad with zeros to make it 4 characters
+  return (code + '000').substring(0, 4);
+}
+
+/**
+ * Map of Soundex codes for high-severity dangerous words.
+ * These are words we want to catch even with phonetic variations.
+ */
+const PHONETIC_BLOCKLIST: Record<string, { word: string; severity: 'high' | 'medium' }> = {
+  K400: { word: 'kill', severity: 'high' }, // kill, kil, kuhl, etc.
+  M630: { word: 'murder', severity: 'high' }, // murder, murda, etc.
+  S300: { word: 'stab', severity: 'high' }, // stab, stabb, etc.
+  S100: { word: 'shoot', severity: 'high' }, // shoot, soot, etc.
+  D620: { word: 'drug', severity: 'high' }, // drug, drig, etc.
+  W400: { word: 'weapon', severity: 'high' }, // weapon, wepon, etc.
+  P650: { word: 'poison', severity: 'high' }, // poison, poisin, etc.
+  S400: { word: 'stab', severity: 'high' }, // stab variant
+  B500: { word: 'bomb', severity: 'high' }, // bomb, bumb, etc.
+};
+
 // ─── Core filter function ─────────────────────────────────────
 export function filterContent(
   text: string,
@@ -123,11 +224,15 @@ export function filterContent(
   let score = 100;
   const threshold = THRESHOLDS[safetyLevel];
 
-  // Check each category
+  // Normalize the text to catch bypass attempts
+  const normalizedText = normalizeText(text);
+
+  // Check each category using both original and normalized text
   for (const [category, rules] of Object.entries(PATTERNS)) {
     const cat = category as FlagCategory;
     for (const rule of rules) {
       for (const pattern of rule.patterns) {
+        // Check against original text (for standard patterns)
         const matches = text.match(new RegExp(pattern, 'gi'));
         if (matches) {
           for (const match of matches) {
@@ -139,25 +244,67 @@ export function filterContent(
             score -= threshold.scoreDeduction[rule.severity] || 10;
           }
         }
+
+        // Also check against normalized text to catch bypasses
+        const normalizedMatches = normalizedText.match(new RegExp(pattern.source, 'gi'));
+        if (normalizedMatches && !matches) {
+          // Only flag if we didn't already catch it in the original
+          for (const match of normalizedMatches) {
+            flags.push({
+              category: cat,
+              severity: rule.severity,
+              match: `${match} (obfuscated)`,
+              suggestion: 'Potential bypass attempt detected',
+            });
+            score -= threshold.scoreDeduction[rule.severity] || 10;
+          }
+        }
       }
     }
   }
 
-  // Check custom blocked words
+  // Check custom blocked words against normalized text
   for (const word of extraBlockedWords) {
     if (word.trim()) {
       const regex = new RegExp(`\\b${word.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
       const matches = text.match(regex);
-      if (matches) {
-        for (const match of matches) {
+      const normalizedMatches = normalizedText.match(regex);
+
+      if (matches || normalizedMatches) {
+        const allMatches = matches || normalizedMatches || [];
+        for (const match of allMatches) {
           flags.push({
             category: 'inappropriate_language',
             severity: 'medium',
-            match,
+            match: matches ? match : `${match} (obfuscated)`,
             suggestion: 'Custom blocked word',
           });
           score -= 20;
         }
+      }
+    }
+  }
+
+  // Phonetic matching for high-severity words
+  // Split normalized text into words and check their Soundex codes
+  const words = normalizedText.split(/\s+/);
+  const processedSoundexes = new Set<string>();
+
+  for (const word of words) {
+    const cleanWord = word.replace(/[^a-z]/g, '');
+    if (cleanWord.length > 0) {
+      const code = soundex(cleanWord);
+      // Avoid duplicate flagging of the same Soundex match
+      if (code in PHONETIC_BLOCKLIST && !processedSoundexes.has(code)) {
+        const blockedInfo = PHONETIC_BLOCKLIST[code];
+        flags.push({
+          category: 'violence',
+          severity: blockedInfo.severity,
+          match: word,
+          suggestion: `phonetic_match: "${blockedInfo.word}" detected via phonetic analysis`,
+        });
+        score -= threshold.scoreDeduction[blockedInfo.severity] || 10;
+        processedSoundexes.add(code);
       }
     }
   }
